@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<!-- 앱 전환을 위한 PWA 메타 태그 및 뷰포트 설정 추가 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="index.json">
+
+<title>모바일 라이브 장부 V5.3 (현장 편의성 고도화)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #F2F4F6;
+    --card: #FFFFFF;
+    --ink: #111827;       
+    --ink-sub: #4E5968;   
+    --line: #B0B8C1;      
+    --primary: #3182F6;
+    --primary-bg: #E8F3FF;
+    --accent-deposit: #059669; 
+    --purple: #7C3AED;   
+    --danger: #DC2626;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; font-size: 13px; }
+
+  .app { max-width: 440px; margin: 0 auto; background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; position: relative; }
+
+  header { background: #FFFFFF; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid var(--line); position: sticky; top: 0; z-index: 50; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+  .btn-gas { background: var(--primary-bg); color: var(--primary); border: none; padding: 6px 12px; border-radius: 16px; font-weight: 800; font-size: 12px; cursor: pointer; }
+
+  .header-toast-badge {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%) translateY(-10px) scale(0.95);
+    font-size: 12px; font-weight: 700; color: #FFFFFF; background: #111827; padding: 7px 16px; border-radius: 20px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); opacity: 0; visibility: hidden;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s; white-space: nowrap; pointer-events: none; z-index: 9999;
+  }
+  .header-toast-badge.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0) scale(1); }
+
+  .control-bar { background: #fff; padding: 8px 12px; border-bottom: 1.5px solid var(--line); display: flex; gap: 6px; position: sticky; top: 45px; z-index: 40; align-items: center; }
+  .search-box { flex: 1; position: relative; }
+  .search-box input { width: 100%; padding: 6px 10px; border: 1.5px solid var(--line); border-radius: 6px; font-size: 13px; font-weight: 600; background: #F9FAFB; outline: none; }
+  .btn-chip { background: #E5E8EB; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; color: #334155; cursor: pointer; white-space: nowrap; }
+  .btn-chip.active { background: var(--primary); color: #fff; }
+  .btn-chip.undo { background: #E8F3FF; color: var(--primary); }
+  .btn-chip.redo { background: #F3E8FF; color: var(--purple); }
+
+  main { flex: 1; padding: 8px 8px 350px 8px; }
+
+  .row-card {
+    background: var(--card); border-radius: var(--radius); margin-bottom: 8px;
+    border: 1.5px solid var(--line); box-shadow: 0 2px 4px rgba(0,0,0,0.06); overflow: visible; display: block; position: relative; transition: all 0.15s;
+  }
+  
+  .row-card .card-band {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 88px;
+    z-index: 30;
+    background: #FFFFFF;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    border-top-left-radius: calc(var(--radius) - 1.5px);
+    border-top-right-radius: calc(var(--radius) - 1.5px);
+  }
+
+  .row-card.mode-normal { border-color: #C4B5FD; }
+  .row-card.mode-normal .card-band { border-left: 4px solid #7C3AED; background: #EDE9FE; display: flex; flex-direction: column; }
+  .row-card.mode-normal .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #C4B5FD; }
+  .row-card.mode-normal .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #E0E7FF; border-bottom: 1px solid #C4B5FD; }
+  .row-card.mode-normal .row-num { color: #6D28D9; }
+
+  .row-card.mode-set { border-color: #F472B6; }
+  .row-card.mode-set .card-band { border-left: 4px solid #DB2777; background: #FCE7F3; display: flex; flex-direction: column; }
+  .row-card.mode-set .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #F472B6; }
+  .row-card.mode-set .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFE4E6; border-bottom: 1px solid #F472B6; }
+  .row-card.mode-set .row-num { color: #BE185D; }
+
+  .row-card.mode-cross { border-color: #93C5FD; }
+  .row-card.mode-cross .card-band { border-left: 4px solid #2563EB; background: #DBEAFE; display: flex; flex-direction: column; }
+  .row-card.mode-cross .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #93C5FD; }
+  .row-card.mode-cross .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #E0F2FE; border-bottom: 1px solid #93C5FD; }
+  .row-card.mode-cross .row-num { color: #1D4ED8; }
+
+  .row-num { font-size: 12px; font-weight: 900; min-width: 18px; text-align: center; }
+
+  .card-sub-list { padding: 4px 6px; display: flex; flex-direction: column; gap: 4px; background: #FFF; transition: 0.2s ease-in-out; border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); }
+
+  .buyer-item { background: #F8FAFC; border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 2px; }
+  .buyer-item.canceled { background: #FFEEEF !important; border-left-color: var(--danger) !important; }
+  .buyer-item.canceled input { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--danger); color: #888888 !important; }
+
+  .item-line { display: flex; align-items: center; gap: 4px; background: #fff; padding: 3px 4px; border-radius: 4px; border: 1px solid var(--line); }
+  .item-label { font-size: 10px; font-weight: 800; padding: 2px 4px; border-radius: 4px; white-space: nowrap; }
+  .disabled-line { opacity: 0.4; pointer-events: none; background: #F1F5F9; }
+
+  .inp { border: 1.5px solid var(--line); background: #FFF; border-radius: 5px; padding: 4px 5px; font-size: 12px; font-weight: 700; outline: none; color: var(--ink); }
+  .inp:focus { border-color: var(--primary); background: #FAFAFA; }
+  .inp-prod { font-weight: 800; background: #FFF; flex: 1; min-width: 0; }
+  .inp-color { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .inp-size { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .inp-nick { font-weight: 800; width: 65px; }
+  .inp-model { flex: 0.8; min-width: 40px; }
+  .inp-num { text-align: right; font-weight: 800; font-family: monospace; }
+  .select-mode { border: 1.5px solid var(--line); background: #fff; border-radius: 5px; padding: 4px 2px; font-size: 11px; font-weight: 800; outline: none; color: var(--ink); }
+
+  .btn-mini { background: #E5E8EB; border: none; padding: 4px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #334155; cursor: pointer; white-space: nowrap; }
+  .btn-mini.del { color: var(--danger); background: #FFF0F0; border: 1px solid #FCA5A5; }
+  .btn-mini.memo-btn { background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; }
+  .btn-mini.memo-btn.has-memo { background: #F59E0B; color: #FFFFFF; font-weight: 800; }
+  .btn-mini.btn-cancel { background: #E5E8EB; color: #475569; }
+  .btn-mini.btn-cancel.is-canceled { background: var(--danger) !important; color: #FFFFFF !important; font-weight: 800; }
+  .btn-mini.copy { background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; }
+
+  .btn-fold { background: #FFFFFF; border: 1.5px solid var(--ink-sub); color: var(--ink-sub); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+  .btn-add-buyer { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--primary); background: var(--primary); color: #FFF; font-size: 16px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex-shrink: 0; margin-left: auto; }
+  .btn-add-buyer:active { opacity: 0.8; }
+
+  /* ===== 키보드 밀착형 가로 툴바 ===== */
+  .ac-dropdown {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    max-width: 440px;
+    margin: 0 auto;
+    background: #FFFFFF;
+    border-top: 2.5px solid var(--primary);
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    display: none;
+    padding: 8px 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    align-items: center;
+    gap: 7px;
+    touch-action: none;
+    overscroll-behavior-x: contain;
+    will-change: top, left;
+  }
+  .ac-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 14px;
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #0F172A;
+    background: #F8FAFC;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+    user-select: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .ac-item:active, .ac-item:hover {
+    background: var(--primary);
+    color: #FFFFFF;
+    border-color: var(--primary);
+  }
+  .ac-item.pre-tag {
+    background: #FEF3C7;
+    color: #92400E;
+    border-color: #F59E0B;
+  }
+  .ac-item.custom-input {
+    background: #E8F3FF;
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+
+  .color-dot {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    margin-right: 5px;
+    border: 1px solid rgba(0,0,0,0.25);
+    flex-shrink: 0;
+  }
+
+  .size-tab-bar {
+    display: inline-flex;
+    gap: 5px;
+    margin-right: 4px;
+    flex-shrink: 0;
+  }
+  .size-tab-btn {
+    padding: 6px 12px;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 16px;
+    background: #F1F5F9;
+    font-size: 12px;
+    font-weight: 800;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .size-tab-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+
+  .fab { position: fixed; bottom: 70px; right: calc(50% - 200px); width: 44px; height: 44px; border-radius: 22px; background: var(--primary); color: #fff; border: none; font-size: 22px; font-weight: 300; box-shadow: 0 4px 10px rgba(49,130,246,0.3); cursor: pointer; z-index: 90; display: flex; align-items: center; justify-content: center; }
+  @media (max-width: 440px) { .fab { right: 14px; } }
+
+  .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; max-width: 440px; margin: 0 auto; background: #fff; border-top: 1.5px solid var(--line); z-index: 80; }
+  .sticky-summary { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; background: #111827; color: #fff; font-size: 12px; font-weight: 800; }
+  .tab-group { display: flex; }
+  .tab-btn { flex: 1; padding: 10px 0; border: none; background: #fff; font-size: 13px; font-weight: 800; color: var(--ink-sub); cursor: pointer; }
+  .tab-btn.active { color: var(--primary); border-top: 2.5px solid var(--primary); background: #F9FAFB; }
+
+  body.ac-open .bottom-bar,
+  body.ac-open .fab {
+    display: none !important;
+  }
+
+  #view-settle { display: none; padding: 10px 10px 120px 10px; flex-direction: column; gap: 10px; }
+  .settle-card { background: #fff; border-radius: var(--radius); padding: 12px; border: 1.5px solid var(--line); box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
+  .settle-group-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: #E2E8F0; padding: 4px; border-radius: 8px; margin-bottom: 10px; }
+  .settle-grp-btn { padding: 6px 2px; border: none; border-radius: 5px; font-size: 11px; font-weight: 800; color: #475569; background: transparent; cursor: pointer; text-align: center; }
+  .settle-grp-btn.active { background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+
+  .metric-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .metric-label { font-size: 12.5px; color: #334155; font-weight: 700; }
+  .metric-val { font-size: 15.5px; font-weight: 800; color: #0F172A; }
+
+  .summary-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12.5px; }
+  .summary-table th { text-align: left; color: #334155; padding: 6px 0; border-bottom: 2px solid var(--line); font-size: 12px; font-weight: 800; }
+  .summary-table td { padding: 9px 0; border-bottom: 1px dashed var(--line); font-weight: 700; color: var(--ink); cursor: pointer; }
+
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); display: none; justify-content: center; align-items: center; z-index: 300; }
+  .modal-box { background: #fff; border-radius: 12px; width: 320px; max-width: 92vw; padding: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 10px; }
+  .modal-title { font-size: 14px; font-weight: 800; color: var(--ink); display: flex; justify-content: space-between; align-items: center; }
+  .modal-textarea { width: 100%; height: 70px; padding: 8px; border: 1.5px solid var(--line); border-radius: 6px; font-size: 13px; font-weight: 600; resize: none; outline: none; }
+  .modal-btns { display: flex; justify-content: flex-end; gap: 6px; }
+
+  .danger-zone { margin-top: 15px; padding: 10px; background: #FFF5F5; border: 1px solid #F87171; border-radius: var(--radius); text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+
+  .matrix-modal-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: #FFFFFF; z-index: 400; display: none; flex-direction: column; overflow: hidden; }
+  .matrix-header { background: #1F2D3D; color: #fff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 800; flex-shrink: 0; }
+  .matrix-toolbar { background: #FAFBFB; padding: 8px 12px; border-bottom: 1.5px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-shrink: 0; overflow-x: auto; }
+  .matrix-body { flex: 1; overflow: auto; padding: 8px 8px 140px 8px; -webkit-overflow-scrolling: touch; }
+  .matrix-table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; transition: transform 0.2s ease-in-out; }
+  .matrix-table th, .matrix-table td { border-right: 1.5px solid #94A3B8; border-bottom: 1.5px solid #94A3B8; padding: 4px; text-align: center; vertical-align: top; }
+  .matrix-table tr:first-child th, .matrix-table td:first-child, .matrix-table th:first-child { border-left: 1.5px solid #94A3B8; }
+  
+  .matrix-table tr:first-child th { border-top: 1.5px solid #94A3B8; background: #E2E8F0; font-weight: 800; font-size: 11.5px; position: sticky; top: 0; z-index: 20; }
+  .matrix-table tr:not(:first-child) th:first-child { position: sticky; left: 0; z-index: 10; background: #CBD5E1; }
+  .matrix-table tr:first-child th:first-child { position: sticky; top: 0; left: 0; z-index: 30; background: #CBD5E1; }
+  
+  .matrix-hdr-inp::placeholder { color: currentColor; opacity: 0.6; }
+  .matrix-ctrl-box { display: flex; align-items: center; justify-content: center; gap: 3px; margin-top: 3px; }
+  .matrix-btn-sm { padding: 2px 5px; font-size: 10px; font-weight: 800; border-radius: 3px; border: 1px solid var(--line); background: #fff; cursor: pointer; white-space: nowrap; }
+  .matrix-btn-sm.del { color: var(--danger); background: #FFF0F0; border-color: #F87171; }
+  .matrix-cell-box { display: flex; flex-direction: column; gap: 3px; width: 100%; min-height: 75px; }
+  .matrix-nick-chip { display: flex; align-items: center; justify-content: space-between; background: #FEF3C7; border: 1.5px solid #F59E0B; padding: 2px 4px; border-radius: 4px; }
+  .matrix-nick-chip.empty { background: #F1F5F9; border: 1.5px dashed #94A3B8; }
+  .matrix-nick-chip.empty input { color: #64748B !important; }
+  .matrix-nick-chip button { background: none; border: none; color: var(--danger); font-size: 11px; font-weight: bold; cursor: pointer; padding: 0 1px; }
+  .btn-add-matrix-buyer { background: var(--primary-bg); color: var(--primary); border: 1px dashed var(--primary); padding: 3px 0; border-radius: 4px; font-size: 11px; font-weight: 800; cursor: pointer; margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div id="mainToast" class="header-toast-badge"></div>
+
+  <header>
+    <h1><span>📱 방송 현장 장부</span></h1>
+    <button class="btn-gas" onclick="sendToSheet()">☁️ 구글시트 전송</button>
+  </header>
+
+  <div id="view-sales" style="display:flex; flex-direction:column; flex:1;">
+    <div class="control-bar">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="🔍 상품, 고객명 검색..." onfocus="handleInputFocus(this)" oninput="renderSales()">
+      </div>
+      <button class="btn-chip undo" onclick="undo()">↺ 되돌리기</button>
+      <button class="btn-chip redo" onclick="redo()">↻ 앞으로가기</button>
+    </div>
+
+    <main id="sales-list"></main>
+    <button class="fab" onclick="addEmptyRow()">+</button>
+  </div>
+
+  <main id="view-settle">
+    <div class="settle-card">
+      <div style="font-weight:800; font-size:13px; color:#0F172A; margin-bottom:6px;">🏷️ 상품명 사전등록 태그</div>
+      <div style="font-size:11px; color:#64748B; margin-bottom:8px;">등록된 태그는 상품명/모델명 입력 시 터치하면 가장 먼저 목록에 나타납니다.</div>
+      <div style="display:flex; gap:6px; margin-bottom:8px;">
+        <input type="text" id="preTagInput" class="inp" style="flex:1;" placeholder="새 태그 입력 (예: 가을신상)" onfocus="handleInputFocus(this)">
+        <button class="btn-chip" style="background:var(--primary); color:#fff; padding:6px 12px;" onclick="addPreTag()">추가</button>
+      </div>
+      <div id="preTagList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+    </div>
+
+    <div class="settle-card">
+      <div class="settle-group-bar">
+        <button class="settle-grp-btn active" id="btn-grp-deposit" onclick="setSettleGroup('deposit')">입금가 기준</button>
+        <button class="settle-grp-btn" id="btn-grp-sale" onclick="setSettleGroup('sale')">판매가 기준</button>
+        <button class="settle-grp-btn" id="btn-grp-customer" onclick="setSettleGroup('customer')">고객명 기준</button>
+        <button class="settle-grp-btn" id="btn-grp-product" onclick="setSettleGroup('product')">상품별 기준</button>
+      </div>
+
+      <div class="metric-row">
+        <span class="metric-label">총 판매 건수</span>
+        <span class="metric-val" id="st-total-qty" style="font-size:13.5px;">0건</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">총 입금가 합계</span>
+        <span class="metric-val" style="color:var(--accent-deposit);" id="st-total-deposit">0원</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">총 판매가 합계</span>
+        <span class="metric-val" style="color:var(--purple);" id="st-total-sale">0원</span>
+      </div>
+      <div class="metric-row" style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--line);">
+        <span class="metric-label">예상 마진/수익</span>
+        <span class="metric-val" style="color:var(--primary); font-size:14px;" id="st-margin">0원 (0%)</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+      <button class="btn-chip" style="background:#2F80ED; color:#fff; padding:8px;" onclick="exportJsonForPC()">📁 PC용 JSON 공유</button>
+      <button class="btn-chip" style="background:#8B5CF6; color:#fff; padding:8px;" onclick="document.getElementById('mobile-json-import').click()">📥 PC JSON 불러오기</button>
+      <button class="btn-chip" style="background:#FEE500; color:#111; padding:8px;" onclick="shareKakaoText()">💬 카톡 정산 요약</button>
+      <button class="btn-chip" style="background:#27AE60; color:#fff; padding:8px;" onclick="exportExcel()">📊 엑셀 내보내기</button>
+    </div>
+    <input type="file" id="mobile-json-import" accept=".json" style="display:none;" onchange="importJsonFile(event)">
+
+    <div class="settle-card">
+      <div style="font-weight:800; font-size:13px; color:#0F172A; margin-bottom:6px;" id="settle-table-title">📊 정산 상세 집계 (터치 시 세부 내역)</div>
+      <table class="summary-table">
+        <thead id="st-table-head"></thead>
+        <tbody id="st-table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="danger-zone">
+      <span style="font-size:11px; color:var(--danger); font-weight:800;">⚠️ 데이터 전체 삭제 보호 구역</span>
+      <button class="btn-chip" style="background:var(--danger); color:#fff; padding:6px 14px; font-weight:bold;" onclick="clearAllMobileData()">🗑️ 장부 전체 데이터 초기화</button>
+    </div>
+  </main>
+
+  <div class="ac-dropdown" id="acDropdown" onmousedown="event.preventDefault()"></div>
+
+  <div class="bottom-bar">
+    <div class="sticky-summary" id="dash-summary">
+      <span style="display:flex; align-items:center;">건수: &nbsp;<strong id="ft-count">0</strong></span>
+      <span>입금가: <strong id="ft-deposit" style="color:#A7F3D0;">0</strong>원 | 판: <strong id="ft-sale">0</strong>원</span>
+    </div>
+    <div class="tab-group">
+      <button class="tab-btn active" id="tab-sales" onclick="switchTab('sales')">📋 판매대장</button>
+      <button class="tab-btn" id="tab-settle" onclick="switchTab('settle')">📊 정산요약</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="memoModal">
+    <div class="modal-box">
+      <div class="modal-title">
+        <span>📝 메모 작성</span>
+        <button class="btn-mini del" onclick="closeMemoModal()">✕</button>
+      </div>
+      <textarea id="memoInput" class="modal-textarea" placeholder="메모할 내용을 입력하세요..."></textarea>
+      <div class="modal-btns">
+        <button class="btn-mini" onclick="closeMemoModal()">취소</button>
+        <button class="btn-mini" style="background:var(--primary); color:#fff;" onclick="saveMemoModal()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settleDetailModal">
+    <div class="modal-box" style="width:360px; max-height:80vh;">
+      <div class="modal-title">
+        <span id="settleDetailTitle">🔍 그룹 세부 구매 내역</span>
+        <button class="btn-mini del" onclick="closeSettleDetailModal()">✕</button>
+      </div>
+      <div id="settleDetailContent" style="max-height:60vh; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-top:6px;"></div>
+      <div class="modal-btns">
+        <button class="btn-mini" onclick="closeSettleDetailModal()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="matrix-modal-fullscreen" id="matrixModal">
+    <div class="matrix-header">
+      <div style="display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden;">
+        <span id="matrixHeaderTitle" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">🔲 실시간 주문 매트릭스</span>
+      </div>
+      <button style="background:none; border:none; color:#fff; font-size:20px; cursor:pointer; flex-shrink:0;" onclick="closeMatrixModal()">✕</button>
+    </div>
+    <div class="matrix-toolbar">
+      <div style="display:flex; gap:4px; align-items:center;">
+        <button class="btn-chip undo" onclick="undoMatrix()">↺ 되돌리기</button>
+        <button class="btn-chip redo" onclick="redoMatrix()">↻ 앞으로가기</button>
+        <button class="btn-chip" id="btn-matrix-preset" onclick="toggleMatrixPreset()" style="background:#E2E8F0; color:#0F172A; font-weight:800;">👕 스포츠</button>
+      </div>
+      <button class="btn-chip" style="background:var(--primary); color:#fff; font-weight:800; padding:6px 12px;" onclick="registerMatrixToSales()">⚡ 판매내역 등록</button>
+    </div>
+    <div class="matrix-body">
+      <table class="matrix-table" id="matrixTable"></table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLhT6zwSjVKGna_MugQwaeEC6gQjO8TBV10_xyrg-9Q64OYW1FDQsfO_yjRxVmBuzw/exec';
+
+const PRESET_COLORS = ['블랙', '화이트', '크림', '그레이', '베이지', '네이비', '차콜', '핑크', '카키', '그린', '오렌지', '민트', '브라운', '쵸코', '소라', '아이보리', '옐로우', '보라', '블루', '버건디', '레드', '실버', '골드', '체크', '스트라이프', '레몬'];
+const PRESET_SIZES_CLOTHES = ['S', 'M', 'L', 'XL', '2XL', '44', '55', '66', '77'];
+const PRESET_SIZES_SHOES = Array.from({length: (285 - 220) / 5 + 1}, (_, i) => String(220 + i * 5));
+let activeSizeCategory = 'clothes';
+
+const COLOR_MAP = {
+  '블랙': { main: '#111827', text: '#FFFFFF', bg: '#F3F4F6' },
+  '화이트': { main: '#FFFFFF', text: '#111827', bg: '#FFFFFF' },
+  '크림': { main: '#FEF3C7', text: '#92400E', bg: '#FFFBEB' },
+  '그레이': { main: '#9CA3AF', text: '#FFFFFF', bg: '#F9FAFB' },
+  '베이지': { main: '#D6D3D1', text: '#1C1917', bg: '#FAFAF9' },
+  '네이비': { main: '#1E3A8A', text: '#FFFFFF', bg: '#EFF6FF' },
+  '차콜': { main: '#374151', text: '#FFFFFF', bg: '#F3F4F6' },
+  '핑크': { main: '#EC4899', text: '#FFFFFF', bg: '#FDF2F8' },
+  '카키': { main: '#4D7C0F', text: '#FFFFFF', bg: '#F7FEE7' },
+  '그린': { main: '#10B981', text: '#FFFFFF', bg: '#ECFDF5' },
+  '오렌지': { main: '#F97316', text: '#FFFFFF', bg: '#FFF7ED' },
+  '민트': { main: '#14B8A6', text: '#FFFFFF', bg: '#F0FDFA' },
+  '브라운': { main: '#78350F', text: '#FFFFFF', bg: '#FFFBEB' },
+  '쵸코': { main: '#451A03', text: '#FFFFFF', bg: '#FEF3C7' },
+  '소라': { main: '#7DD3FC', text: '#0369A1', bg: '#F0F9FF' },
+  '아이보리': { main: '#FEF9C3', text: '#854D0E', bg: '#FEFCE8' },
+  '옐로우': { main: '#EAB308', text: '#FFFFFF', bg: '#FEFCE8' },
+  '보라': { main: '#8B5CF6', text: '#FFFFFF', bg: '#F5F3FF' },
+  '블루': { main: '#3B82F6', text: '#FFFFFF', bg: '#EFF6FF' },
+  '버건디': { main: '#9F1239', text: '#FFFFFF', bg: '#FFF1F2' },
+  '레드': { main: '#EF4444', text: '#FFFFFF', bg: '#FEF2F2' },
+  '실버': { main: '#D1D5DB', text: '#111827', bg: '#F9FAFB' },
+  '골드': { main: '#F59E0B', text: '#FFFFFF', bg: '#FFFBEB' },
+  '체크': { main: '#64748B', text: '#FFFFFF', bg: '#F8FAFC' },
+  '스트라이프': { main: '#64748B', text: '#FFFFFF', bg: '#F8FAFC' },
+  '레몬': { main: '#FDE047', text: '#854D0E', bg: '#FEFCE8' }
+};
+
+function getColorStyle(colorName) {
+  const name = (colorName || '').trim();
+  if (COLOR_MAP[name]) return COLOR_MAP[name];
+  return { main: '#E2E8F0', text: '#0F172A', bg: '#FFFFFF' };
+}
+
+const MATRIX_PRESETS = [
+  { label: '스포츠', name: '👕 스포츠', colors: ['', ''], sizes: ['S', 'M', 'L', 'XL', '2XL'] },
+  { label: '여성복', name: '👗 여성복', colors: ['', ''], sizes: ['44', '55', '66', '77'] },
+  { label: '신발',   name: '👟 신발',   colors: ['', ''], sizes: PRESET_SIZES_SHOES }
+];
+let currentPresetIndex = 0;
+
+let sales = [];
+let autoNicknames = [];
+let autoBrands = []; 
+let preTags = []; 
+
+let settleGroupMode = 'deposit';
+let currentMemoTarget = null;
+let lastFocusedInput = null;
+let lastTargetDate = ''; 
+
+let historyStack = [];
+let redoStack = [];
+
+let currentMatrixProdId = null;
+let matrixLoadedBuyerIds = new Set();
+let matrixState = { colors: [], sizes: [], orders: {} };
+let matrixHistoryStack = [];
+let matrixRedoStack = [];
+
+function handleInputFocus(el) {
+  if (!el) return;
+  if (el.dataset.focused === "true") return;
+  el.dataset.focused = "true";
+  setTimeout(() => { try { el.select(); } catch(e){} }, 50);
+  el.addEventListener('blur', () => { el.dataset.focused = "false"; }, { once: true });
+}
+
+function clearLastInputEvent() {
+  if (lastFocusedInput) {
+    lastFocusedInput.removeAttribute('onchange');
+    lastFocusedInput.onchange = null;
+    lastFocusedInput.blur();
+    lastFocusedInput = null;
+  }
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+function fmt(n) { return (Number(n) || 0).toLocaleString('ko-KR'); }
+function unFmt(s) { return String(s || '').replace(/,/g, ''); }
+
+function convertPrice(val) {
+  let num = Number(unFmt(val));
+  if (isNaN(num) || num === 0) return '';
+  return num;
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const targetEl = document.getElementById('mainToast');
+  if (targetEl) {
+    if (toastTimer) clearTimeout(toastTimer);
+    targetEl.textContent = msg;
+    targetEl.classList.add('show');
+    toastTimer = setTimeout(() => { targetEl.classList.remove('show'); }, 2200);
+  }
+}
+
+function saveState() {
+  if (historyStack.length >= 30) historyStack.shift();
+  historyStack.push(JSON.parse(JSON.stringify(sales)));
+  redoStack = [];
+}
+
+function undo() {
+  if (historyStack.length === 0) { toast('되돌릴 내역이 없습니다.'); return; }
+  redoStack.push(JSON.parse(JSON.stringify(sales)));
+  sales = historyStack.pop();
+  renderSales(); toast('↺ 되돌리기 완료');
+}
+
+function redo() {
+  if (redoStack.length === 0) { toast('앞으로 가기할 내역이 없습니다.'); return; }
+  historyStack.push(JSON.parse(JSON.stringify(sales)));
+  sales = redoStack.pop();
+  renderSales(); toast('↻ 앞으로 가기 완료');
+}
+
+function saveMatrixState() {
+  if (matrixHistoryStack.length >= 30) matrixHistoryStack.shift();
+  matrixHistoryStack.push(JSON.parse(JSON.stringify(matrixState)));
+  matrixRedoStack = [];
+}
+function undoMatrix() {
+  if (matrixHistoryStack.length === 0) { toast('되돌릴 내역이 없습니다.'); return; }
+  matrixRedoStack.push(JSON.parse(JSON.stringify(matrixState)));
+  matrixState = matrixHistoryStack.pop();
+  syncMatrixAxesToProd(); updatePresetButtonText(); renderMatrixTable(); toast('↺ 되돌리기 완료');
+}
+function redoMatrix() {
+  if (matrixRedoStack.length === 0) { toast('앞으로 가기할 내역이 없습니다.'); return; }
+  matrixHistoryStack.push(JSON.parse(JSON.stringify(matrixState)));
+  matrixState = matrixRedoStack.pop();
+  syncMatrixAxesToProd(); updatePresetButtonText(); renderMatrixTable(); toast('↻ 앞으로 가기 완료');
+}
+
+function toggleMatrixPreset() {
+  const hasOrders = Object.values(matrixState.orders).some(arr => arr && arr.some(o => o.nickname && o.nickname.trim() !== ''));
+  if (hasOrders) {
+    if (!confirm('⚠️ 매트릭스 표에 이미 고객명이 입력되어 있습니다.\n프리셋을 변환하면 기존 입력값이 초기화됩니다. 계속하시겠습니까?')) {
+      return;
+    }
+  }
+  saveMatrixState();
+  currentPresetIndex = (currentPresetIndex + 1) % MATRIX_PRESETS.length;
+  const preset = MATRIX_PRESETS[currentPresetIndex];
+  matrixState.colors = [...preset.colors]; matrixState.sizes = [...preset.sizes]; matrixState.orders = {};
+  updatePresetButtonText(); syncMatrixAxesToProd(); renderMatrixTable(); toast(`[${preset.label}] 변환 완료`);
+}
+function updatePresetButtonText() {
+  const btn = document.getElementById('btn-matrix-preset');
+  if (btn) btn.textContent = MATRIX_PRESETS[currentPresetIndex].name;
+}
+
+function createEmptyProduct() {
+  return { 
+    id: uid(), mode: 'normal', name: '', 
+    salePrice: '', depositPrice: '',
+    topSale: '', topDep: '', botSale: '', botDep: '',
+    matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], 
+    isMatrixCustomized: false, isFolded: false, 
+    buyers: [createEmptyBuyer()] 
+  };
+}
+
+function createEmptyBuyer() {
+  return { 
+    id: uid(), nickname: '', memo: '', isCanceled: false,
+    opt: 'full', c1: '', s1: '', c2: '', s2: '', m1: '', m2: ''
+  };
+}
+
+async function fetchAutocompleteData() {
+  try {
+    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ fn: 'getAutocompleteData', args: [] }) }).then(r => r.json());
+    if (res && res.success) { autoNicknames = res.nicknames || []; autoBrands = res.brands || []; }
+  } catch(e) { console.log('Autocomplete sync failed'); }
+}
+
+function autoCenterInput(inputEl) {
+  if (!inputEl || inputEl.dataset.centered === "true") return;
+  inputEl.dataset.centered = "true";
+  
+  setTimeout(() => {
+    try {
+      inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch(e) {}
+  }, 300);
+  
+  inputEl.addEventListener('blur', () => { inputEl.dataset.centered = "false"; }, {once: true});
+}
+
+function hideDropdown() {
+  const dropdown = document.getElementById('acDropdown');
+  if (dropdown) {
+    dropdown.style.display = 'none';
+    dropdown.style.top = 'auto';
+    dropdown.style.bottom = '0px';
+    dropdown.style.transform = 'none';
+  }
+  document.body.classList.remove('ac-open');
+}
+
+/* 불필요한 위치 계산을 모두 걷어낸 깔끔한 드롭다운 노출 함수 */
+function positionDropdown(inputEl) {
+  const dropdown = document.getElementById('acDropdown');
+  dropdown.style.display = 'flex';
+  document.body.classList.add('ac-open');
+  dropdown.scrollLeft = 0;
+}
+
+function handleProdFocus(inputEl, prodId) {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl;
+  autoCenterInput(inputEl);
+  const q = inputEl.value.trim().toLowerCase();
+  const dropdown = document.getElementById('acDropdown');
+
+  let matches = [];
+  if (!q) {
+    matches = preTags.map(t => ({ text: t, isTag: true }));
+    if (matches.length === 0) {
+      matches = autoBrands.slice(0, 12).map(b => ({ text: b, isTag: false }));
+    }
+  } else {
+    matches = autoBrands.filter(b => b.toLowerCase().includes(q)).slice(0, 12).map(b => ({ text: b, isTag: false }));
+  }
+
+  if (matches.length === 0) { hideDropdown(); return; }
+
+  dropdown.innerHTML = matches.map(m => 
+    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${m.text.replace(/'/g, "\\'")}')">
+      ${m.isTag ? '🏷️ ' + m.text : '📦 ' + m.text}
+    </div>`
+  ).join('');
+  positionDropdown(inputEl);
+}
+
+function selectProdName(prodId, val) {
+  clearLastInputEvent(); saveState();
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) { prod.name = val; }
+  hideDropdown();
+  renderSales();
+}
+
+function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl;
+  autoCenterInput(inputEl);
+  const q = inputEl.value.trim().toLowerCase();
+  const dropdown = document.getElementById('acDropdown');
+
+  let matches = [];
+  if (!q) {
+    matches = preTags.map(t => ({ text: t, isTag: true }));
+    if (matches.length === 0) {
+      matches = autoBrands.slice(0, 12).map(b => ({ text: b, isTag: false }));
+    }
+  } else {
+    matches = autoBrands.filter(b => b.toLowerCase().includes(q)).slice(0, 12).map(b => ({ text: b, isTag: false }));
+  }
+
+  if (matches.length === 0) { hideDropdown(); return; }
+
+  dropdown.innerHTML = matches.map(m => 
+    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectModelName('${prodId}', '${buyerId}', '${fieldName}', '${m.text.replace(/'/g, "\\'")}')">
+      ${m.isTag ? '🏷️ ' + m.text : '📦 ' + m.text}
+    </div>`
+  ).join('');
+  positionDropdown(inputEl);
+}
+
+function selectModelName(prodId, buyerId, fieldName, val) {
+  clearLastInputEvent(); saveState();
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) {
+    const buyer = prod.buyers.find(b => b.id === buyerId);
+    if (buyer) buyer[fieldName] = val;
+  }
+  hideDropdown();
+  renderSales();
+}
+
+function handleNickInput(inputEl, prodId, buyerId) {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl; autoCenterInput(inputEl);
+  const q = inputEl.value.trim().toLowerCase();
+  const dropdown = document.getElementById('acDropdown');
+  
+  let matches = [];
+  if (!q) { 
+    matches = autoNicknames.slice(0, 10);
+  } else {
+    matches = autoNicknames.filter(n => n.toLowerCase().includes(q)).slice(0, 10);
+  }
+  
+  if (matches.length === 0) { hideDropdown(); return; }
+  
+  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectNick('${prodId}', '${buyerId}', '${m.replace(/'/g, "\\'")}')">👤 ${m}</div>`).join('');
+  positionDropdown(inputEl);
+}
+
+function selectNick(prodId, buyerId, val) {
+  clearLastInputEvent(); saveState();
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) {
+    const buyer = prod.buyers.find(b => b.id === buyerId);
+    if (buyer) { const match = val.match(/\(([^)]+)\)/); buyer.nickname = match ? match[1] : val; }
+  }
+  hideDropdown(); renderSales();
+}
+
+function handleColorFocus(inputEl, prodId, buyerId, targetFieldOrMatrixIdx = 'c1') {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl; autoCenterInput(inputEl);
+  const q = inputEl.value.trim().toLowerCase();
+  const filtered = PRESET_COLORS.filter(c => !q || c.toLowerCase().includes(q));
+  const dropdown = document.getElementById('acDropdown');
+  const isMatrix = (typeof targetFieldOrMatrixIdx === 'number');
+
+  let html = filtered.map(c => {
+    const cStyle = getColorStyle(c);
+    const dot = `<span class="color-dot" style="background:${cStyle.main};"></span>`;
+    if (isMatrix) {
+      return `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectColor(null, null, '${c}', ${targetFieldOrMatrixIdx})">${dot}${c}</div>`;
+    } else {
+      return `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectColor('${prodId}', '${buyerId}', '${c}', '${targetFieldOrMatrixIdx}')">${dot}${c}</div>`;
+    }
+  }).join('');
+
+  if (q && !PRESET_COLORS.includes(q)) {
+    const safeVal = inputEl.value.trim().replace(/'/g, "\\'");
+    if (isMatrix) {
+      html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="selectColor(null, null, '${safeVal}', ${targetFieldOrMatrixIdx})">➕ "${safeVal}"</div>`;
+    } else {
+      html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="selectColor('${prodId}', '${buyerId}', '${safeVal}', '${targetFieldOrMatrixIdx}')">➕ "${safeVal}"</div>`;
+    }
+  }
+
+  if (!html) { hideDropdown(); return; }
+  dropdown.innerHTML = html; 
+  positionDropdown(inputEl);
+}
+
+function selectColor(prodId, buyerId, val, targetFieldOrMatrixIdx) {
+  clearLastInputEvent();
+  if (typeof targetFieldOrMatrixIdx === 'number') {
+    saveMatrixState();
+    matrixState.colors[targetFieldOrMatrixIdx] = val;
+    syncMatrixAxesToProd();
+    renderMatrixTable();
+  } else {
+    saveState();
+    const prod = sales.find(p => p.id === prodId);
+    if (prod) {
+      const buyer = prod.buyers.find(b => b.id === buyerId);
+      if (buyer) buyer[targetFieldOrMatrixIdx] = val;
+    }
+    renderSales();
+  }
+  hideDropdown();
+}
+
+function handleSizeFocus(inputEl, prodId, buyerId, targetFieldOrMatrixIdx = 's1') {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl; autoCenterInput(inputEl);
+  renderSizeDropdown(inputEl, prodId, buyerId, targetFieldOrMatrixIdx);
+}
+
+function renderSizeDropdown(inputEl, prodId, buyerId, targetFieldOrMatrixIdx) {
+  const targetEl = inputEl || lastFocusedInput;
+  const q = targetEl ? targetEl.value.trim().toLowerCase() : '';
+  const list = activeSizeCategory === 'clothes' ? PRESET_SIZES_CLOTHES : PRESET_SIZES_SHOES;
+  const filtered = list.filter(s => !q || s.toLowerCase().includes(q));
+  const isMatrix = (typeof targetFieldOrMatrixIdx === 'number');
+
+  const dropdown = document.getElementById('acDropdown');
+  let tabs = `
+    <div class="size-tab-bar" onmousedown="event.preventDefault()" onclick="event.stopPropagation()">
+      <button type="button" class="size-tab-btn ${activeSizeCategory === 'clothes' ? 'active' : ''}" onmousedown="event.preventDefault()" onclick="switchSizeCategory('clothes', '${prodId}', '${buyerId}', ${isMatrix ? targetFieldOrMatrixIdx : `'${targetFieldOrMatrixIdx}'`}, event)">👕 옷</button>
+      <button type="button" class="size-tab-btn ${activeSizeCategory === 'shoes' ? 'active' : ''}" onmousedown="event.preventDefault()" onclick="switchSizeCategory('shoes', '${prodId}', '${buyerId}', ${isMatrix ? targetFieldOrMatrixIdx : `'${targetFieldOrMatrixIdx}'`}, event)">👟 신발</button>
+    </div>
+  `;
+
+  let items = filtered.map(s => {
+    if (isMatrix) {
+      return `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectSize(null, null, '${s}', ${targetFieldOrMatrixIdx})">📏 ${s}</div>`;
+    } else {
+      return `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectSize('${prodId}', '${buyerId}', '${s}', '${targetFieldOrMatrixIdx}')">📏 ${s}</div>`;
+    }
+  }).join('');
+
+  if (q && !list.includes(q)) {
+    const safeVal = targetEl ? targetEl.value.trim().replace(/'/g, "\\'") : '';
+    if (isMatrix) {
+      items += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="selectSize(null, null, '${safeVal}', ${targetFieldOrMatrixIdx})">➕ "${safeVal}"</div>`;
+    } else {
+      items += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="selectSize('${prodId}', '${buyerId}', '${safeVal}', '${targetFieldOrMatrixIdx}')">➕ "${safeVal}"</div>`;
+    }
+  }
+
+  dropdown.innerHTML = tabs + items; 
+  positionDropdown(targetEl);
+}
+
+function switchSizeCategory(cat, prodId, buyerId, targetFieldOrMatrixIdx, e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  activeSizeCategory = cat; renderSizeDropdown(lastFocusedInput, prodId, buyerId, targetFieldOrMatrixIdx);
+}
+
+function selectSize(prodId, buyerId, val, targetFieldOrMatrixIdx) {
+  clearLastInputEvent();
+  if (typeof targetFieldOrMatrixIdx === 'number') {
+    saveMatrixState();
+    matrixState.sizes[targetFieldOrMatrixIdx] = val;
+    syncMatrixAxesToProd();
+    renderMatrixTable();
+  } else {
+    saveState();
+    const prod = sales.find(p => p.id === prodId);
+    if (prod) {
+      const buyer = prod.buyers.find(b => b.id === buyerId);
+      if (buyer) buyer[targetFieldOrMatrixIdx] = val;
+    }
+    renderSales();
+  }
+  hideDropdown();
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#acDropdown') && !e.target.classList.contains('inp') && !e.target.classList.contains('matrix-hdr-inp') && !e.target.classList.contains('matrix-nick-inp')) {
+    hideDropdown();
+  }
+});
+
+function toggleFold(prodId) {
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) { prod.isFolded = !prod.isFolded; saveLocalData(); renderSales(); }
+}
+
+function copyOptions(prodId, buyerId, fromC, fromS, toC, toS, fromM, toM) {
+  saveState();
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) {
+    const buyer = prod.buyers.find(b => b.id === buyerId);
+    if (buyer) {
+      buyer[toC] = buyer[fromC]; buyer[toS] = buyer[fromS];
+      if (fromM && toM) buyer[toM] = buyer[fromM];
+    }
+  }
+  renderSales(); toast('🔗 옵션 복사 완료');
+}
+
+function addPreTag() {
+  const input = document.getElementById('preTagInput');
+  const val = input.value.trim();
+  if (val && !preTags.includes(val)) {
+    preTags.push(val); input.value = ''; saveLocalData(); renderPreTags(); toast('태그가 등록되었습니다.');
+  }
+}
+function removePreTag(idx) { preTags.splice(idx, 1); saveLocalData(); renderPreTags(); }
+function renderPreTags() {
+  const container = document.getElementById('preTagList');
+  if(!container) return;
+  container.innerHTML = preTags.map((t, i) =>
+    `<div class="btn-chip" style="background:#E2E8F0; color:#334155; display:flex; align-items:center; gap:4px;">
+      <span>${t}</span><button style="border:none; background:none; color:var(--danger); padding:0; cursor:pointer;" onclick="removePreTag(${i})">✕</button>
+    </div>`
+  ).join('');
+}
+
+function renderSales() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const listEl = document.getElementById('sales-list');
+  let displayHTML = '';
+
+  sales.forEach((p, pIdx) => {
+    const isProductNameMatch = q && p.name.toLowerCase().includes(q);
+    const matchingBuyers = p.buyers.filter(b => {
+      if (!q) return true;
+      if (isProductNameMatch) return true;
+      const text = `${b.nickname} ${b.c1} ${b.s1} ${b.m1} ${b.memo}`.toLowerCase();
+      return text.includes(q);
+    });
+    if (matchingBuyers.length === 0) return;
+    const isMultiBuyer = p.buyers.length > 1;
+    const activeBuyerCount = p.buyers.filter(b => (b.nickname || '').trim() !== '').length;
+
+    let priceHtml = '';
+    if (p.mode === 'set') {
+      priceHtml = `
+        <span style="font-size:11px; color:#475569; font-weight:800;">상💰</span>
+        <input type="text" inputmode="numeric" class="inp inp-num" style="width:55px; color:#DB2777;" value="${p.topSale ? fmt(p.topSale) : ''}" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'topSale', this.value)">
+        <span style="font-size:11px; color:#475569; font-weight:800;">🏦</span>
+        <input type="text" inputmode="numeric" class="inp inp-num" style="width:55px; color:var(--accent-deposit);" value="${p.topDep ? fmt(p.topDep) : ''}" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'topDep', this.value)">
+        <span style="font-size:11px; font-weight:800; color:#94A3B8; margin:0 1px;">/ 하💰</span>
+        <input type="text" inputmode="numeric" class="inp inp-num" style="width:55px; color:#DB2777;" value="${p.botSale ? fmt(p.botSale) : ''}" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'botSale', this.value)">
+        <span style="font-size:11px; color:#475569; font-weight:800;">🏦</span>
+        <input type="text" inputmode="numeric" class="inp inp-num" style="width:55px; color:var(--accent-deposit);" value="${p.botDep ? fmt(p.botDep) : ''}" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'botDep', this.value)">
+      `;
+    } else {
+      priceHtml = `
+        <span style="font-size:11px; font-weight:800; color:var(--ink-sub);">단가</span>
+        <input type="text" inputmode="numeric" class="inp inp-num" style="width:70px; color:${p.mode === 'cross' ? '#2563EB' : 'var(--purple)'};" value="${p.salePrice ? fmt(p.salePrice) : ''}" placeholder="💰 판매가" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'salePrice', this.value)">
+        <input type="text" inputmode="numeric" class="inp inp-num" style="width:70px; color:var(--accent-deposit);" value="${p.depositPrice ? fmt(p.depositPrice) : ''}" placeholder="🏦 입금가" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'depositPrice', this.value)">
+      `;
+    }
+
+    displayHTML += `
+    <div class="row-card mode-${p.mode}">
+      <div class="card-band">
+        <div class="card-band-top">
+          <button class="btn-mini del" onclick="deleteProduct('${p.id}')">✕</button>
+          <span class="row-num">${pIdx + 1}</span>
+          <select class="select-mode" onchange="updateProductData('${p.id}', 'mode', this.value)">
+            <option value="normal" ${p.mode==='normal'?'selected':''}>📦일반</option>
+            <option value="set" ${p.mode==='set'?'selected':''}>👕세트</option>
+            <option value="cross" ${p.mode==='cross'?'selected':''}>👟1+1</option>
+          </select>
+          <input type="text" class="inp inp-prod" value="${p.name}" placeholder="상품명(품번)"
+                 onfocus="handleProdFocus(this, '${p.id}')" oninput="handleProdFocus(this, '${p.id}')" onchange="updateProductData('${p.id}', 'name', this.value)">
+          <button class="btn-add-buyer" onclick="addBuyerToProduct('${p.id}')" title="고객추가">+</button>
+        </div>
+        
+        <div class="card-band-bottom">
+          <div style="display:flex; align-items:center; gap:3px; flex:1; overflow-x:auto;">
+            ${priceHtml}
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            ${p.mode === 'normal' ? `<button class="btn-mini" style="background:var(--primary-bg); color:var(--primary); font-weight:800; border:1px solid var(--primary);" onclick="openMatrixModal('${p.id}')">🔲 표</button>` : ''}
+            <button class="btn-fold" onclick="toggleFold('${p.id}')">
+              👥 ${activeBuyerCount}명 ${p.isFolded ? '▼' : '▲'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-sub-list" style="display: ${p.isFolded ? 'none' : 'flex'};">
+        ${matchingBuyers.map((b) => renderBuyerItemHTML(p, b, isMultiBuyer)).join('')}
+      </div>
+    </div>
+    `;
+  });
+
+  listEl.innerHTML = displayHTML || '<div style="text-align:center; padding:30px; color:#64748B; font-weight:700;">내역이 없습니다. 하단 + 버튼을 눌러 추가하세요.</div>';
+  updateSummaryLogic();
+  saveLocalData();
+}
+
+function renderBuyerItemHTML(p, b, isMultiBuyer) {
+  const bColor = p.mode === 'set' ? '#BE185D' : (p.mode === 'cross' ? '#1E40AF' : '#6B21A8');
+  const bBg = p.mode === 'set' ? '#FCE7F3' : (p.mode === 'cross' ? '#DBEAFE' : '#F3E8FF');
+  const bBorder = p.mode === 'set' ? '#F472B6' : (p.mode === 'cross' ? '#60A5FA' : '#C084FC');
+  const nickColor = p.mode === 'set' ? '#DB2777' : (p.mode === 'cross' ? '#2563EB' : '#7C3AED');
+
+  const memoBtn = `<button class="btn-mini memo-btn ${b.memo ? 'has-memo' : ''}" onclick="openMemoModal('${p.id}', '${b.id}')">${b.memo ? '📝🔴' : '📝'}</button>`;
+  const cancelBtn = `<button class="btn-mini btn-cancel ${b.isCanceled ? 'is-canceled' : ''}" onclick="toggleCancel('${p.id}', '${b.id}')">${b.isCanceled ? '🔴 취소' : '취소'}</button>`;
+  const delBtn = `<button class="btn-mini del" onclick="deleteBuyer('${p.id}', '${b.id}')">✕</button>`;
+
+  if (p.mode === 'normal') {
+    return `
+      <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="background:#fff; border:none; border-bottom:1px dashed #E5E8EB; flex-direction:row; align-items:center;">
+        ${isMultiBuyer ? delBtn : ''}
+        ${isMultiBuyer ? `<span style="color:var(--ink-sub); font-weight:800; font-size:12px; margin:0 2px;">└</span>` : ''}
+        <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
+        <input type="text" class="inp inp-color" value="${b.c1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
+        <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
+        ${memoBtn} ${cancelBtn}
+      </div>
+    `;
+  }
+
+  if (p.mode === 'set') {
+    return `
+      <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="border-left: 3px solid ${bBorder}; padding: 6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#FCE7F3; padding:4px 6px; border-radius:6px; margin-bottom:4px; border-left: 3px solid #DB2777;">
+          <div style="display:flex; gap:4px; align-items:center;">
+            <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
+            ${memoBtn} ${cancelBtn}
+          </div>
+          <select class="select-mode" style="color:var(--primary);" onchange="updateBuyerData('${p.id}', '${b.id}', 'opt', this.value)">
+            <option value="full" ${b.opt==='full'?'selected':''}>전체세트</option>
+            <option value="top" ${b.opt==='top'?'selected':''}>상의만</option>
+            <option value="bottom" ${b.opt==='bottom'?'selected':''}>하의만</option>
+          </select>
+          ${delBtn}
+        </div>
+        <div class="item-line ${b.opt==='bottom'?'disabled-line':''}">
+          <span class="item-label" style="background:#BE185D; color:#FFFFFF; font-weight:900;">상</span>
+          <input type="text" class="inp inp-color" value="${b.c1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
+          <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
+        </div>
+        <div class="item-line ${b.opt==='top'?'disabled-line':''}">
+          <span class="item-label" style="background:${bBg}; color:${bColor};">하</span>
+          <input type="text" class="inp inp-color" value="${b.c2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
+          <input type="text" class="inp inp-size" value="${b.s2}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" onchange="updateBuyerData('${p.id}', '${b.id}', 's2', this.value)">
+          <button class="btn-mini copy" style="margin-left:auto;" onclick="copyOptions('${p.id}', '${b.id}', 'c1', 's1', 'c2', 's2')">🔗동일</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (p.mode === 'cross') {
+    return `
+      <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="border-left: 3px solid ${bBorder}; padding: 6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#DBEAFE; padding:4px 6px; border-radius:6px; margin-bottom:4px; border-left: 3px solid #2563EB;">
+          <div style="display:flex; gap:4px; align-items:center;">
+            <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
+            ${memoBtn} ${cancelBtn}
+          </div>
+          <select class="select-mode" style="color:var(--primary);" onchange="updateBuyerData('${p.id}', '${b.id}', 'opt', this.value)">
+            <option value="full" ${b.opt==='full'?'selected':''}>1+1세트</option>
+            <option value="single" ${b.opt==='single'?'selected':''}>1개만(50%)</option>
+          </select>
+          ${delBtn}
+        </div>
+        <div class="item-line">
+          <span class="item-label" style="background:#1E40AF; color:#FFFFFF; font-weight:900;">1</span>
+          <input type="text" class="inp inp-model" value="${b.m1}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'm1', this.value)">
+          <input type="text" class="inp inp-color" value="${b.c1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
+          <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
+          <button class="btn-mini copy" style="visibility:hidden; pointer-events:none;">🔗동일</button>
+        </div>
+        <div class="item-line ${b.opt==='single'?'disabled-line':''}">
+          <span class="item-label" style="background:${bBg}; color:${bColor};">2</span>
+          <input type="text" class="inp inp-model" value="${b.m2}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm2')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'm2', this.value)">
+          <input type="text" class="inp inp-color" value="${b.c2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
+          <input type="text" class="inp inp-size" value="${b.s2}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" onchange="updateBuyerData('${p.id}', '${b.id}', 's2', this.value)">
+          <button class="btn-mini copy" style="margin-left:auto;" onclick="copyOptions('${p.id}', '${b.id}', 'c1', 's1', 'c2', 's2', 'm1', 'm2')">🔗동일</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function updateProductData(prodId, field, val) {
+  const prod = sales.find(p => p.id === prodId);
+  if (!prod) return;
+
+  if (field === 'mode' && prod.mode !== val) {
+    const hasNick = prod.buyers.some(b => (b.nickname || '').trim() !== '');
+    if (hasNick) {
+      if (!confirm('⚠️ 고객명이 입력되어 있는 카드입니다.\n카드 종류를 변경하시겠습니까?')) {
+        renderSales();
+        return;
+      }
+    }
+  }
+
+  saveState();
+  if (['salePrice', 'depositPrice', 'topSale', 'topDep', 'botSale', 'botDep'].includes(field)) {
+    prod[field] = convertPrice(val);
+  } else {
+    prod[field] = val.trim();
+  }
+  renderSales();
+}
+
+function updateBuyerData(prodId, buyerId, field, val) {
+  saveState();
+  const prod = sales.find(p => p.id === prodId);
+  if (!prod) return;
+  const buyer = prod.buyers.find(b => b.id === buyerId);
+  if (buyer) { buyer[field] = val.trim(); }
+  renderSales();
+}
+
+function getStats() {
+  let singleCnt = 0, setCnt = 0, crossCnt = 0;
+  let physicalQty = 0, activeQty = 0;
+  let totalDeposit = 0, totalSale = 0;
+
+  sales.forEach(p => {
+    p.buyers.forEach(b => {
+      if (b.isCanceled) return;
+      
+      let isCounted = false;
+      if (p.mode === 'normal') { if (p.name || b.nickname || p.salePrice || p.depositPrice) isCounted = true; }
+      else if (p.mode === 'set') { if (p.name || b.nickname || p.topSale || p.botSale) isCounted = true; }
+      else if (p.mode === 'cross') { if (p.name || b.nickname || p.salePrice || p.depositPrice) isCounted = true; }
+      
+      if (!isCounted) return;
+      activeQty++;
+
+      if (p.mode === 'normal') {
+        singleCnt++; physicalQty++;
+        totalSale += Number(p.salePrice)||0; totalDeposit += Number(p.depositPrice)||0;
+      } else if (p.mode === 'set') {
+        if (b.opt === 'full') {
+          setCnt++; physicalQty += 2;
+          totalSale += (Number(p.topSale)||0) + (Number(p.botSale)||0);
+          totalDeposit += (Number(p.topDep)||0) + (Number(p.botDep)||0);
+        } else if (b.opt === 'top') {
+          singleCnt++; physicalQty++;
+          totalSale += Number(p.topSale)||0; totalDeposit += Number(p.topDep)||0;
+        } else if (b.opt === 'bottom') {
+          singleCnt++; physicalQty++;
+          totalSale += Number(p.botSale)||0; totalDeposit += Number(p.botDep)||0;
+        }
+      } else if (p.mode === 'cross') {
+        if (b.opt === 'full') {
+          crossCnt++; physicalQty += 2;
+          totalSale += Number(p.salePrice)||0; totalDeposit += Number(p.depositPrice)||0;
+        } else if (b.opt === 'single') {
+          singleCnt++; physicalQty++;
+          totalSale += (Number(p.salePrice)||0)/2; totalDeposit += (Number(p.depositPrice)||0)/2;
+        }
+      }
+    });
+  });
+  
+  return { singleCnt, setCnt, crossCnt, physicalQty, activeQty, totalDeposit, totalSale };
+}
+
+function getFlattenedSales() {
+  const flat = [];
+  sales.forEach(p => {
+    p.buyers.forEach(b => {
+      let sp = 0, dp = 0;
+      let colorStr = '', sizeStr = '';
+
+      if (p.mode === 'normal') {
+        sp = Number(p.salePrice) || 0; dp = Number(p.depositPrice) || 0;
+        colorStr = b.c1; sizeStr = b.s1;
+      } else if (p.mode === 'set') {
+        if (b.opt === 'full') { sp = (Number(p.topSale)||0) + (Number(p.botSale)||0); dp = (Number(p.topDep)||0) + (Number(p.botDep)||0); colorStr = `상:${b.c1}/하:${b.c2}`; sizeStr = `상:${b.s1}/하:${b.s2}`; }
+        else if (b.opt === 'top') { sp = Number(p.topSale)||0; dp = Number(p.topDep)||0; colorStr = `상:${b.c1}`; sizeStr = `상:${b.s1}`; }
+        else if (b.opt === 'bottom') { sp = Number(p.botSale)||0; dp = Number(p.botDep)||0; colorStr = `하:${b.c2}`; sizeStr = `하:${b.s2}`; }
+      } else if (p.mode === 'cross') {
+        sp = Number(p.salePrice) || 0; dp = Number(p.depositPrice) || 0;
+        if (b.opt === 'single') { sp = sp / 2; dp = dp / 2; colorStr = `[${b.m1}] ${b.c1}`; sizeStr = b.s1; }
+        else { colorStr = `1:[${b.m1}]${b.c1} / 2:[${b.m2}]${b.c2}`; sizeStr = `1:${b.s1} / 2:${b.s2}`; }
+      }
+
+      flat.push({
+        prodId: p.id, buyerId: b.id, name: p.name, salePrice: sp, depositPrice: dp,
+        nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled
+      });
+    });
+  });
+  return flat;
+}
+
+function updateSummaryLogic() {
+  const stats = getStats();
+  document.getElementById('ft-count').textContent = `${stats.activeQty}건`;
+  document.getElementById('ft-deposit').textContent = fmt(stats.totalDeposit);
+  document.getElementById('ft-sale').textContent = fmt(stats.totalSale);
+}
+
+function addEmptyRow() { saveState(); sales.push(createEmptyProduct()); document.getElementById('searchInput').value = ''; renderSales(); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
+
+function addBuyerToProduct(prodId) { 
+  saveState(); 
+  const prod = sales.find(p => p.id === prodId); 
+  if (prod) { 
+    const newBuyer = createEmptyBuyer();
+    prod.buyers.push(newBuyer); 
+    prod.isFolded = false; 
+    renderSales(); 
+    toast('고객 추가 완료'); 
+
+    setTimeout(() => {
+      const newEl = document.querySelector(`[data-buyer-id="${newBuyer.id}"]`);
+      if (newEl) {
+        newEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const firstInput = newEl.querySelector('input');
+        if (firstInput) firstInput.focus();
+      }
+    }, 100);
+  } 
+}
+
+function toggleCancel(prodId, buyerId) { saveState(); const prod = sales.find(p => p.id === prodId); if (prod) { const buyer = prod.buyers.find(b => b.id === buyerId); if (buyer) { buyer.isCanceled = !buyer.isCanceled; renderSales(); } } }
+function deleteProduct(prodId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const filledNicknames = prod.buyers.map(b => (b.nickname || '').trim()).filter(n => n !== ''); if (filledNicknames.length > 0) { if (!confirm(`⚠️ 고객명(${filledNicknames.join(', ')})이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?`)) return; } saveState(); const idx = sales.findIndex(p => p.id === prodId); if (idx !== -1) { sales.splice(idx, 1); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('상품 삭제 완료'); } }
+function deleteBuyer(prodId, buyerId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const buyer = prod.buyers.find(b => b.id === buyerId); if (!buyer) return; const nick = (buyer.nickname || '').trim(); if (nick !== '') { if (!confirm(`⚠️ 고객명('${nick}')이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?`)) return; } saveState(); const bIdx = prod.buyers.findIndex(b => b.id === buyerId); if (bIdx !== -1) { prod.buyers.splice(bIdx, 1); if (prod.buyers.length === 0) sales = sales.filter(p => p.id !== prodId); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('고객 삭제 완료'); } }
+
+function openMemoModal(prodId, buyerId) { currentMemoTarget = { prodId, buyerId }; const prod = sales.find(p => p.id === prodId); const buyer = prod ? prod.buyers.find(b => b.id === buyerId) : null; document.getElementById('memoInput').value = buyer ? buyer.memo : ''; document.getElementById('memoModal').style.display = 'flex'; }
+function closeMemoModal() { document.getElementById('memoModal').style.display = 'none'; currentMemoTarget = null; }
+function saveMemoModal() { if (!currentMemoTarget) return; saveState(); const prod = sales.find(p => p.id === currentMemoTarget.prodId); if (prod) { const buyer = prod.buyers.find(b => b.id === currentMemoTarget.buyerId); if (buyer) { buyer.memo = document.getElementById('memoInput').value.trim(); renderSales(); toast('메모가 저장되었습니다.'); } } closeMemoModal(); }
+
+function syncMatrixAxesToProd() {
+  if (currentMatrixProdId) {
+    const prod = sales.find(p => p.id === currentMatrixProdId);
+    if (prod) {
+      prod.matrixColors = [...matrixState.colors];
+      prod.matrixSizes = [...matrixState.sizes];
+      prod.isMatrixCustomized = true; 
+      saveLocalData();
+    }
+  }
+}
+
+function openMatrixModal(prodId) {
+  currentMatrixProdId = prodId;
+  const prod = sales.find(p => p.id === prodId);
+  if (!prod) return;
+
+  matrixLoadedBuyerIds.clear();
+  matrixState.orders = {};
+  matrixHistoryStack = [];
+  matrixRedoStack = [];
+  
+  document.getElementById('matrixHeaderTitle').textContent = `🔲 [${prod.name || '상품'}] 매트릭스`;
+  
+  const cardColors = Array.from(new Set(prod.buyers.map(b => (b.c1 || '').trim()).filter(Boolean)));
+  const cardSizes = Array.from(new Set(prod.buyers.map(b => (b.s1 || '').trim()).filter(Boolean)));
+
+  if (!prod.isMatrixCustomized && (cardColors.length > 0 || cardSizes.length > 0)) {
+    prod.matrixColors = cardColors.length > 0 ? cardColors : ['', ''];
+    prod.matrixSizes = cardSizes.length > 0 ? cardSizes : ['S', 'M', 'L', 'XL', '2XL'];
+  } else {
+    if (!prod.matrixColors || prod.matrixColors.length === 0) prod.matrixColors = ['', ''];
+    if (!prod.matrixSizes || prod.matrixSizes.length === 0) prod.matrixSizes = ['S', 'M', 'L', 'XL', '2XL'];
+  }
+
+  matrixState.colors = [...prod.matrixColors];
+  matrixState.sizes = [...prod.matrixSizes];
+
+  updatePresetButtonText();
+
+  prod.buyers.forEach(b => {
+    if (!b.nickname && !b.c1 && !b.s1) return;
+    
+    let cIdx = matrixState.colors.indexOf((b.c1 || '').trim());
+    let rIdx = matrixState.sizes.indexOf((b.s1 || '').trim());
+    
+    if (cIdx !== -1 && rIdx !== -1) {
+      const key = `${cIdx}_${rIdx}`;
+      if (!matrixState.orders[key]) matrixState.orders[key] = [];
+      matrixState.orders[key].push({ id: b.id, nickname: b.nickname });
+      matrixLoadedBuyerIds.add(b.id);
+    }
+  });
+
+  renderMatrixTable();
+  document.getElementById('matrixModal').style.display = 'flex';
+}
+
+function closeMatrixModal() {
+  document.getElementById('matrixModal').style.display = 'none';
+  currentMatrixProdId = null;
+}
+
+function renderMatrixTable() {
+  const table = document.getElementById('matrixTable');
+  if (!table) return;
+
+  let html = `
+    <tr>
+      <th style="width:16%; background-color:#CBD5E1; position:sticky; top:0; z-index:30;">
+        <div>사이즈</div>
+        <div class="matrix-ctrl-box" style="margin-top:2px;">
+          <button class="matrix-btn-sm" onclick="addMatrixSize()">+ 행</button>
+        </div>
+      </th>
+  `;
+
+  matrixState.colors.forEach((col, cIdx) => {
+    const cStyle = getColorStyle(col);
+    html += `
+      <th style="position: sticky; top: 0; z-index: 20; padding-bottom: 20px; background-color: ${cStyle.main};">
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <input type="text" class="matrix-hdr-inp" value="${col}" placeholder="색상"
+                 style="width:100%; border:none; background:transparent; font-weight:800; text-align:center; font-size:12px; color: ${cStyle.text};"
+                 onfocus="handleColorFocus(this, null, null, ${cIdx})"
+                 onclick="handleColorFocus(this, null, null, ${cIdx})"
+                 oninput="handleColorFocus(this, null, null, ${cIdx})"
+                 onchange="matrixState.colors[${cIdx}]=this.value; syncMatrixAxesToProd();">
+        </div>
+        <div class="matrix-ctrl-box" style="position: absolute; bottom: 2px; right: 2px; margin: 0; display: flex; gap: 2px;">
+          ${cIdx === matrixState.colors.length - 1 ? `
+            <button class="matrix-btn-sm" onclick="addMatrixColor()" style="padding: 1px 4px; font-size: 10px;">+ 열추가</button>
+          ` : ''}
+          <button class="matrix-btn-sm del" onclick="deleteMatrixColor(${cIdx})" title="열 삭제" style="padding: 1px 4px; font-size: 10px;">✕</button>
+        </div>
+      </th>
+    `;
+  });
+  html += '</tr>';
+
+  matrixState.sizes.forEach((sz, rIdx) => {
+    html += `
+      <tr>
+        <th style="position: relative; padding-bottom: 20px; background-color: #CBD5E1;">
+          <div style="display:flex; flex-direction:column; align-items:center;">
+            <input type="text" class="matrix-hdr-inp" value="${sz}" placeholder="사이즈"
+                   style="width:100%; border:none; background:transparent; font-weight:800; text-align:center; font-size:12px; color: #0F172A;"
+                   onfocus="handleSizeFocus(this, null, null, ${rIdx})"
+                   onclick="handleSizeFocus(this, null, null, ${rIdx})"
+                   oninput="handleSizeFocus(this, null, null, ${rIdx})"
+                   onchange="matrixState.sizes[${rIdx}]=this.value; syncMatrixAxesToProd();">
+          </div>
+          <button class="matrix-btn-sm del" onclick="deleteMatrixSize(${rIdx})" title="행 삭제" style="position: absolute; bottom: 2px; right: 2px; padding: 1px 4px; font-size: 10px;">✕</button>
+        </th>
+    `;
+    matrixState.colors.forEach((col, cIdx) => {
+      const cStyle = getColorStyle(col);
+      const key = `${cIdx}_${rIdx}`;
+      const nicks = matrixState.orders[key] || [];
+
+      let chipsHtml = nicks.map((order, nIdx) => {
+        const isEmpty = !order.nickname || !order.nickname.trim();
+        const chipClass = isEmpty ? 'matrix-nick-chip empty' : 'matrix-nick-chip';
+        return `
+          <div class="${chipClass}">
+            <input type="text" class="matrix-nick-inp" value="${order.nickname}" placeholder=""
+              oninput="showMatrixAutocomplete(this, '${key}', ${nIdx})"
+              onclick="showMatrixAutocomplete(this, '${key}', ${nIdx})"
+              onfocus="showMatrixAutocomplete(this, '${key}', ${nIdx})"
+              onchange="updateMatrixNick('${key}', ${nIdx}, this.value)"
+              style="width:100%; border:none; background:transparent; font-size:11.5px; font-weight:800; color:#78350F; outline:none; text-align:center;">
+            <button onclick="removeMatrixNick('${key}', ${nIdx})">✕</button>
+          </div>
+        `;
+      }).join('');
+
+      html += `<td style="background-color: ${cStyle.bg};"><div class="matrix-cell-box"><button class="btn-add-matrix-buyer" onclick="addEmptyMatrixNick('${key}')">＋ 추가</button>${chipsHtml}</div></td>`;
+    });
+    html += '</tr>';
+  });
+  table.innerHTML = html;
+}
+
+function deleteMatrixColor(delC) {
+  if (matrixState.colors.length <= 1) { toast('최소 1개 색상 필요'); return; }
+  saveMatrixState();
+  const newOrders = {};
+  Object.keys(matrixState.orders).forEach(key => {
+    const [cStr, rStr] = key.split('_');
+    const c = parseInt(cStr, 10); const r = parseInt(rStr, 10);
+    if (c < delC) newOrders[`${c}_${r}`] = matrixState.orders[key];
+    else if (c > delC) newOrders[`${c - 1}_${r}`] = matrixState.orders[key];
+  });
+  matrixState.colors.splice(delC, 1);
+  matrixState.orders = newOrders;
+  syncMatrixAxesToProd(); renderMatrixTable(); toast('색상 열 삭제 완료');
+}
+
+function deleteMatrixSize(delR) {
+  if (matrixState.sizes.length <= 1) { toast('최소 1개 사이즈 필요'); return; }
+  saveMatrixState();
+  const newOrders = {};
+  Object.keys(matrixState.orders).forEach(key => {
+    const [cStr, rStr] = key.split('_');
+    const c = parseInt(cStr, 10); const r = parseInt(rStr, 10);
+    if (r < delR) newOrders[`${c}_${r}`] = matrixState.orders[key];
+    else if (r > delR) newOrders[`${c}_${r}`] = matrixState.orders[key];
+  });
+  matrixState.sizes.splice(delR, 1);
+  matrixState.orders = newOrders;
+  syncMatrixAxesToProd(); renderMatrixTable(); toast('사이즈 행 삭제 완료');
+}
+
+function addEmptyMatrixNick(key) {
+  saveMatrixState();
+  if (!matrixState.orders[key]) matrixState.orders[key] = [];
+  matrixState.orders[key].push({ id: null, nickname: '' });
+  renderMatrixTable();
+}
+
+function updateMatrixNick(key, nIdx, val) {
+  saveMatrixState();
+  if (matrixState.orders[key] && matrixState.orders[key][nIdx]) {
+    matrixState.orders[key][nIdx].nickname = val;
+    renderMatrixTable();
+  }
+}
+
+function showMatrixAutocomplete(inputEl, key, nIdx) {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl; autoCenterInput(inputEl);
+  if (matrixState.orders[key] && matrixState.orders[key][nIdx]) matrixState.orders[key][nIdx].nickname = inputEl.value;
+  const q = inputEl.value.trim().toLowerCase();
+  const dropdown = document.getElementById('acDropdown');
+  
+  let matches = [];
+  if (!q) { 
+    matches = autoNicknames.slice(0, 10);
+  } else {
+    matches = autoNicknames.filter(n => n.toLowerCase().includes(q)).slice(0, 10);
+  }
+
+  if (matches.length === 0) { hideDropdown(); return; }
+
+  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectMatrixNick('${key}', ${nIdx}, '${m.replace(/'/g, "\\'")}')">👤 ${m}</div>`).join('');
+  positionDropdown(inputEl);
+}
+
+function selectMatrixNick(key, nIdx, val) {
+  clearLastInputEvent(); saveMatrixState();
+  const match = val.match(/\(([^)]+)\)/);
+  if (matrixState.orders[key] && matrixState.orders[key][nIdx]) {
+    matrixState.orders[key][nIdx].nickname = match ? match[1] : val;
+  }
+  hideDropdown(); renderMatrixTable();
+}
+
+function addMatrixColor() { saveMatrixState(); matrixState.colors.push(''); syncMatrixAxesToProd(); renderMatrixTable(); }
+function addMatrixSize() { saveMatrixState(); matrixState.sizes.push(''); syncMatrixAxesToProd(); renderMatrixTable(); }
+
+function removeMatrixNick(key, idx) {
+  saveMatrixState();
+  if (matrixState.orders[key]) { matrixState.orders[key].splice(idx, 1); renderMatrixTable(); }
+}
+
+function registerMatrixToSales() {
+  if (!currentMatrixProdId) return;
+  const prod = sales.find(p => p.id === currentMatrixProdId);
+  if (!prod) return;
+
+  saveState();
+  let count = 0; let finalBuyers = [];
+  
+  prod.buyers.forEach(b => {
+    if (!matrixLoadedBuyerIds.has(b.id)) finalBuyers.push(b);
+  });
+
+  matrixState.sizes.forEach((sz, rIdx) => {
+    matrixState.colors.forEach((col, cIdx) => {
+      const key = `${cIdx}_${rIdx}`;
+      const orders = matrixState.orders[key] || [];
+      
+      orders.forEach(order => {
+        let val = order.nickname.trim();
+        if (!val) return;
+        
+        if (order.id) {
+           let existing = prod.buyers.find(b => b.id === order.id);
+           if (existing) {
+             existing.nickname = val; existing.c1 = col; existing.s1 = sz;
+             finalBuyers.push(existing); count++;
+           }
+        } else {
+           let b = createEmptyBuyer();
+           b.nickname = val; b.c1 = col; b.s1 = sz;
+           finalBuyers.push(b); count++;
+        }
+      });
+    });
+  });
+
+  if (finalBuyers.length === 0) finalBuyers.push(createEmptyBuyer());
+  prod.buyers = finalBuyers;
+  prod.isMatrixCustomized = true; 
+  prod.isFolded = false;
+
+  matrixState.orders = {};
+  matrixLoadedBuyerIds.clear();
+  renderSales(); closeMatrixModal(); toast(`주문 ${count}건 동기화 완료!`);
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab === 'sales') {
+    document.getElementById('view-sales').style.display = 'flex'; document.getElementById('view-settle').style.display = 'none'; document.getElementById('dash-summary').style.display = 'flex';
+  } else {
+    document.getElementById('view-sales').style.display = 'none'; document.getElementById('view-settle').style.display = 'flex'; document.getElementById('dash-summary').style.display = 'none'; renderSettlement(); renderPreTags();
+  }
+}
+
+function setSettleGroup(mode) {
+  settleGroupMode = mode;
+  document.querySelectorAll('.settle-grp-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`btn-grp-${mode}`).classList.add('active');
+  renderSettlement();
+}
+
+function renderSettlement() {
+  const stats = getStats();
+  const margin = stats.totalSale - stats.totalDeposit;
+  const marginPercent = stats.totalSale > 0 ? ((margin / stats.totalSale) * 100).toFixed(1) : '0';
+
+  document.getElementById('st-total-qty').innerHTML = `${stats.activeQty}건 <span style="font-size:12px; color:#64748B;">(단품 ${stats.singleCnt} / 세트 ${stats.setCnt} / 1+1 ${stats.crossCnt} / 📦 실물 ${stats.physicalQty}개)</span>`;
+  document.getElementById('st-total-deposit').textContent = fmt(stats.totalDeposit) + '원';
+  document.getElementById('st-total-sale').textContent = fmt(stats.totalSale) + '원';
+  document.getElementById('st-margin').textContent = `${fmt(margin)}원 (${marginPercent}%)`;
+
+  const flat = getFlattenedSales();
+  const activeSales = flat.filter(s => !s.isCanceled && (s.name || s.nickname || s.salePrice || s.depositPrice));
+
+  const headEl = document.getElementById('st-table-head');
+  const bodyEl = document.getElementById('st-table-body');
+  const titleEl = document.getElementById('settle-table-title');
+
+  if (settleGroupMode === 'deposit') {
+    titleEl.textContent = '🏦 입금가 단가별 수량 집계';
+    headEl.innerHTML = '<tr><th>입금 단가</th><th style="text-align:center;">수량</th><th style="text-align:right;">합계</th></tr>';
+    const map = {}; activeSales.forEach(s => { const p = s.depositPrice || 0; map[p] = (map[p] || 0) + 1; });
+    bodyEl.innerHTML = Object.entries(map).sort((a, b) => Number(b[0]) - Number(a[0]))
+      .map(([price, qty]) => `<tr onclick="openSettleGroupDetail('deposit', '${price}')"><td>${price == 0 ? '미입력/0원' : fmt(price) + '원'}</td><td style="text-align:center;">${qty}개</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(Number(price) * qty)}원</td></tr>`).join('') || '<tr><td colspan="3" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
+  } else if (settleGroupMode === 'sale') {
+    titleEl.textContent = '💰 판매가 단가별 수량 집계';
+    headEl.innerHTML = '<tr><th>판매 단가</th><th style="text-align:center;">수량</th><th style="text-align:right;">합계</th></tr>';
+    const map = {}; activeSales.forEach(s => { const p = s.salePrice || 0; map[p] = (map[p] || 0) + 1; });
+    bodyEl.innerHTML = Object.entries(map).sort((a, b) => Number(b[0]) - Number(a[0]))
+      .map(([price, qty]) => `<tr onclick="openSettleGroupDetail('sale', '${price}')"><td>${price == 0 ? '미입력/0원' : fmt(price) + '원'}</td><td style="text-align:center;">${qty}개</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(Number(price) * qty)}원</td></tr>`).join('') || '<tr><td colspan="3" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
+  } else if (settleGroupMode === 'customer') {
+    titleEl.textContent = '👤 고객별 정산 집계';
+    headEl.innerHTML = '<tr><th>고객명</th><th style="text-align:center;">수량</th><th style="text-align:right;">입금가</th><th style="text-align:right;">판매가</th></tr>';
+    const map = {}; activeSales.forEach(s => { const k = s.nickname || '미입력 고객'; if (!map[k]) map[k] = { qty: 0, deposit: 0, sale: 0 }; map[k].qty++; map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; });
+    bodyEl.innerHTML = Object.entries(map).sort((a, b) => b[1].sale - a[1].sale)
+      .map(([nick, d]) => `<tr onclick="openSettleGroupDetail('customer', '${nick.replace(/'/g, "\\'")}')"><td>${nick}</td><td style="text-align:center;">${d.qty}</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
+  } else if (settleGroupMode === 'product') {
+    titleEl.textContent = '📦 상품별 판매 집계';
+    headEl.innerHTML = '<tr><th>상품명</th><th style="text-align:center;">수량</th><th style="text-align:right;">입금가 합계</th><th style="text-align:right;">판매가 합계</th></tr>';
+    const map = {}; activeSales.forEach(s => { const k = s.name || '미입력 상품'; if (!map[k]) map[k] = { qty: 0, deposit: 0, sale: 0 }; map[k].qty++; map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; });
+    bodyEl.innerHTML = Object.entries(map).sort((a, b) => b[1].qty - a[1].qty)
+      .map(([pName, d]) => `<tr onclick="openSettleGroupDetail('product', '${pName.replace(/'/g, "\\'")}')"><td>${pName}</td><td style="text-align:center;">${d.qty}개</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
+  }
+}
+
+function openSettleGroupDetail(mode, key) {
+  const flat = getFlattenedSales();
+  let matches = [];
+  if (mode === 'deposit') matches = flat.filter(s => !s.isCanceled && s.depositPrice === Number(key));
+  else if (mode === 'sale') matches = flat.filter(s => !s.isCanceled && s.salePrice === Number(key));
+  else if (mode === 'customer') matches = flat.filter(s => !s.isCanceled && (s.nickname || '미입력 고객') === key);
+  else if (mode === 'product') matches = flat.filter(s => !s.isCanceled && (s.name || '미입력 상품') === key);
+
+  document.getElementById('settleDetailTitle').textContent = `🔍 [${key}] 세부 내역 (${matches.length}건)`;
+  const contentEl = document.getElementById('settleDetailContent');
+  
+  if (matches.length === 0) contentEl.innerHTML = '<div style="text-align:center; color:#64748B; font-weight:700; padding:20px;">세부 내역이 없습니다.</div>';
+  else contentEl.innerHTML = matches.map((m, idx) => `
+    <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:6px; padding:10px; font-size:12.5px; display:flex; flex-direction:column; gap:4px;">
+      <div style="display:flex; justify-content:space-between; font-weight:800; color:#0F172A;">
+        <span>${idx + 1}. 👤 ${m.nickname || '(무명)'}</span>
+        <span style="color:var(--purple); font-size:13px;">${m.salePrice ? fmt(m.salePrice) + '원' : '-'}</span>
+      </div>
+      <div style="color:#334155; font-weight:700;">📦 ${m.name || '상품명 미입력'} <span style="color:#475569; font-weight:600;">(${[m.color, m.size].filter(Boolean).join('/') || '옵션없음'})</span></div>
+      ${m.memo ? `<div style="color:#B45309; font-size:11.5px; font-weight:700; background:#FEF3C7; padding:3px 6px; border-radius:4px;">📝 메모: ${m.memo}</div>` : ''}
+    </div>
+  `).join('');
+  
+  document.getElementById('settleDetailModal').style.display = 'flex';
+}
+
+function closeSettleDetailModal() { document.getElementById('settleDetailModal').style.display = 'none'; }
+
+async function sendToSheet() {
+  const todayStr = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
+  const defaultDate = lastTargetDate ? lastTargetDate : todayStr;
+  const targetDate = prompt("☁️ 전송할 날짜를 입력하세요 (형식: YY.MM.DD):", defaultDate);
+  if (!targetDate) return;
+
+  lastTargetDate = targetDate;
+  const modeChoice = prompt(`☁️ 구글시트로 데이터를 전송하는 방식을 선택하세요:\n\n1 : 해당 날짜 기준 데이터 [덮어쓰기]\n2 : 기존 데이터 아래에 [이어서 붙이기]\n3 : 전체 시트 초기화 후 [덮어씌우기]\n\n(취소: 중단)`, "1");
+  if (!["1", "2", "3"].includes(modeChoice)) return;
+
+  let mode = "overwrite";
+  if (modeChoice === "2") mode = "append";
+  if (modeChoice === "3") mode = "overwrite_all";
+
+  let records = [];
+  sales.forEach(p => {
+    p.buyers.forEach(b => {
+      if (b.isCanceled) return;
+      if (!p.name && !b.nickname) return;
+
+      if (p.mode === 'normal') {
+        records.push({
+          date: targetDate, name: p.name, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'),
+          nickname: b.nickname, price: p.salePrice || 0
+        });
+      } else if (p.mode === 'set') {
+        if (b.opt === 'full') {
+          records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0 });
+          records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [b.c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0 });
+        } else if (b.opt === 'top') {
+          records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0 });
+        } else if (b.opt === 'bottom') {
+          records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [b.c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0 });
+        }
+      } else if (p.mode === 'cross') {
+        if (b.opt === 'full') {
+          const m1Name = b.m1 ? ` ${b.m1}` : '';
+          const m2Name = b.m2 ? ` ${b.m2}` : '';
+          records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.salePrice || 0 });
+          records.push({ date: targetDate, name: `${p.name}${m2Name}`, colorSize: [b.c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: 0 });
+        } else if (b.opt === 'single') {
+          const m1Name = b.m1 ? ` ${b.m1}` : '';
+          records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: (p.salePrice / 2) || 0 });
+        }
+      }
+    });
+  });
+
+  if (records.length === 0) { toast('⚠️ 전송할 내역 없음'); return; }
+
+  toast('☁️ 시트 전송 중...');
+  try {
+    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ fn: 'appendSalesRecords', args: [records, mode] }) }).then(r => r.json());
+    if (res && res.success) toast(`✅ 구글시트 전송 완료! (${records.length}건)`);
+    else toast('⚠️ 전송 실패');
+  } catch(e) { toast('⚠️ 네트워크 오류'); }
+}
+
+function shareKakaoText() {
+  const stats = getStats();
+  if (stats.activeQty === 0) { toast('⚠️ 공유할 데이터 없음'); return; }
+
+  let msg = `📊 [마감 정산 보고]\n• 총 주문: ${stats.activeQty}건\n  - 단품: ${stats.singleCnt}건\n  - 세트: ${stats.setCnt}건\n  - 1+1: ${stats.crossCnt}건\n• 실물 출고: 총 ${stats.physicalQty}개\n• 총 입금가: ${fmt(stats.totalDeposit)}원\n• 총 판매가: ${fmt(stats.totalSale)}원\n\n`;
+  if (navigator.share) { navigator.share({ title: '정산 요약', text: msg }).catch(() => {}); toast('💬 카톡 공유 호출'); }
+  else { navigator.clipboard.writeText(msg); toast('📋 클립보드 복사 완료!'); }
+}
+
+function exportJsonForPC() {
+  const flat = getFlattenedSales();
+  const activeSales = flat.filter(s => !s.isCanceled && (s.name || s.nickname || s.salePrice || s.depositPrice));
+  if (activeSales.length === 0) { toast('⚠️ 공유할 데이터 없음'); return; }
+
+  const today = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
+  const pcSales = activeSales.map(s => ({
+    id: s.buyerId || uid(), rowDate: today, prodNum: '', name: s.name || '',
+    color: s.color || '', size: s.size || '', nickname: s.nickname || '',
+    salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', memo: s.memo || '',
+    autoReward: 0, tags: { yt: false, tt: false, fs: false }, createdAt: Date.now(), highlighted: false, sent: false
+  }));
+
+  const payload = { __type: 'live_ledger_share', version: 1, exportedAt: new Date().toISOString(), ledgerDate: today, ledgerSession: '', products: [], sales: pcSales };
+  const jsonStr = JSON.stringify(payload, null, 2);
+  const fileName = `모바일장부_${today}.json`;
+  const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('💾 JSON 다운로드 완료!');
+}
+
+function importJsonFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const modeChoice = prompt(`📂 불러올 방식을 선택하세요:\n\n1 : [덮어쓰기]\n2 : [이어서 붙이기]`, "2");
+  if (modeChoice !== "1" && modeChoice !== "2") { e.target.value = ''; return; }
+  const isOverwrite = (modeChoice === "1");
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = JSON.parse(evt.target.result);
+      let rawSales = (data.sales && Array.isArray(data.sales)) ? data.sales : (Array.isArray(data) ? data : []);
+      saveState();
+      const groupMap = new Map();
+      rawSales.forEach(s => {
+        const key = `${s.name || ''}_${s.salePrice || ''}_${s.depositPrice || ''}`;
+        if (!groupMap.has(key)) groupMap.set(key, { id: uid(), mode: 'normal', name: s.name || '', salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', topSale:'', topDep:'', botSale:'', botDep:'', matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], isMatrixCustomized: false, isFolded: false, buyers: [] });
+        groupMap.get(key).buyers.push({ id: s.id || uid(), nickname: s.nickname || '', c1: s.color || '', s1: s.size || '', c2:'', s2:'', m1:'', m2:'', memo: s.memo || '', isCanceled: false, opt:'full' });
+      });
+      const importedProducts = Array.from(groupMap.values());
+      if (isOverwrite) sales = importedProducts.length > 0 ? importedProducts : [createEmptyProduct()];
+      else sales = sales.concat(importedProducts);
+      renderSales(); toast(`📥 데이터 복원 완료!`);
+    } catch(err) { toast('⚠️ 파일 파싱 오류'); }
+  };
+  reader.readAsText(file); e.target.value = '';
+}
+
+function exportExcel() {
+  let records = [];
+
+  sales.forEach(p => {
+    p.buyers.forEach(b => {
+      if (b.isCanceled) return;
+      if (!p.name && !b.nickname) return;
+
+      if (p.mode === 'normal') {
+        records.push({
+          name: p.name || '',
+          option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
+          nickname: b.nickname || '',
+          salePrice: Number(p.salePrice) || 0,
+          depositPrice: Number(p.depositPrice) || 0,
+          memo: b.memo || ''
+        });
+      } else if (p.mode === 'set') {
+        if (b.opt === 'full') {
+          records.push({
+            name: `${p.name} 상의`,
+            option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
+            nickname: b.nickname || '',
+            salePrice: Number(p.topSale) || 0,
+            depositPrice: Number(p.topDep) || 0,
+            memo: b.memo || ''
+          });
+          records.push({
+            name: `${p.name} 하의`,
+            option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '),
+            nickname: b.nickname || '',
+            salePrice: Number(p.botSale) || 0,
+            depositPrice: Number(p.botDep) || 0,
+            memo: b.memo || ''
+          });
+        } else if (b.opt === 'top') {
+          records.push({
+            name: `${p.name} 상의`,
+            option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
+            nickname: b.nickname || '',
+            salePrice: Number(p.topSale) || 0,
+            depositPrice: Number(p.topDep) || 0,
+            memo: b.memo || ''
+          });
+        } else if (b.opt === 'bottom') {
+          records.push({
+            name: `${p.name} 하의`,
+            option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '),
+            nickname: b.nickname || '',
+            salePrice: Number(p.botSale) || 0,
+            depositPrice: Number(p.botDep) || 0,
+            memo: b.memo || ''
+          });
+        }
+      } else if (p.mode === 'cross') {
+        if (b.opt === 'full') {
+          const m1Name = b.m1 ? ` ${b.m1}` : '';
+          const m2Name = b.m2 ? ` ${b.m2}` : '';
+          records.push({
+            name: `${p.name}${m1Name}`,
+            option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
+            nickname: b.nickname || '',
+            salePrice: Number(p.salePrice) || 0,
+            depositPrice: Number(p.depositPrice) || 0,
+            memo: b.memo || ''
+          });
+          records.push({
+            name: `${p.name}${m2Name}`,
+            option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '),
+            nickname: b.nickname || '',
+            salePrice: 0,
+            depositPrice: 0,
+            memo: b.memo || ''
+          });
+        } else if (b.opt === 'single') {
+          const m1Name = b.m1 ? ` ${b.m1}` : '';
+          records.push({
+            name: `${p.name}${m1Name}`,
+            option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
+            nickname: b.nickname || '',
+            salePrice: (Number(p.salePrice) / 2) || 0,
+            depositPrice: (Number(p.depositPrice) / 2) || 0,
+            memo: b.memo || ''
+          });
+        }
+      }
+    });
+  });
+
+  if (records.length === 0) { toast('⚠️ 내보낼 데이터 없음'); return; }
+
+  const data = records.map((s, i) => ({
+    'No': i + 1,
+    '상품명': s.name,
+    '옵션(색상/사이즈)': s.option,
+    '고객명': s.nickname,
+    '판매가': s.salePrice,
+    '입금가(원가)': s.depositPrice,
+    '메모': s.memo
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "정산대장");
+  XLSX.writeFile(wb, `모바일장부_${new Date().toISOString().slice(2,10)}.xlsx`);
+  toast('📊 엑셀 다운로드 완료!');
+}
+
+function clearAllMobileData() {
+  if (!confirm('🚨 모든 장부 데이터가 완전히 초기화됩니다.\n정말로 삭제하시겠습니까?')) return;
+  saveState();
+  sales = [createEmptyProduct()];
+  localStorage.removeItem('m_live_ledger_v5.1');
+  renderSales();
+  toast('💥 전체 데이터 초기화 완료');
+}
+
+function saveLocalData() { 
+  localStorage.setItem('m_live_ledger_v5.1', JSON.stringify(sales));
+  localStorage.setItem('m_live_pre_tags', JSON.stringify(preTags));
+}
+
+function loadLocalData() {
+  const data = localStorage.getItem('m_live_ledger_v5.1');
+  if (data) {
+    try {
+      const raw = JSON.parse(data);
+      if (Array.isArray(raw)) {
+        sales = raw.map(s => {
+          let bArr = (s.buyers || []).map(b => ({
+            id: b.id || uid(), nickname: b.nickname || '', memo: b.memo || '', isCanceled: !!b.isCanceled,
+            opt: b.opt || 'full', 
+            c1: b.c1 || b.color || '', s1: b.s1 || b.size || '', 
+            c2: b.c2 || '', s2: b.s2 || '', m1: b.m1 || '', m2: b.m2 || ''
+          }));
+          return {
+            id: s.id || uid(), mode: s.mode || 'normal', name: s.name || '',
+            salePrice: s.salePrice || '', depositPrice: s.depositPrice || '',
+            topSale: s.topSale || '', topDep: s.topDep || '', botSale: s.botSale || '', botDep: s.botDep || '',
+            matrixColors: s.matrixColors || ['', ''], matrixSizes: s.matrixSizes || ['S', 'M', 'L', 'XL', '2XL'],
+            isMatrixCustomized: !!s.isMatrixCustomized, isFolded: !!s.isFolded, buyers: bArr
+          };
+        });
+      }
+    } catch(e) { console.error(e); }
+  }
+  if (sales.length === 0) sales.push(createEmptyProduct());
+
+  const ptData = localStorage.getItem('m_live_pre_tags');
+  if (ptData) { try { preTags = JSON.parse(ptData); } catch(e){} }
+  
+  renderSales();
+}
+
+const acDropdownEl = document.getElementById('acDropdown');
+let touchStartX = 0;
+let startScrollLeft = 0;
+let isTouchMoving = false;
+
+let lastTouchX = 0;
+let lastTouchTime = 0;
+let velocityX = 0;
+let inertiaFrameId = null;
+
+function stopInertia() {
+  if (inertiaFrameId) {
+    cancelAnimationFrame(inertiaFrameId);
+    inertiaFrameId = null;
+  }
+}
+
+acDropdownEl.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  stopInertia();
+  
+  if (e.touches.length === 1) {
+    touchStartX = e.touches[0].clientX;
+    lastTouchX = e.touches[0].clientX;
+    lastTouchTime = Date.now();
+    startScrollLeft = acDropdownEl.scrollLeft;
+    isTouchMoving = false;
+    velocityX = 0;
+  }
+}, { passive: false });
+
+acDropdownEl.addEventListener('touchmove', (e) => {
+  if (e.touches.length === 1) {
+    const currentX = e.touches[0].clientX;
+    const currentTime = Date.now();
+    const diffX = touchStartX - currentX;
+    
+    if (Math.abs(diffX) > 3) {
+      isTouchMoving = true;
+    }
+    
+    const dt = currentTime - lastTouchTime;
+    if (dt > 0) {
+      const moveDist = lastTouchX - currentX;
+      velocityX = (moveDist / dt) * 16;
+    }
+
+    lastTouchX = currentX;
+    lastTouchTime = currentTime;
+
+    acDropdownEl.scrollLeft = startScrollLeft + diffX;
+  }
+}, { passive: false });
+
+acDropdownEl.addEventListener('touchend', (e) => {
+  const timeSinceLastMove = Date.now() - lastTouchTime;
+  if (timeSinceLastMove > 80) {
+    velocityX = 0;
+  }
+
+  if (isTouchMoving) {
+    let currentVelocity = velocityX;
+    const friction = 0.95;
+
+    function smoothSlide() {
+      if (Math.abs(currentVelocity) < 0.3) {
+        stopInertia();
+        return;
+      }
+      
+      acDropdownEl.scrollLeft += currentVelocity;
+      currentVelocity *= friction;
+
+      if (acDropdownEl.scrollLeft <= 0 || acDropdownEl.scrollLeft >= (acDropdownEl.scrollWidth - acDropdownEl.clientWidth)) {
+        stopInertia();
+        return;
+      }
+
+      inertiaFrameId = requestAnimationFrame(smoothSlide);
+    }
+
+    inertiaFrameId = requestAnimationFrame(smoothSlide);
+
+  } else if (e.changedTouches.length > 0) {
+    const touch = e.changedTouches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (target) {
+      const clickable = target.closest('.ac-item, .size-tab-btn, button, [onclick]');
+      if (clickable) {
+        clickable.click();
+      }
+    }
+  }
+});
+
+window.onload = () => {
+  loadLocalData();
+  fetchAutocompleteData();
+};
+</script>
+</body>
+</html>
