@@ -538,26 +538,21 @@ function adjustScrollPosition(targetEl) {
   }
 }
 
-// 스크롤/터치 이동 여부를 기록하는 변수
-let userDidSwipe = false;
-
-function onTouchMoveCancelRestore() {
-  userDidSwipe = true; // 사용자가 손가락으로 화면을 긁었음을 감지
-}
-
 function handleInputFocus(el) {
   if (!el) return;
   const card = el.closest('.row-card');
+  if (card) card.classList.add('is-focused');
 
-  // 포커스 시작 시점의 스크롤 위치 저장 및 스위프 감지 초기화
+  // 포커스 시점 스크롤 위치 저장 및 스위프 감지 플래그 초기화
   if (!isCardFocusActive) {
     preFocusScrollY = window.scrollY;
     isCardFocusActive = true;
   }
-  userDidSwipe = false;
 
-  // 화면을 손가락으로 긁는 순간(touchmove) 자동 복귀 로직을 무효화함
-  window.addEventListener('touchmove', onTouchMoveCancelRestore, { passive: true });
+  // 사용자의 화면 터치 이동 감지 이벤트
+  window._userDidSwipe = false;
+  const onTouchMove = () => { window._userDidSwipe = true; };
+  window.addEventListener('touchmove', onTouchMove, { passive: true });
 
   if (el.dataset.focused === "true") return;
   el.dataset.focused = "true";
@@ -565,8 +560,7 @@ function handleInputFocus(el) {
 
   el.addEventListener('blur', () => { 
     el.dataset.focused = "false";
-    // blur 발생 시 터치 감지 이벤트 제거
-    window.removeEventListener('touchmove', onTouchMoveCancelRestore);
+    window.removeEventListener('touchmove', onTouchMove);
 
     setTimeout(() => {
       const hasActiveInput = card ? card.querySelector('input:focus') : null;
@@ -574,8 +568,8 @@ function handleInputFocus(el) {
         if (card) card.classList.remove('is-focused');
         isCardFocusActive = false;
 
-        // 사용자가 손가락으로 스크롤한 게 아닐 때(단순 터치 해제)만 원래 위치로 복귀
-        if (!userDidSwipe && preFocusScrollY !== null) {
+        // 사용자가 손가락으로 긁은 게 아닐 때(단순 터치 해제)만 원래 위치로 복귀
+        if (!window._userDidSwipe && preFocusScrollY !== null) {
           window.scrollTo({ top: preFocusScrollY, behavior: 'smooth' });
         }
         preFocusScrollY = null;
