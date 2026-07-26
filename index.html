@@ -514,10 +514,42 @@ let matrixRedoStack = [];
 
 let pendingVisibilitySelector = null;
 
-// ===== [개선] 포커스 시작 전 스크롤 위치 기억 및 복원 변수 =====
 let preFocusScrollY = null;
 let isCardFocusActive = false;
 
+// ===== 캐시 및 현재 장부 기반 자동완성 데이터 추출 =====
+function getAutoBrands() {
+  const localBrands = sales.map(p => p.name).filter(Boolean);
+  return Array.from(new Set([...autoBrands, ...localBrands]));
+}
+
+function getAutoNicknames() {
+  const localNicks = [];
+  sales.forEach(p => p.buyers.forEach(b => { if (b.nickname) localNicks.push(b.nickname); }));
+  return Array.from(new Set([...autoNicknames, ...localNicks]));
+}
+
+async function fetchAutocompleteData() {
+  try {
+    const cachedNicks = localStorage.getItem('m_live_auto_nicknames');
+    const cachedBrands = localStorage.getItem('m_live_auto_brands');
+    if (cachedNicks) autoNicknames = JSON.parse(cachedNicks);
+    if (cachedBrands) autoBrands = JSON.parse(cachedBrands);
+  } catch(e) {}
+
+  try {
+    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ fn: 'getAutocompleteData', args: [] }) }).then(r => r.json());
+    if (res && res.success) { 
+      autoNicknames = res.nicknames || []; 
+      autoBrands = res.brands || []; 
+      autoRewardInfo = res.rewardInfo || {}; 
+      localStorage.setItem('m_live_auto_nicknames', JSON.stringify(autoNicknames));
+      localStorage.setItem('m_live_auto_brands', JSON.stringify(autoBrands));
+    }
+  } catch(e) { console.log('Autocomplete sync failed'); }
+}
+
+// ===== 상단 카드헤더 및 하단 툴바 가림 방지 스크롤 계산 =====
 function adjustScrollPosition(targetEl) {
   if (!targetEl) return;
   const card = targetEl.closest('.row-card');
@@ -525,16 +557,28 @@ function adjustScrollPosition(targetEl) {
   const cardBand = card.querySelector('.card-band');
   const item = targetEl.closest('.buyer-item') || targetEl;
   
-  if (!cardBand || !item) return;
+  if (!item) return;
 
-  const bandRect = cardBand.getBoundingClientRect();
-  const itemRect = item.getBoundingClientRect();
+  const itemRect = targetEl.getBoundingClientRect();
+  const dropdown = document.getElementById('acDropdown');
+  const dropdownHeight = (dropdown && dropdown.style.display !== 'none') ? (dropdown.offsetHeight || 50) : 50;
+  const viewportHeight = window.innerHeight;
 
-  const requiredMinTop = bandRect.bottom + 8;
+  if (cardBand) {
+    const bandRect = cardBand.getBoundingClientRect();
+    const requiredMinTop = bandRect.bottom + 8;
 
-  if (itemRect.top < requiredMinTop) {
-    const overlap = requiredMinTop - itemRect.top;
-    window.scrollBy({ top: -overlap, behavior: 'smooth' }); 
+    if (itemRect.top < requiredMinTop) {
+      const overlap = requiredMinTop - itemRect.top;
+      window.scrollBy({ top: -overlap, behavior: 'smooth' });
+      return;
+    }
+  }
+
+  const maxAllowedBottom = viewportHeight - dropdownHeight - 12;
+  if (itemRect.bottom > maxAllowedBottom) {
+    const bottomOverlap = itemRect.bottom - maxAllowedBottom;
+    window.scrollBy({ top: bottomOverlap + 10, behavior: 'smooth' });
   }
 }
 
@@ -543,7 +587,6 @@ function handleInputFocus(el) {
   const card = el.closest('.row-card');
   if (card) card.classList.add('is-focused');
 
-  // 첫 입력창 포커스 시점의 화면 스크롤 위치 저장 (포커스 종료 후 복원용)
   if (!isCardFocusActive) {
     preFocusScrollY = window.scrollY;
     isCardFocusActive = true;
@@ -556,20 +599,18 @@ function handleInputFocus(el) {
   el.addEventListener('blur', () => { 
     el.dataset.focused = "false";
 
-    // handleInputFocus 내부 blur 이벤트 수정 예시
-setTimeout(() => {
-  const hasActiveInput = card ? card.querySelector('input:focus') : null;
-  if (!hasActiveInput && !document.body.classList.contains('ac-open')) {
-    if (card) card.classList.remove('is-focused');
-    isCardFocusActive = false;
+    setTimeout(() => {
+      const hasActiveInput = card ? card.querySelector('input:focus') : null;
+      if (!hasActiveInput && !document.body.classList.contains('ac-open')) {
+        if (card) card.classList.remove('is-focused');
+        isCardFocusActive = false;
 
-    if (preFocusScrollY !== null) {
-      // smooth -> auto로 변경하여 애니메이션으로 인한 터치 씹힘 방지
-      window.scrollTo({ top: preFocusScrollY, behavior: 'auto' });
-      preFocusScrollY = null;
-    }
-  }
-}, 50); // 150ms -> 50ms 단축
+        if (preFocusScrollY !== null) {
+          window.scrollTo({ top: preFocusScrollY, behavior: 'auto' });
+          preFocusScrollY = null;
+        }
+      }
+    }, 50);
   }, { once: true });
 }
 
@@ -678,17 +719,6 @@ function createEmptyBuyer() {
   };
 }
 
-async function fetchAutocompleteData() {
-  try {
-    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ fn: 'getAutocompleteData', args: [] }) }).then(r => r.json());
-    if (res && res.success) { 
-      autoNicknames = res.nicknames || []; 
-      autoBrands = res.brands || []; 
-      autoRewardInfo = res.rewardInfo || {}; 
-    }
-  } catch(e) { console.log('Autocomplete sync failed'); }
-}
-
 function autoCenterInput(inputEl) {
   if (!inputEl || inputEl.dataset.centered === "true") return;
   inputEl.dataset.centered = "true";
@@ -755,14 +785,15 @@ function handleProdFocus(inputEl, prodId) {
   const q = inputEl.value.trim().toLowerCase();
   const dropdown = document.getElementById('acDropdown');
 
+  const brands = getAutoBrands();
   let matches = [];
   if (!q) {
     matches = preTags.map(t => ({ text: t, isTag: true }));
     if (matches.length === 0) {
-      matches = autoBrands.slice(0, 12).map(b => ({ text: b, isTag: false }));
+      matches = brands.slice(0, 12).map(b => ({ text: b, isTag: false }));
     }
   } else {
-    matches = autoBrands.filter(b => b.toLowerCase().includes(q)).slice(0, 12).map(b => ({ text: b, isTag: false }));
+    matches = brands.filter(b => b.toLowerCase().includes(q)).slice(0, 12).map(b => ({ text: b, isTag: false }));
   }
 
   if (matches.length === 0) { hideDropdown(); return; }
@@ -791,14 +822,15 @@ function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
   const q = inputEl.value.trim().toLowerCase();
   const dropdown = document.getElementById('acDropdown');
 
+  const brands = getAutoBrands();
   let matches = [];
   if (!q) {
     matches = preTags.map(t => ({ text: t, isTag: true }));
     if (matches.length === 0) {
-      matches = autoBrands.slice(0, 12).map(b => ({ text: b, isTag: false }));
+      matches = brands.slice(0, 12).map(b => ({ text: b, isTag: false }));
     }
   } else {
-    matches = autoBrands.filter(b => b.toLowerCase().includes(q)).slice(0, 12).map(b => ({ text: b, isTag: false }));
+    matches = brands.filter(b => b.toLowerCase().includes(q)).slice(0, 12).map(b => ({ text: b, isTag: false }));
   }
 
   if (matches.length === 0) { hideDropdown(); return; }
@@ -829,11 +861,12 @@ function handleNickInput(inputEl, prodId, buyerId) {
   const q = inputEl.value.trim().toLowerCase();
   const dropdown = document.getElementById('acDropdown');
   
+  const nicknames = getAutoNicknames();
   let matches = [];
   if (!q) { 
-    matches = autoNicknames.slice(0, 10);
+    matches = nicknames.slice(0, 10);
   } else {
-    matches = autoNicknames.filter(n => n.toLowerCase().includes(q)).slice(0, 10);
+    matches = nicknames.filter(n => n.toLowerCase().includes(q)).slice(0, 10);
   }
   
   if (matches.length === 0) { hideDropdown(); return; }
@@ -1121,6 +1154,8 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
   } else if (hasTextMemo) {
     memoBtnClass += ' has-memo';
   }
+
+  // 메모 상태에 따라 단 1개의 이모지만 교차 대체 (버튼 크기 고정 및 레이아웃 유지)
   const memoIcon = hasMintCb ? '🟢' : (hasTextMemo ? '🔴' : '📝');
 
   const memoBtn = `<button class="btn-mini ${memoBtnClass}" onclick="openMemoModal('${p.id}', '${b.id}')">${memoIcon}</button>`;
@@ -1324,7 +1359,23 @@ function updateSummaryLogic() {
   document.getElementById('ft-sale').textContent = fmt(stats.totalSale);
 }
 
-function addEmptyRow() { saveState(); sales.push(createEmptyProduct()); document.getElementById('searchInput').value = ''; renderSales(); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
+// 새 상품 카드 추가 시 자동 스크롤 및 포커스
+function addEmptyRow() { 
+  saveState(); 
+  const newProd = createEmptyProduct();
+  sales.push(newProd); 
+  document.getElementById('searchInput').value = ''; 
+  renderSales(); 
+
+  setTimeout(() => {
+    const newCard = document.getElementById(`card-${newProd.id}`);
+    if (newCard) {
+      newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const prodInput = newCard.querySelector('.inp-prod');
+      if (prodInput) prodInput.focus();
+    }
+  }, 100);
+}
 
 function addBuyerToProduct(prodId) { 
   saveState(); 
@@ -1597,11 +1648,12 @@ function showMatrixAutocomplete(inputEl, key, nIdx) {
   const q = inputEl.value.trim().toLowerCase();
   const dropdown = document.getElementById('acDropdown');
   
+  const nicknames = getAutoNicknames();
   let matches = [];
   if (!q) { 
-    matches = autoNicknames.slice(0, 10);
+    matches = nicknames.slice(0, 10);
   } else {
-    matches = autoNicknames.filter(n => n.toLowerCase().includes(q)).slice(0, 10);
+    matches = nicknames.filter(n => n.toLowerCase().includes(q)).slice(0, 10);
   }
 
   if (matches.length === 0) { hideDropdown(); return; }
