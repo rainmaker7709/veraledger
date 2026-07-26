@@ -372,27 +372,29 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="memoModal">
+  <!-- 바깥 레이어 클릭 시 자동 저장 후 닫기 적용 -->
+  <div class="modal-overlay" id="memoModal" onclick="if(event.target === this) closeMemoModal()">
     <div class="modal-box">
       <div class="modal-title">
         <span>📝 메모 작성</span>
         <button class="btn-mini del" onclick="closeMemoModal()">✕</button>
       </div>
       
+      <!-- 체크박스 변경 시 자동 저장 (onchange="autoSaveMemo()") -->
       <div style="display:flex; gap:12px; margin-bottom:4px; padding:8px; background:#F1F5F9; border-radius:6px; flex-wrap: wrap;">
-        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbYt"> [유튜브]</label>
-        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbTt"> [틱톡]</label>
-        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbFs"> [무배]</label>
-        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbKp"> [킵]</label>
+        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbYt" onchange="autoSaveMemo()"> [유튜브]</label>
+        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbTt" onchange="autoSaveMemo()"> [틱톡]</label>
+        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbFs" onchange="autoSaveMemo()"> [무배]</label>
+        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbKp" onchange="autoSaveMemo()"> [킵]</label>
       </div>
 
       <div id="rewardAlert" style="display:none; color:#059669; font-size:12px; font-weight:900; background:#ECFDF5; padding:6px; border-radius:4px; border:1px solid #34D399; margin-bottom:4px; text-align:center;">
       </div>
 
-      <textarea id="memoInput" class="modal-textarea" placeholder="메모할 내용을 입력하세요..."></textarea>
+      <!-- 텍스트 입력 시 실시간 자동 저장 (oninput="autoSaveMemo()") -->
+      <textarea id="memoInput" class="modal-textarea" placeholder="메모할 내용을 입력하세요..." oninput="autoSaveMemo()"></textarea>
       <div class="modal-btns">
-        <button class="btn-mini" onclick="closeMemoModal()">취소</button>
-        <button class="btn-mini" style="background:var(--primary); color:#fff;" onclick="saveMemoModal()">저장</button>
+        <button class="btn-mini" style="background:var(--primary); color:#fff; width:100%; padding:8px; font-size:12px;" onclick="closeMemoModal()">닫기 (자동저장)</button>
       </div>
     </div>
   </div>
@@ -1155,7 +1157,6 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
     memoBtnClass += ' has-memo';
   }
 
-  // 메모 상태에 따라 단 1개의 이모지만 교차 대체 (버튼 크기 고정 및 레이아웃 유지)
   const memoIcon = hasMintCb ? '🟢' : (hasTextMemo ? '🔴' : '📝');
 
   const memoBtn = `<button class="btn-mini ${memoBtnClass}" onclick="openMemoModal('${p.id}', '${b.id}')">${memoIcon}</button>`;
@@ -1359,7 +1360,6 @@ function updateSummaryLogic() {
   document.getElementById('ft-sale').textContent = fmt(stats.totalSale);
 }
 
-// 새 상품 카드 추가 시 자동 스크롤 및 포커스
 function addEmptyRow() { 
   saveState(); 
   const newProd = createEmptyProduct();
@@ -1433,23 +1433,35 @@ function openMemoModal(prodId, buyerId) {
 
   document.getElementById('memoModal').style.display = 'flex'; 
 }
-function closeMemoModal() { document.getElementById('memoModal').style.display = 'none'; currentMemoTarget = null; }
-function saveMemoModal() { 
-  if (!currentMemoTarget) return; 
-  saveState(); 
-  const prod = sales.find(p => p.id === currentMemoTarget.prodId); 
-  if (prod) { 
-    const buyer = prod.buyers.find(b => b.id === currentMemoTarget.buyerId); 
-    if (buyer) { 
-      buyer.memo = document.getElementById('memoInput').value.trim(); 
+
+/* 실시간 메모 & 체크박스 데이터 자동 보관 로직 */
+function autoSaveMemo() {
+  if (!currentMemoTarget) return;
+  const prod = sales.find(p => p.id === currentMemoTarget.prodId);
+  if (prod) {
+    const buyer = prod.buyers.find(b => b.id === currentMemoTarget.buyerId);
+    if (buyer) {
+      buyer.memo = document.getElementById('memoInput').value;
       buyer.chkYt = document.getElementById('memoCbYt').checked;
       buyer.chkTt = document.getElementById('memoCbTt').checked;
       buyer.chkFs = document.getElementById('memoCbFs').checked;
       buyer.chkKp = document.getElementById('memoCbKp').checked;
-      renderSales(); 
-      toast('메모가 저장되었습니다.'); 
-    } 
-  } 
+      saveLocalData();
+    }
+  }
+}
+
+/* 모달 이탈 시 자동 저장 및 메인 화면 렌더링 동기화 */
+function closeMemoModal() { 
+  if (currentMemoTarget) {
+    autoSaveMemo();
+    renderSales();
+  }
+  document.getElementById('memoModal').style.display = 'none'; 
+  currentMemoTarget = null; 
+}
+
+function saveMemoModal() { 
   closeMemoModal(); 
 }
 
