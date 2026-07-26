@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="index.json">
 
-<title>모바일 라이브 장부 V5.3 (현장 편의성 고도화)</title>
+<title>모바일 라이브 장부 V5.4 (기능 고도화)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root {
@@ -56,6 +56,7 @@
   .row-card {
     background: var(--card); border-radius: var(--radius); margin-bottom: 8px;
     border: 1.5px solid var(--line); box-shadow: 0 2px 4px rgba(0,0,0,0.06); overflow: visible; display: block; position: relative; transition: all 0.15s;
+    scroll-margin-top: 130px; /* 포커스 이동시 틀고정 아래로 숨지 않도록 방지 */
   }
   
   .row-card .card-band {
@@ -111,8 +112,12 @@
 
   .btn-mini { background: #E5E8EB; border: none; padding: 4px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #334155; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
   .btn-mini.del { color: var(--danger); background: #FFF0F0; border: 1px solid #FCA5A5; }
+  
+  /* 메모 버튼 스타일링 */
   .btn-mini.memo-btn { background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; }
   .btn-mini.memo-btn.has-memo { background: #F59E0B; color: #FFFFFF; font-weight: 800; }
+  .btn-mini.memo-btn.has-memo-mint { background: #14B8A6; color: #FFFFFF; font-weight: 800; border: 1px solid #0D9488; }
+  
   .btn-mini.btn-cancel { background: #E5E8EB; color: #475569; }
   .btn-mini.btn-cancel.is-canceled { background: var(--danger) !important; color: #FFFFFF !important; font-weight: 800; }
   .btn-mini.copy { background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; }
@@ -180,38 +185,11 @@
     border-color: var(--primary);
   }
 
-  .color-dot {
-    display: inline-block;
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    margin-right: 5px;
-    border: 1px solid rgba(0,0,0,0.25);
-    flex-shrink: 0;
-  }
+  .color-dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; border: 1px solid rgba(0,0,0,0.25); flex-shrink: 0; }
 
-  .size-tab-bar {
-    display: inline-flex;
-    gap: 5px;
-    margin-right: 4px;
-    flex-shrink: 0;
-  }
-  .size-tab-btn {
-    padding: 6px 12px;
-    border: 1.5px solid #CBD5E1;
-    border-radius: 16px;
-    background: #F1F5F9;
-    font-size: 12px;
-    font-weight: 800;
-    color: #475569;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .size-tab-btn.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-  }
+  .size-tab-bar { display: inline-flex; gap: 5px; margin-right: 4px; flex-shrink: 0; }
+  .size-tab-btn { padding: 6px 12px; border: 1.5px solid #CBD5E1; border-radius: 16px; background: #F1F5F9; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; white-space: nowrap; }
+  .size-tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
   .fab { position: fixed; bottom: 70px; right: calc(50% - 200px); width: 44px; height: 44px; border-radius: 22px; background: var(--primary); color: #fff; border: none; font-size: 22px; font-weight: 300; box-shadow: 0 4px 10px rgba(49,130,246,0.3); cursor: pointer; z-index: 90; display: flex; align-items: center; justify-content: center; }
   @media (max-width: 440px) { .fab { right: 14px; } }
@@ -224,9 +202,7 @@
   .tab-btn.active { color: var(--primary); border-top: 2.5px solid var(--primary); background: #F9FAFB; }
 
   body.ac-open .bottom-bar,
-  body.ac-open .fab {
-    display: none !important;
-  }
+  body.ac-open .fab { display: none !important; }
 
   #view-settle { display: none; padding: 10px 10px 120px 10px; flex-direction: column; gap: 10px; }
   .settle-card { background: #fff; border-radius: var(--radius); padding: 12px; border: 1.5px solid var(--line); box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
@@ -281,7 +257,6 @@
   
   /* ===== 자동완성 및 입력 필드 포커스 시 카드 헤더 틀고정 해제 ===== */
   body.ac-open .row-card .card-band,
-  .row-card:focus-within .card-band,
   .row-card.is-focused .card-band {
     position: static !important;
   }
@@ -404,6 +379,19 @@
         <span>📝 메모 작성</span>
         <button class="btn-mini del" onclick="closeMemoModal()">✕</button>
       </div>
+      
+      <!-- 체크박스 영역 추가 -->
+      <div style="display:flex; gap:12px; margin-bottom:4px; padding:8px; background:#F1F5F9; border-radius:6px;">
+        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbYt"> [유튜브]</label>
+        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbTt"> [틱톡]</label>
+        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbFs"> [무배]</label>
+      </div>
+
+      <!-- 적립금/무배 알림 영역 -->
+      <div id="rewardAlert" style="display:none; color:#059669; font-size:12px; font-weight:900; background:#ECFDF5; padding:6px; border-radius:4px; border:1px solid #34D399; margin-bottom:4px; text-align:center;">
+        <!-- 여기에 알림 텍스트 삽입 -->
+      </div>
+
       <textarea id="memoInput" class="modal-textarea" placeholder="메모할 내용을 입력하세요..."></textarea>
       <div class="modal-btns">
         <button class="btn-mini" onclick="closeMemoModal()">취소</button>
@@ -426,6 +414,7 @@
   </div>
 
   <div class="matrix-modal-fullscreen" id="matrixModal">
+    <!-- 매트릭스 팝업 (코드 생략 없이 기존과 동일) -->
     <div class="matrix-header">
       <div style="display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden;">
         <span id="matrixHeaderTitle" style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">🔲 실시간 주문 매트릭스</span>
@@ -448,8 +437,8 @@
 </div>
 
 <script>
+// 백엔드 연동용 URL
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLhT6zwSjVKGna_MugQwaeEC6gQjO8TBV10_xyrg-9Q64OYW1FDQsfO_yjRxVmBuzw/exec';
-
 
 let currentZoom = 100;
 function applyZoom(zoom) {
@@ -459,9 +448,7 @@ function applyZoom(zoom) {
   if (label) label.textContent = `${currentZoom}%`;
   localStorage.setItem('m_live_zoom', currentZoom);
 }
-function changeZoom(delta) {
-  applyZoom(currentZoom + delta);
-}
+function changeZoom(delta) { applyZoom(currentZoom + delta); }
 
 const PRESET_COLORS = ['블랙', '화이트', '크림', '그레이', '베이지', '네이비', '차콜', '핑크', '카키', '그린', '오렌지', '민트', '브라운', '쵸코', '소라', '아이보리', '옐로우', '보라', '블루', '버건디', '레드', '실버', '골드', '체크', '스트라이프', '레몬'];
 const PRESET_SIZES_CLOTHES = ['S', 'M', 'L', 'XL', '2XL', '44', '55', '66', '77'];
@@ -513,6 +500,7 @@ let currentPresetIndex = 0;
 let sales = [];
 let autoNicknames = [];
 let autoBrands = []; 
+let autoRewardInfo = {}; // 적립금/무배 정보 캐싱 객체 추가
 let preTags = []; 
 
 let settleGroupMode = 'deposit';
@@ -529,6 +517,7 @@ let matrixState = { colors: [], sizes: [], orders: {} };
 let matrixHistoryStack = [];
 let matrixRedoStack = [];
 
+// [핵심 변경 1] 포커스 유지 및 해제 로직 보완 (틀고정 버그)
 function handleInputFocus(el) {
   if (!el) return;
   const card = el.closest('.row-card');
@@ -536,9 +525,16 @@ function handleInputFocus(el) {
   if (el.dataset.focused === "true") return;
   el.dataset.focused = "true";
   setTimeout(() => { try { el.select(); } catch(e){} }, 50);
+  
   el.addEventListener('blur', () => { 
-    el.dataset.focused = "false"; 
-    if (card) card.classList.remove('is-focused');
+    el.dataset.focused = "false";
+    // 0.3초 대기 후 포커스가 여전히 해당 카드 내에 없으면 is-focused 클래스를 제거
+    // 모바일 키보드가 내려갈 시간을 벌어주어 레이아웃이 튀지 않게 합니다.
+    setTimeout(() => {
+      if (card && !card.querySelector('input:focus') && !document.body.classList.contains('ac-open')) {
+        card.classList.remove('is-focused');
+      }
+    }, 300);
   }, { once: true });
 }
 
@@ -639,30 +635,33 @@ function createEmptyProduct() {
   };
 }
 
+// [핵심 변경 2] 체크박스 상태를 위해 chkYt, chkTt, chkFs 필드 추가
 function createEmptyBuyer() {
   return { 
     id: uid(), nickname: '', memo: '', isCanceled: false,
-    opt: 'full', c1: '', s1: '', c2: '', s2: '', m1: '', m2: ''
+    opt: 'full', c1: '', s1: '', c2: '', s2: '', m1: '', m2: '',
+    chkYt: false, chkTt: false, chkFs: false
   };
 }
 
+// [핵심 변경 3] 백엔드에서 받아온 rewardInfo를 할당
 async function fetchAutocompleteData() {
   try {
     const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ fn: 'getAutocompleteData', args: [] }) }).then(r => r.json());
-    if (res && res.success) { autoNicknames = res.nicknames || []; autoBrands = res.brands || []; }
+    if (res && res.success) { 
+      autoNicknames = res.nicknames || []; 
+      autoBrands = res.brands || []; 
+      autoRewardInfo = res.rewardInfo || {}; // 새로 추가된 객체
+    }
   } catch(e) { console.log('Autocomplete sync failed'); }
 }
 
 function autoCenterInput(inputEl) {
   if (!inputEl || inputEl.dataset.centered === "true") return;
   inputEl.dataset.centered = "true";
-  
   setTimeout(() => {
-    try {
-      inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } catch(e) {}
+    try { inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e) {}
   }, 300);
-  
   inputEl.addEventListener('blur', () => { inputEl.dataset.centered = "false"; }, {once: true});
 }
 
@@ -683,6 +682,35 @@ function positionDropdown(inputEl) {
   document.body.classList.add('ac-open');
   dropdown.scrollLeft = 0;
 }
+
+// ============== 적립금 및 무배 자동확인 로직 (신규) ==============
+function applyAutoRewardToBuyer(buyer) {
+  if (!buyer.nickname) return;
+  // 백엔드와 동일하게 공백을 제거하고 소문자로 변환하여 매칭합니다.
+  let normName = buyer.nickname.replace(/\s+/g, '').toLowerCase();
+  let match = buyer.nickname.match(/\(([^)]+)\)/); // 괄호 닉네임 우선 추출
+  let pureNick = match ? match[1].replace(/\s+/g, '').toLowerCase() : normName;
+
+  let info = autoRewardInfo[pureNick] || autoRewardInfo[normName];
+  if (info) {
+    let additions = [];
+    if (info.reward > 0) additions.push(`(적립금 ${fmt(info.reward)}원)`);
+    if (info.freeShip) {
+      additions.push(`(무배)`);
+      buyer.chkFs = true; // 무배 조건 발견 시 체크박스 자동 체크! (칩스 민트색 발동)
+    }
+    
+    if (additions.length > 0) {
+      let autoText = additions.join(' ');
+      if (!buyer.memo) buyer.memo = '';
+      if (!buyer.memo.includes(autoText)) { // 중복입력 방지
+        buyer.memo = (buyer.memo + ' ' + autoText).trim();
+        toast('💰 적립금/무배 자동입력 됨');
+      }
+    }
+  }
+}
+// ==============================================================
 
 function handleProdFocus(inputEl, prodId) {
   handleInputFocus(inputEl);
@@ -717,10 +745,6 @@ function selectProdName(prodId, val) {
   if (prod) { prod.name = val; }
   hideDropdown();
   renderSales();
-  setTimeout(() => {
-    const cardEl = document.querySelector(`.row-card:nth-child(${sales.findIndex(p => p.id === prodId) + 1})`);
-    if (cardEl) cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 60);
 }
 
 function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
@@ -757,12 +781,7 @@ function selectModelName(prodId, buyerId, fieldName, val) {
     const buyer = prod.buyers.find(b => b.id === buyerId);
     if (buyer) buyer[fieldName] = val;
   }
-  hideDropdown();
-  renderSales();
-  setTimeout(() => {
-    const buyerEl = document.querySelector(`[data-buyer-id="${buyerId}"]`);
-    if (buyerEl) buyerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 60);
+  hideDropdown(); renderSales();
 }
 
 function handleNickInput(inputEl, prodId, buyerId) {
@@ -784,18 +803,20 @@ function handleNickInput(inputEl, prodId, buyerId) {
   positionDropdown(inputEl);
 }
 
+// 닉네임 자동완성 칩스 선택 시
 function selectNick(prodId, buyerId, val) {
   clearLastInputEvent(); saveState();
   const prod = sales.find(p => p.id === prodId);
   if (prod) {
     const buyer = prod.buyers.find(b => b.id === buyerId);
-    if (buyer) { const match = val.match(/\(([^)]+)\)/); buyer.nickname = match ? match[1] : val; }
+    if (buyer) { 
+      const match = val.match(/\(([^)]+)\)/); 
+      buyer.nickname = match ? match[1] : val; 
+      // 💡 자동입력 로직 호출
+      applyAutoRewardToBuyer(buyer);
+    }
   }
   hideDropdown(); renderSales();
-  setTimeout(() => {
-    const buyerEl = document.querySelector(`[data-buyer-id="${buyerId}"]`);
-    if (buyerEl) buyerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 60);
 }
 
 function handleColorFocus(inputEl, prodId, buyerId, targetFieldOrMatrixIdx = 'c1') {
@@ -845,10 +866,6 @@ function selectColor(prodId, buyerId, val, targetFieldOrMatrixIdx) {
       if (buyer) buyer[targetFieldOrMatrixIdx] = val;
     }
     renderSales();
-    setTimeout(() => {
-      const buyerEl = document.querySelector(`[data-buyer-id="${buyerId}"]`);
-      if (buyerEl) buyerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 60);
   }
   hideDropdown();
 }
@@ -915,10 +932,6 @@ function selectSize(prodId, buyerId, val, targetFieldOrMatrixIdx) {
       if (buyer) buyer[targetFieldOrMatrixIdx] = val;
     }
     renderSales();
-    setTimeout(() => {
-      const buyerEl = document.querySelector(`[data-buyer-id="${buyerId}"]`);
-      if (buyerEl) buyerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 60);
   }
   hideDropdown();
 }
@@ -1049,7 +1062,19 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
   const bBorder = p.mode === 'set' ? '#F472B6' : (p.mode === 'cross' ? '#60A5FA' : '#C084FC');
   const nickColor = p.mode === 'set' ? '#DB2777' : (p.mode === 'cross' ? '#2563EB' : '#7C3AED');
 
-  const memoBtn = `<button class="btn-mini memo-btn ${b.memo ? 'has-memo' : ''}" onclick="openMemoModal('${p.id}', '${b.id}')">${b.memo ? '📝🔴' : '📝'}</button>`;
+  // [핵심 변경] 메모 버튼 색상 판별 (체크박스 확인)
+  const hasMintCb = b.chkYt || b.chkTt || b.chkFs;
+  const hasTextMemo = b.memo && b.memo.trim() !== '';
+  let memoBtnClass = 'memo-btn';
+  
+  if (hasMintCb) {
+    memoBtnClass += ' has-memo-mint'; // 민트색 적용 클래스
+  } else if (hasTextMemo) {
+    memoBtnClass += ' has-memo'; // 기존 붉은색
+  }
+  const memoIcon = (hasMintCb || hasTextMemo) ? (hasMintCb ? '📝🟢' : '📝🔴') : '📝';
+
+  const memoBtn = `<button class="btn-mini ${memoBtnClass}" onclick="openMemoModal('${p.id}', '${b.id}')">${memoIcon}</button>`;
   const cancelBtn = `<button class="btn-mini btn-cancel ${b.isCanceled ? 'is-canceled' : ''}" onclick="toggleCancel('${p.id}', '${b.id}')">${b.isCanceled ? '🔴 취소' : '취소'}</button>`;
   const delBtn = `<button class="btn-mini del" onclick="deleteBuyer('${p.id}', '${b.id}')">✕</button>`;
 
@@ -1155,7 +1180,15 @@ function updateBuyerData(prodId, buyerId, field, val) {
   const prod = sales.find(p => p.id === prodId);
   if (!prod) return;
   const buyer = prod.buyers.find(b => b.id === buyerId);
-  if (buyer) { buyer[field] = val.trim(); }
+  if (buyer) { 
+    if (field === 'nickname') {
+      buyer.nickname = val.trim();
+      // 💡 수동 입력 후 포커스 아웃될 때(혹은 타이핑 시) 자동 확인
+      applyAutoRewardToBuyer(buyer);
+    } else {
+      buyer[field] = val.trim(); 
+    }
+  }
   renderSales();
 }
 
@@ -1228,7 +1261,8 @@ function getFlattenedSales() {
 
       flat.push({
         prodId: p.id, buyerId: b.id, name: p.name, salePrice: sp, depositPrice: dp,
-        nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled
+        nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled,
+        chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs // JSON 출력용 추가
       });
     });
   });
@@ -1269,9 +1303,56 @@ function toggleCancel(prodId, buyerId) { saveState(); const prod = sales.find(p 
 function deleteProduct(prodId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const filledNicknames = prod.buyers.map(b => (b.nickname || '').trim()).filter(n => n !== ''); if (filledNicknames.length > 0) { if (!confirm(`⚠️ 고객명(${filledNicknames.join(', ')})이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?`)) return; } saveState(); const idx = sales.findIndex(p => p.id === prodId); if (idx !== -1) { sales.splice(idx, 1); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('상품 삭제 완료'); } }
 function deleteBuyer(prodId, buyerId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const buyer = prod.buyers.find(b => b.id === buyerId); if (!buyer) return; const nick = (buyer.nickname || '').trim(); if (nick !== '') { if (!confirm(`⚠️ 고객명('${nick}')이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?`)) return; } saveState(); const bIdx = prod.buyers.findIndex(b => b.id === buyerId); if (bIdx !== -1) { prod.buyers.splice(bIdx, 1); if (prod.buyers.length === 0) sales = sales.filter(p => p.id !== prodId); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('고객 삭제 완료'); } }
 
-function openMemoModal(prodId, buyerId) { currentMemoTarget = { prodId, buyerId }; const prod = sales.find(p => p.id === prodId); const buyer = prod ? prod.buyers.find(b => b.id === buyerId) : null; document.getElementById('memoInput').value = buyer ? buyer.memo : ''; document.getElementById('memoModal').style.display = 'flex'; }
+// [핵심 변경] 메모 모달창 관련 연동
+function openMemoModal(prodId, buyerId) { 
+  currentMemoTarget = { prodId, buyerId }; 
+  const prod = sales.find(p => p.id === prodId); 
+  const buyer = prod ? prod.buyers.find(b => b.id === buyerId) : null; 
+  
+  if(buyer) {
+    document.getElementById('memoInput').value = buyer.memo || ''; 
+    document.getElementById('memoCbYt').checked = !!buyer.chkYt;
+    document.getElementById('memoCbTt').checked = !!buyer.chkTt;
+    document.getElementById('memoCbFs').checked = !!buyer.chkFs;
+
+    // 녹색 알림 메시지 세팅
+    const alertEl = document.getElementById('rewardAlert');
+    let normName = buyer.nickname ? buyer.nickname.replace(/\s+/g, '').toLowerCase() : '';
+    let match = buyer.nickname ? buyer.nickname.match(/\(([^)]+)\)/) : null;
+    let pureNick = match ? match[1].replace(/\s+/g, '').toLowerCase() : normName;
+
+    let info = autoRewardInfo[pureNick] || autoRewardInfo[normName];
+    if (info && (info.reward > 0 || info.freeShip)) {
+      let msgParts = [];
+      if (info.reward > 0) msgParts.push(`적립금 ${fmt(info.reward)}원`);
+      if (info.freeShip) msgParts.push(`무배대상`);
+      alertEl.textContent = `💡 자동확인: ${msgParts.join(', ')}`;
+      alertEl.style.display = 'block';
+    } else {
+      alertEl.style.display = 'none';
+    }
+  }
+
+  document.getElementById('memoModal').style.display = 'flex'; 
+}
 function closeMemoModal() { document.getElementById('memoModal').style.display = 'none'; currentMemoTarget = null; }
-function saveMemoModal() { if (!currentMemoTarget) return; saveState(); const prod = sales.find(p => p.id === currentMemoTarget.prodId); if (prod) { const buyer = prod.buyers.find(b => b.id === currentMemoTarget.buyerId); if (buyer) { buyer.memo = document.getElementById('memoInput').value.trim(); renderSales(); toast('메모가 저장되었습니다.'); } } closeMemoModal(); }
+function saveMemoModal() { 
+  if (!currentMemoTarget) return; 
+  saveState(); 
+  const prod = sales.find(p => p.id === currentMemoTarget.prodId); 
+  if (prod) { 
+    const buyer = prod.buyers.find(b => b.id === currentMemoTarget.buyerId); 
+    if (buyer) { 
+      buyer.memo = document.getElementById('memoInput').value.trim(); 
+      buyer.chkYt = document.getElementById('memoCbYt').checked;
+      buyer.chkTt = document.getElementById('memoCbTt').checked;
+      buyer.chkFs = document.getElementById('memoCbFs').checked;
+      renderSales(); 
+      toast('메모가 저장되었습니다.'); 
+    } 
+  } 
+  closeMemoModal(); 
+}
 
 function syncMatrixAxesToProd() {
   if (currentMatrixProdId) {
@@ -1523,11 +1604,13 @@ function registerMatrixToSales() {
            let existing = prod.buyers.find(b => b.id === order.id);
            if (existing) {
              existing.nickname = val; existing.c1 = col; existing.s1 = sz;
+             applyAutoRewardToBuyer(existing); // 매트릭스 등록 시에도 자동입력 발동
              finalBuyers.push(existing); count++;
            }
         } else {
            let b = createEmptyBuyer();
            b.nickname = val; b.c1 = col; b.s1 = sz;
+           applyAutoRewardToBuyer(b); // 매트릭스 등록 시에도 자동입력 발동
            finalBuyers.push(b); count++;
         }
       });
@@ -1710,7 +1793,10 @@ function exportJsonForPC() {
     id: s.buyerId || uid(), rowDate: today, prodNum: '', name: s.name || '',
     color: s.color || '', size: s.size || '', nickname: s.nickname || '',
     salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', memo: s.memo || '',
-    autoReward: 0, tags: { yt: false, tt: false, fs: false }, createdAt: Date.now(), highlighted: false, sent: false
+    autoReward: 0, 
+    // [핵심 변경] PC 연동을 위해 생성된 체크박스 데이터 전달
+    tags: { yt: !!s.chkYt, tt: !!s.chkTt, fs: !!s.chkFs }, 
+    createdAt: Date.now(), highlighted: false, sent: false
   }));
 
   const payload = { __type: 'live_ledger_share', version: 1, exportedAt: new Date().toISOString(), ledgerDate: today, ledgerSession: '', products: [], sales: pcSales };
@@ -1739,7 +1825,12 @@ function importJsonFile(e) {
       rawSales.forEach(s => {
         const key = `${s.name || ''}_${s.salePrice || ''}_${s.depositPrice || ''}`;
         if (!groupMap.has(key)) groupMap.set(key, { id: uid(), mode: 'normal', name: s.name || '', salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', topSale:'', topDep:'', botSale:'', botDep:'', matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], isMatrixCustomized: false, isFolded: false, buyers: [] });
-        groupMap.get(key).buyers.push({ id: s.id || uid(), nickname: s.nickname || '', c1: s.color || '', s1: s.size || '', c2:'', s2:'', m1:'', m2:'', memo: s.memo || '', isCanceled: false, opt:'full' });
+        
+        // 가져올 때 태그도 복원
+        let yt = false, tt = false, fs = false;
+        if(s.tags) { yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; }
+
+        groupMap.get(key).buyers.push({ id: s.id || uid(), nickname: s.nickname || '', c1: s.color || '', s1: s.size || '', c2:'', s2:'', m1:'', m2:'', memo: s.memo || '', isCanceled: false, opt:'full', chkYt: yt, chkTt: tt, chkFs: fs });
       });
       const importedProducts = Array.from(groupMap.values());
       if (isOverwrite) sales = importedProducts.length > 0 ? importedProducts : [createEmptyProduct()];
@@ -1752,88 +1843,31 @@ function importJsonFile(e) {
 
 function exportExcel() {
   let records = [];
-
+  // (엑셀 로직 기존 동일 생략 없이 그대로 유지)
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
       if (!p.name && !b.nickname) return;
 
       if (p.mode === 'normal') {
-        records.push({
-          name: p.name || '',
-          option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
-          nickname: b.nickname || '',
-          salePrice: Number(p.salePrice) || 0,
-          depositPrice: Number(p.depositPrice) || 0,
-          memo: b.memo || ''
-        });
+        records.push({ name: p.name || '', option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: b.memo || '' });
       } else if (p.mode === 'set') {
         if (b.opt === 'full') {
-          records.push({
-            name: `${p.name} 상의`,
-            option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
-            nickname: b.nickname || '',
-            salePrice: Number(p.topSale) || 0,
-            depositPrice: Number(p.topDep) || 0,
-            memo: b.memo || ''
-          });
-          records.push({
-            name: `${p.name} 하의`,
-            option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '),
-            nickname: b.nickname || '',
-            salePrice: Number(p.botSale) || 0,
-            depositPrice: Number(p.botDep) || 0,
-            memo: b.memo || ''
-          });
+          records.push({ name: `${p.name} 상의`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: b.memo || '' });
+          records.push({ name: `${p.name} 하의`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: b.memo || '' });
         } else if (b.opt === 'top') {
-          records.push({
-            name: `${p.name} 상의`,
-            option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
-            nickname: b.nickname || '',
-            salePrice: Number(p.topSale) || 0,
-            depositPrice: Number(p.topDep) || 0,
-            memo: b.memo || ''
-          });
+          records.push({ name: `${p.name} 상의`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: b.memo || '' });
         } else if (b.opt === 'bottom') {
-          records.push({
-            name: `${p.name} 하의`,
-            option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '),
-            nickname: b.nickname || '',
-            salePrice: Number(p.botSale) || 0,
-            depositPrice: Number(p.botDep) || 0,
-            memo: b.memo || ''
-          });
+          records.push({ name: `${p.name} 하의`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: b.memo || '' });
         }
       } else if (p.mode === 'cross') {
         if (b.opt === 'full') {
-          const m1Name = b.m1 ? ` ${b.m1}` : '';
-          const m2Name = b.m2 ? ` ${b.m2}` : '';
-          records.push({
-            name: `${p.name}${m1Name}`,
-            option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
-            nickname: b.nickname || '',
-            salePrice: Number(p.salePrice) || 0,
-            depositPrice: Number(p.depositPrice) || 0,
-            memo: b.memo || ''
-          });
-          records.push({
-            name: `${p.name}${m2Name}`,
-            option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '),
-            nickname: b.nickname || '',
-            salePrice: 0,
-            depositPrice: 0,
-            memo: b.memo || ''
-          });
+          const m1Name = b.m1 ? ` ${b.m1}` : ''; const m2Name = b.m2 ? ` ${b.m2}` : '';
+          records.push({ name: `${p.name}${m1Name}`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: b.memo || '' });
+          records.push({ name: `${p.name}${m2Name}`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: 0, depositPrice: 0, memo: b.memo || '' });
         } else if (b.opt === 'single') {
           const m1Name = b.m1 ? ` ${b.m1}` : '';
-          records.push({
-            name: `${p.name}${m1Name}`,
-            option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
-            nickname: b.nickname || '',
-            salePrice: (Number(p.salePrice) / 2) || 0,
-            depositPrice: (Number(p.depositPrice) / 2) || 0,
-            memo: b.memo || ''
-          });
+          records.push({ name: `${p.name}${m1Name}`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: (Number(p.salePrice) / 2) || 0, depositPrice: (Number(p.depositPrice) / 2) || 0, memo: b.memo || '' });
         }
       }
     });
@@ -1842,13 +1876,7 @@ function exportExcel() {
   if (records.length === 0) { toast('⚠️ 내보낼 데이터 없음'); return; }
 
   const data = records.map((s, i) => ({
-    'No': i + 1,
-    '상품명': s.name,
-    '옵션(색상/사이즈)': s.option,
-    '고객명': s.nickname,
-    '판매가': s.salePrice,
-    '입금가(원가)': s.depositPrice,
-    '메모': s.memo
+    'No': i + 1, '상품명': s.name, '옵션(색상/사이즈)': s.option, '고객명': s.nickname, '판매가': s.salePrice, '입금가(원가)': s.depositPrice, '메모': s.memo
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
@@ -1872,6 +1900,7 @@ function saveLocalData() {
   localStorage.setItem('m_live_pre_tags', JSON.stringify(preTags));
 }
 
+// [핵심 변경] 과거 버전 로컬스토리지 복원 시 누락된 체크박스 속성 안전 확보
 function loadLocalData() {
   const data = localStorage.getItem('m_live_ledger_v5.1');
   if (data) {
@@ -1883,7 +1912,8 @@ function loadLocalData() {
             id: b.id || uid(), nickname: b.nickname || '', memo: b.memo || '', isCanceled: !!b.isCanceled,
             opt: b.opt || 'full', 
             c1: b.c1 || b.color || '', s1: b.s1 || b.size || '', 
-            c2: b.c2 || '', s2: b.s2 || '', m1: b.m1 || '', m2: b.m2 || ''
+            c2: b.c2 || '', s2: b.s2 || '', m1: b.m1 || '', m2: b.m2 || '',
+            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs // 신규 속성 방어 로직
           }));
           return {
             id: s.id || uid(), mode: s.mode || 'normal', name: s.name || '',
