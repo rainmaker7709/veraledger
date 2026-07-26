@@ -1,6 +1,6 @@
 {
   "name": "모바일 라이브 장부",
-  "short_name": "라이브장부",
+  "short_name": "제이슨장부",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#F2F4F6",
