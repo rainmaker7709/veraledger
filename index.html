@@ -290,14 +290,7 @@
   <div id="mainToast" class="header-toast-badge"></div>
 
   <header>
-    <div style="display:flex; align-items:center; gap:8px;">
-      <h1><span>📱 방송 현장 장부</span></h1>
-      <div class="zoom-controls">
-        <button onclick="changeZoom(-5)">-</button>
-        <span id="zoomLabel" onclick="applyZoom(100)">100%</span>
-        <button onclick="changeZoom(5)">+</button>
-      </div>
-    </div>
+    <h1><span>📱 방송 현장 장부</span></h1>
     <button class="btn-gas" onclick="sendToSheet()">☁️ 구글시트 전송</button>
   </header>
 
@@ -370,6 +363,15 @@
     <div class="danger-zone">
       <span style="font-size:11px; color:var(--danger); font-weight:800;">⚠️ 데이터 전체 삭제 보호 구역</span>
       <button class="btn-chip" style="background:var(--danger); color:#fff; padding:6px 14px; font-weight:bold;" onclick="clearAllMobileData()">🗑️ 장부 전체 데이터 초기화</button>
+    </div>
+
+    <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:15px;">
+      <span style="font-size:12px; font-weight:800; color:var(--ink-sub);">화면 확대/축소:</span>
+      <div class="zoom-controls">
+        <button onclick="changeZoom(-5)">-</button>
+        <span id="zoomLabel" onclick="applyZoom(100)">100%</span>
+        <button onclick="changeZoom(5)">+</button>
+      </div>
     </div>
   </main>
 
