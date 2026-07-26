@@ -56,7 +56,7 @@
   .row-card {
     background: var(--card); border-radius: var(--radius); margin-bottom: 8px;
     border: 1.5px solid var(--line); box-shadow: 0 2px 4px rgba(0,0,0,0.06); overflow: visible; display: block; position: relative; transition: all 0.15s;
-    scroll-margin-top: 180px; 
+    scroll-margin-top: 60px; /* 강제 스크롤 여백 축소 */
   }
   
   .row-card .card-band {
@@ -92,7 +92,7 @@
 
   .card-sub-list { padding: 4px 6px; display: flex; flex-direction: column; gap: 4px; background: #FFF; transition: 0.2s ease-in-out; border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); }
 
-  .buyer-item { background: #F8FAFC; border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 2px; scroll-margin-top: 200px; }
+  .buyer-item { background: #F8FAFC; border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 2px; scroll-margin-top: 60px; /* 강제 스크롤 여백 축소 */ }
   .buyer-item.canceled { background: #FFEEEF !important; border-left-color: var(--danger) !important; }
   .buyer-item.canceled input { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--danger); color: #888888 !important; }
 
@@ -254,7 +254,9 @@
   .zoom-controls button:active { background: #E2E8F0; }
   .zoom-controls span { font-size: 11px; font-weight: 800; min-width: 36px; text-align: center; color: var(--ink); cursor: pointer; user-select: none; }
   
-  /* ===== 자동완성 및 입력 필드 포커스 시 카드 헤더 틀고정 해제 ===== */
+  /* ===== 자동완성 및 입력 필드 포커스 시 상단 틀고정 요소들 전면 해제 (공간 확보) ===== */
+  body.ac-open header,
+  body.ac-open .control-bar,
   body.ac-open .row-card .card-band,
   .row-card.is-focused .card-band {
     position: static !important;
@@ -518,26 +520,30 @@ let matrixRedoStack = [];
 
 let pendingVisibilitySelector = null;
 
-// [1번 요청 반영] 가드(Guard)를 씌워 실제 가려질 때만 빠르고 부드럽게 스크롤을 움직임
+// [1번 요청 반영] 가상키보드 및 상단 가림막에 진짜 가려질 때만 아주 살짝 보정하는 로직
 function adjustScrollPosition(targetEl) {
   if (!targetEl) return;
-  const card = targetEl.closest('.row-card');
-  if (!card) return;
-  const cardBand = card.querySelector('.card-band');
-  const item = targetEl.closest('.buyer-item') || targetEl;
+  const rect = targetEl.getBoundingClientRect();
+  const acDropdown = document.getElementById('acDropdown');
   
-  if (!cardBand || !item) return;
+  // 1. 하단 자동완성 칩스(가상키보드 위) 한계선 계산
+  let bottomLimit = window.innerHeight;
+  if (document.body.classList.contains('ac-open') && acDropdown) {
+    bottomLimit -= (acDropdown.offsetHeight + 10); // 칩스 높이 + 여유 10px
+  } else {
+    bottomLimit -= 10;
+  }
 
-  const bandRect = cardBand.getBoundingClientRect();
-  const itemRect = item.getBoundingClientRect();
-
-  // 실제 화면상 상단 틀고정 밴드 하단 Y좌표 + 여백 8px
-  const requiredMinTop = bandRect.bottom + 8;
-
-  // 아이템이 헤더보다 위로 올라가서 "실제로 가려졌을 때"만 즉각 보정 (화면 여유가 있으면 무시)
-  if (itemRect.top < requiredMinTop) {
-    const overlap = requiredMinTop - itemRect.top;
-    window.scrollBy({ top: -overlap, behavior: 'smooth' }); 
+  // 요소의 하단이 칩스에 진짜로 가려지는 경우 위로 밀어올림
+  if (rect.bottom > bottomLimit) {
+    window.scrollBy({ top: rect.bottom - bottomLimit, behavior: 'smooth' });
+    return;
+  }
+  
+  // 2. 요소가 너무 상단으로 밀려 올라가 화면을 넘어갈 때만 살짝 내림
+  // 이제 sticky가 풀려있으므로 화면 맨 위(top: 0)에만 안 닿으면 됨
+  if (rect.top < 60) {
+    window.scrollBy({ top: rect.top - 60, behavior: 'smooth' });
   }
 }
 
@@ -552,11 +558,9 @@ function handleInputFocus(el) {
   el.addEventListener('blur', () => { 
     el.dataset.focused = "false";
     setTimeout(() => {
+      // 폰에서 키보드가 내려갈 때 자연스러운 스크롤 유지를 위해 강제 조정을 제거함
       if (card && !card.querySelector('input:focus') && !document.body.classList.contains('ac-open')) {
         card.classList.remove('is-focused');
-        
-        // 키보드가 내려가고 틀고정이 복귀할 때 단 한번 빠릿하게 보정 확인
-        setTimeout(() => { adjustScrollPosition(el); }, 100);
       }
     }, 100);
   }, { once: true });
@@ -663,7 +667,7 @@ function createEmptyBuyer() {
   return { 
     id: uid(), nickname: '', memo: '', isCanceled: false,
     opt: 'full', c1: '', s1: '', c2: '', s2: '', m1: '', m2: '',
-    chkYt: false, chkTt: false, chkFs: false, chkKp: false // [2번 요청 반영] 킵 추가
+    chkYt: false, chkTt: false, chkFs: false, chkKp: false
   };
 }
 
@@ -678,13 +682,12 @@ async function fetchAutocompleteData() {
   } catch(e) { console.log('Autocomplete sync failed'); }
 }
 
-// [1번 요청 반영] 강제로 정중앙으로 스크롤하던 코드(scrollIntoView)를 제거하고 빠른 가드 함수로 대체
 function autoCenterInput(inputEl) {
   if (!inputEl || inputEl.dataset.centered === "true") return;
   inputEl.dataset.centered = "true";
   setTimeout(() => {
-    adjustScrollPosition(inputEl); // 느리고 강제적인 중앙정렬을 부드럽고 빠른 보정으로 대체
-  }, 80); // 딜레이를 300ms에서 80ms로 대폭 단축하여 빠릿하게 동작
+    adjustScrollPosition(inputEl);
+  }, 80);
   inputEl.addEventListener('blur', () => { inputEl.dataset.centered = "false"; }, {once: true});
 }
 
@@ -1086,7 +1089,6 @@ function renderSales() {
   updateSummaryLogic();
   saveLocalData();
 
-  // [1번 요청 반영] 지연 시간 대폭 단축하여 빠르고 부드러운 위치 보정
   if (pendingVisibilitySelector) {
     const selector = pendingVisibilitySelector;
     pendingVisibilitySelector = null;
@@ -1103,7 +1105,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
   const bBorder = p.mode === 'set' ? '#F472B6' : (p.mode === 'cross' ? '#60A5FA' : '#C084FC');
   const nickColor = p.mode === 'set' ? '#DB2777' : (p.mode === 'cross' ? '#2563EB' : '#7C3AED');
 
-  const hasMintCb = b.chkYt || b.chkTt || b.chkFs || b.chkKp; // [2번 요청 반영] 킵 조건 추가
+  const hasMintCb = b.chkYt || b.chkTt || b.chkFs || b.chkKp;
   const hasTextMemo = b.memo && b.memo.trim() !== '';
   let memoBtnClass = 'memo-btn';
   
@@ -1234,7 +1236,6 @@ function updateBuyerData(prodId, buyerId, field, val) {
   renderSales();
 }
 
-// [3번 요청 반영] 고객명 미입력 시 공란(없는 것)으로 간주
 function getStats() {
   let singleCnt = 0, setCnt = 0, crossCnt = 0;
   let physicalQty = 0, activeQty = 0;
@@ -1243,8 +1244,6 @@ function getStats() {
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
-      
-      // 고객명이 없으면 아예 카운트에서 제외함!
       const hasNick = (b.nickname || '').trim() !== '';
       if (!hasNick) return; 
 
@@ -1303,7 +1302,7 @@ function getFlattenedSales() {
       flat.push({
         prodId: p.id, buyerId: b.id, name: p.name, salePrice: sp, depositPrice: dp,
         nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled,
-        chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs, chkKp: b.chkKp // 킵 추가
+        chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs, chkKp: b.chkKp
       });
     });
   });
@@ -1354,7 +1353,7 @@ function openMemoModal(prodId, buyerId) {
     document.getElementById('memoCbYt').checked = !!buyer.chkYt;
     document.getElementById('memoCbTt').checked = !!buyer.chkTt;
     document.getElementById('memoCbFs').checked = !!buyer.chkFs;
-    document.getElementById('memoCbKp').checked = !!buyer.chkKp; // [2번 요청] 킵 로드
+    document.getElementById('memoCbKp').checked = !!buyer.chkKp; 
 
     const alertEl = document.getElementById('rewardAlert');
     let normName = buyer.nickname ? buyer.nickname.replace(/\s+/g, '').toLowerCase() : '';
@@ -1387,7 +1386,7 @@ function saveMemoModal() {
       buyer.chkYt = document.getElementById('memoCbYt').checked;
       buyer.chkTt = document.getElementById('memoCbTt').checked;
       buyer.chkFs = document.getElementById('memoCbFs').checked;
-      buyer.chkKp = document.getElementById('memoCbKp').checked; // [2번 요청] 킵 저장
+      buyer.chkKp = document.getElementById('memoCbKp').checked; 
       renderSales(); 
       toast('메모가 저장되었습니다.'); 
     } 
@@ -1696,7 +1695,6 @@ function renderSettlement() {
   document.getElementById('st-margin').textContent = `${fmt(margin)}원 (${marginPercent}%)`;
 
   const flat = getFlattenedSales();
-  // [3번 요청 반영] 고객명 공란인 줄은 정산표에서 제외
   const activeSales = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() !== '');
 
   const headEl = document.getElementById('st-table-head');
@@ -1776,7 +1774,6 @@ async function sendToSheet() {
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
-      // [3번 요청 반영] 구글 시트 전송 시에도 고객명이 공란이면 전송 안 함
       if (!(b.nickname || '').trim()) return;
 
       if (p.mode === 'normal') {
@@ -1828,7 +1825,6 @@ function shareKakaoText() {
 
 function exportJsonForPC() {
   const flat = getFlattenedSales();
-  // [3번 요청 반영] JSON 내보내기 시에도 고객명이 공란인 항목은 완전 배제
   const activeSales = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() !== '');
   if (activeSales.length === 0) { toast('⚠️ 공유할 데이터 없음'); return; }
 
@@ -1838,7 +1834,7 @@ function exportJsonForPC() {
     color: s.color || '', size: s.size || '', nickname: s.nickname || '',
     salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', memo: s.memo || '',
     autoReward: 0, 
-    tags: { yt: !!s.chkYt, tt: !!s.chkTt, fs: !!s.chkFs, kp: !!s.chkKp }, // 킵 속성 추가
+    tags: { yt: !!s.chkYt, tt: !!s.chkTt, fs: !!s.chkFs, kp: !!s.chkKp },
     createdAt: Date.now(), highlighted: false, sent: false
   }));
 
@@ -1870,7 +1866,7 @@ function importJsonFile(e) {
         if (!groupMap.has(key)) groupMap.set(key, { id: uid(), mode: 'normal', name: s.name || '', salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', topSale:'', topDep:'', botSale:'', botDep:'', matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], isMatrixCustomized: false, isFolded: false, buyers: [] });
         
         let yt = false, tt = false, fs = false, kp = false;
-        if(s.tags) { yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; kp = !!s.tags.kp; } // 킵 로드
+        if(s.tags) { yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; kp = !!s.tags.kp; }
 
         groupMap.get(key).buyers.push({ id: s.id || uid(), nickname: s.nickname || '', c1: s.color || '', s1: s.size || '', c2:'', s2:'', m1:'', m2:'', memo: s.memo || '', isCanceled: false, opt:'full', chkYt: yt, chkTt: tt, chkFs: fs, chkKp: kp });
       });
@@ -1886,13 +1882,12 @@ function importJsonFile(e) {
 function exportExcel() {
   let records = [];
 
-  // [2번 요청 반영] 체크박스 항목을 엑셀 메모란에 합쳐주는 헬퍼 함수
   function getExcelMemo(b) {
     let tags = [];
     if (b.chkYt) tags.push('[유튜브]');
     if (b.chkTt) tags.push('[틱톡]');
     if (b.chkFs) tags.push('[무배]');
-    if (b.chkKp) tags.push('[킵]'); // 킵 추가
+    if (b.chkKp) tags.push('[킵]'); 
     
     let result = tags.length > 0 ? tags.join(' ') + ' ' + (b.memo || '') : (b.memo || '');
     return result.trim();
@@ -1901,7 +1896,6 @@ function exportExcel() {
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
-      // [3번 요청 반영] 엑셀에서도 고객명이 없으면 공란으로 간주하여 포함시키지 않음
       if (!(b.nickname || '').trim()) return;
 
       let mergedMemo = getExcelMemo(b);
@@ -1969,7 +1963,7 @@ function loadLocalData() {
             opt: b.opt || 'full', 
             c1: b.c1 || b.color || '', s1: b.s1 || b.size || '', 
             c2: b.c2 || '', s2: b.s2 || '', m1: b.m1 || '', m2: b.m2 || '',
-            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs, chkKp: !!b.chkKp // 킵 데이터 불러오기
+            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs, chkKp: !!b.chkKp
           }));
           return {
             id: s.id || uid(), mode: s.mode || 'normal', name: s.name || '',
