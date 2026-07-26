@@ -1121,7 +1121,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
   } else if (hasTextMemo) {
     memoBtnClass += ' has-memo';
   }
-  const memoIcon = (hasMintCb || hasTextMemo) ? (hasMintCb ? '📝🟢' : '📝🔴') : '📝';
+  const memoIcon = hasMintCb ? '🟢' : (hasTextMemo ? '🔴' : '📝');
 
   const memoBtn = `<button class="btn-mini ${memoBtnClass}" onclick="openMemoModal('${p.id}', '${b.id}')">${memoIcon}</button>`;
   const cancelBtn = `<button class="btn-mini btn-cancel ${b.isCanceled ? 'is-canceled' : ''}" onclick="toggleCancel('${p.id}', '${b.id}')">${b.isCanceled ? '🔴 취소' : '취소'}</button>`;
