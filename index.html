@@ -92,7 +92,7 @@
 
   .card-sub-list { padding: 4px 6px; display: flex; flex-direction: column; gap: 4px; background: #FFF; transition: 0.2s ease-in-out; border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); }
 
-  .buyer-item { background: #F8FAFC; border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 2px; scroll-margin-top: 185px; }
+  .buyer-item { background: #F8FAFC; border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 2px; scroll-margin-top: 200px; }
   .buyer-item.canceled { background: #FFEEEF !important; border-left-color: var(--danger) !important; }
   .buyer-item.canceled input { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--danger); color: #888888 !important; }
 
@@ -499,7 +499,7 @@ let currentPresetIndex = 0;
 let sales = [];
 let autoNicknames = [];
 let autoBrands = []; 
-let autoRewardInfo = {}; // 적립금/무배 정보 캐싱 객체
+let autoRewardInfo = {};
 let preTags = []; 
 
 let settleGroupMode = 'deposit';
@@ -518,16 +518,29 @@ let matrixRedoStack = [];
 
 let pendingVisibilitySelector = null;
 
-// 스크롤 및 틀고정 가림 현상 완벽 방지 함수
+// 카드 종류별 틀고정 하단을 실시간으로 측정하여 가림 현상을 완벽히 보정하는 수식
 function adjustScrollPosition(targetEl) {
   if (!targetEl) return;
-  const item = targetEl.closest('.buyer-item') || targetEl.closest('.row-card') || targetEl;
-  const rect = item.getBoundingClientRect();
-  const stickyOffset = 185; // Header + Control bar + Sticky band 완벽 계산 Offset
+  const card = targetEl.closest('.row-card');
+  if (!card) return;
+  const cardBand = card.querySelector('.card-band');
+  const item = targetEl.closest('.buyer-item') || targetEl;
   
-  if (rect.top < stickyOffset) {
-    const scrollTarget = window.pageYOffset + rect.top - stickyOffset;
-    window.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
+  if (!cardBand || !item) return;
+
+  const bandRect = cardBand.getBoundingClientRect();
+  const itemRect = item.getBoundingClientRect();
+
+  // 실제 화면상 상단 틀고정 밴드 하단 Y좌표 + 안전 여백 10px
+  const requiredMinTop = bandRect.bottom + 10;
+
+  // 입력한 항목이 틀고정 하단보다 위에 있어서 조금이라도 가려지고 있다면 스크롤 재조정
+  if (itemRect.top < requiredMinTop) {
+    const overlap = requiredMinTop - itemRect.top;
+    window.scrollTo({
+      top: Math.max(0, window.pageYOffset - overlap),
+      behavior: 'smooth'
+    });
   }
 }
 
@@ -545,14 +558,11 @@ function handleInputFocus(el) {
       if (card && !card.querySelector('input:focus') && !document.body.classList.contains('ac-open')) {
         card.classList.remove('is-focused');
         
-        // 키보드가 닫히고 sticky가 적용된 직후 정확한 좌표 재산출하여 보정
-        setTimeout(() => {
-          if (el.isConnected) {
-            adjustScrollPosition(el);
-          }
-        }, 200);
+        // 키보드가 내려가고 card-band가 sticky로 복귀한 후 정확한 수치로 2단계 재조정
+        setTimeout(() => { adjustScrollPosition(el); }, 100);
+        setTimeout(() => { adjustScrollPosition(el); }, 300);
       }
-    }, 200);
+    }, 150);
   }, { once: true });
 }
 
@@ -1079,16 +1089,18 @@ function renderSales() {
   updateSummaryLogic();
   saveLocalData();
 
-  // 자동완성 칩스 클릭 및 키보드 빠짐 시 틀고정 가림 방지 스크롤 보정
+  // 자동완성 선택 또는 키보드 해제 후 틀고정 가림 현상 정밀 재조정 (2단계 타임아웃)
   if (pendingVisibilitySelector) {
     const selector = pendingVisibilitySelector;
     pendingVisibilitySelector = null;
     setTimeout(() => {
       const el = document.querySelector(selector);
-      if (el) {
-        adjustScrollPosition(el);
-      }
-    }, 250);
+      if (el) adjustScrollPosition(el);
+    }, 100);
+    setTimeout(() => {
+      const el = document.querySelector(selector);
+      if (el) adjustScrollPosition(el);
+    }, 350);
   }
 }
 
