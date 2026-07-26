@@ -539,44 +539,12 @@ function adjustScrollPosition(targetEl) {
 }
 
 function handleInputFocus(el) {
+
   if (!el) return;
+
   const card = el.closest('.row-card');
+
   if (card) card.classList.add('is-focused');
-
-  // 포커스 시점 스크롤 위치 저장 및 스위프 감지 플래그 초기화
-  if (!isCardFocusActive) {
-    preFocusScrollY = window.scrollY;
-    isCardFocusActive = true;
-  }
-
-  // 사용자의 화면 터치 이동 감지 이벤트
-  window._userDidSwipe = false;
-  const onTouchMove = () => { window._userDidSwipe = true; };
-  window.addEventListener('touchmove', onTouchMove, { passive: true });
-
-  if (el.dataset.focused === "true") return;
-  el.dataset.focused = "true";
-  setTimeout(() => { try { el.select(); } catch(e){} }, 50);
-
-  el.addEventListener('blur', () => { 
-    el.dataset.focused = "false";
-    window.removeEventListener('touchmove', onTouchMove);
-
-    setTimeout(() => {
-      const hasActiveInput = card ? card.querySelector('input:focus') : null;
-      if (!hasActiveInput && !document.body.classList.contains('ac-open')) {
-        if (card) card.classList.remove('is-focused');
-        isCardFocusActive = false;
-
-        // 사용자가 손가락으로 긁은 게 아닐 때(단순 터치 해제)만 원래 위치로 복귀
-        if (!window._userDidSwipe && preFocusScrollY !== null) {
-          window.scrollTo({ top: preFocusScrollY, behavior: 'smooth' });
-        }
-        preFocusScrollY = null;
-      }
-    }, 100);
-  }, { once: true });
-}
 
   // 첫 입력창 포커스 시점의 화면 스크롤 위치 저장 (포커스 종료 후 복원용)
   if (!isCardFocusActive) {
