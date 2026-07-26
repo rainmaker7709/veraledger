@@ -102,14 +102,14 @@
   .inp { border: 1.5px solid var(--line); background: #FFF; border-radius: 5px; padding: 4px 5px; font-size: 12px; font-weight: 700; outline: none; color: var(--ink); }
   .inp:focus { border-color: var(--primary); background: #FAFAFA; }
   .inp-prod { font-weight: 800; background: #FFF; flex: 1; min-width: 0; }
-  .inp-color { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; }
-  .inp-size { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; }
-  .inp-nick { font-weight: 800; width: 65px; }
+  .inp-color { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+  .inp-size { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+  .inp-nick { font-weight: 800; flex: 1; min-width: 40px; }
   .inp-model { flex: 0.8; min-width: 40px; }
   .inp-num { text-align: right; font-weight: 800; font-family: monospace; }
-  .select-mode { border: 1.5px solid var(--line); background: #fff; border-radius: 5px; padding: 4px 2px; font-size: 11px; font-weight: 800; outline: none; color: var(--ink); }
+  .select-mode { border: 1.5px solid var(--line); background: #fff; border-radius: 5px; padding: 4px 2px; font-size: 11px; font-weight: 800; outline: none; color: var(--ink); flex-shrink: 0; }
 
-  .btn-mini { background: #E5E8EB; border: none; padding: 4px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #334155; cursor: pointer; white-space: nowrap; }
+  .btn-mini { background: #E5E8EB; border: none; padding: 4px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #334155; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
   .btn-mini.del { color: var(--danger); background: #FFF0F0; border: 1px solid #FCA5A5; }
   .btn-mini.memo-btn { background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; }
   .btn-mini.memo-btn.has-memo { background: #F59E0B; color: #FFFFFF; font-weight: 800; }
@@ -217,7 +217,8 @@
   @media (max-width: 440px) { .fab { right: 14px; } }
 
   .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; max-width: 440px; margin: 0 auto; background: #fff; border-top: 1.5px solid var(--line); z-index: 80; }
-  .sticky-summary { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; background: #111827; color: #fff; font-size: 12px; font-weight: 800; }
+  .sticky-summary { display: flex; justify-content: space-between; align-items: center; padding: 7px 14px; background: #111827; color: #fff; font-size: 12px; font-weight: 800; line-height: 1; }
+  .sticky-summary span, .sticky-summary div { display: inline-flex; align-items: center; }
   .tab-group { display: flex; }
   .tab-btn { flex: 1; padding: 10px 0; border: none; background: #fff; font-size: 13px; font-weight: 800; color: var(--ink-sub); cursor: pointer; }
   .tab-btn.active { color: var(--primary); border-top: 2.5px solid var(--primary); background: #F9FAFB; }
@@ -379,8 +380,15 @@
 
   <div class="bottom-bar">
     <div class="sticky-summary" id="dash-summary">
-      <span style="display:flex; align-items:center;">건수: &nbsp;<strong id="ft-count">0</strong></span>
-      <span>입금가: <strong id="ft-deposit" style="color:#A7F3D0;">0</strong>원 | 판: <strong id="ft-sale">0</strong>원</span>
+      <div style="gap:2px;">
+        <span>건수:</span>
+        <strong id="ft-count" style="margin-left:2px;">0</strong>
+      </div>
+      <div style="gap:4px;">
+        <span>입금가: <strong id="ft-deposit" style="color:#A7F3D0; margin-left:2px;">0</strong>원</span>
+        <span style="color:#6B7280; margin:0 2px;">|</span>
+        <span>판: <strong id="ft-sale" style="margin-left:2px;">0</strong>원</span>
+      </div>
     </div>
     <div class="tab-group">
       <button class="tab-btn active" id="tab-sales" onclick="switchTab('sales')">📋 판매대장</button>
@@ -662,7 +670,6 @@ function hideDropdown() {
   document.body.classList.remove('ac-open');
 }
 
-/* 불필요한 위치 계산을 모두 걷어낸 깔끔한 드롭다운 노출 함수 */
 function positionDropdown(inputEl) {
   const dropdown = document.getElementById('acDropdown');
   dropdown.style.display = 'flex';
@@ -1021,13 +1028,13 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
 
   if (p.mode === 'normal') {
     return `
-      <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="background:#fff; border:none; border-bottom:1px dashed #E5E8EB; flex-direction:row; align-items:center;">
-        ${isMultiBuyer ? delBtn : ''}
-        ${isMultiBuyer ? `<span style="color:var(--ink-sub); font-weight:800; font-size:12px; margin:0 2px;">└</span>` : ''}
+      <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="background:#fff; border:none; border-bottom:1px dashed #E5E8EB; flex-direction:row; align-items:center; gap:3px;">
+        ${delBtn}
         <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
+        ${memoBtn}
         <input type="text" class="inp inp-color" value="${b.c1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
         <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
-        ${memoBtn} ${cancelBtn}
+        ${cancelBtn}
       </div>
     `;
   }
@@ -1035,17 +1042,16 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
   if (p.mode === 'set') {
     return `
       <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="border-left: 3px solid ${bBorder}; padding: 6px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; background:#FCE7F3; padding:4px 6px; border-radius:6px; margin-bottom:4px; border-left: 3px solid #DB2777;">
-          <div style="display:flex; gap:4px; align-items:center;">
-            <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
-            ${memoBtn} ${cancelBtn}
-          </div>
-          <select class="select-mode" style="color:var(--primary);" onchange="updateBuyerData('${p.id}', '${b.id}', 'opt', this.value)">
+        <div style="display:flex; align-items:center; gap:3px; background:#FCE7F3; padding:4px 4px; border-radius:6px; margin-bottom:4px; border-left: 3px solid #DB2777;">
+          ${delBtn}
+          <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
+          ${memoBtn}
+          <select class="select-mode" style="color:var(--primary); padding:4px 1px;" onchange="updateBuyerData('${p.id}', '${b.id}', 'opt', this.value)">
             <option value="full" ${b.opt==='full'?'selected':''}>전체세트</option>
             <option value="top" ${b.opt==='top'?'selected':''}>상의만</option>
             <option value="bottom" ${b.opt==='bottom'?'selected':''}>하의만</option>
           </select>
-          ${delBtn}
+          ${cancelBtn}
         </div>
         <div class="item-line ${b.opt==='bottom'?'disabled-line':''}">
           <span class="item-label" style="background:#BE185D; color:#FFFFFF; font-weight:900;">상</span>
@@ -1065,16 +1071,15 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
   if (p.mode === 'cross') {
     return `
       <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="border-left: 3px solid ${bBorder}; padding: 6px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; background:#DBEAFE; padding:4px 6px; border-radius:6px; margin-bottom:4px; border-left: 3px solid #2563EB;">
-          <div style="display:flex; gap:4px; align-items:center;">
-            <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
-            ${memoBtn} ${cancelBtn}
-          </div>
-          <select class="select-mode" style="color:var(--primary);" onchange="updateBuyerData('${p.id}', '${b.id}', 'opt', this.value)">
+        <div style="display:flex; align-items:center; gap:3px; background:#DBEAFE; padding:4px 4px; border-radius:6px; margin-bottom:4px; border-left: 3px solid #2563EB;">
+          ${delBtn}
+          <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
+          ${memoBtn}
+          <select class="select-mode" style="color:var(--primary); padding:4px 1px;" onchange="updateBuyerData('${p.id}', '${b.id}', 'opt', this.value)">
             <option value="full" ${b.opt==='full'?'selected':''}>1+1세트</option>
             <option value="single" ${b.opt==='single'?'selected':''}>1개만(50%)</option>
           </select>
-          ${delBtn}
+          ${cancelBtn}
         </div>
         <div class="item-line">
           <span class="item-label" style="background:#1E40AF; color:#FFFFFF; font-weight:900;">1</span>
