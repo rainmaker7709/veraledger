@@ -80,7 +80,7 @@
   .row-card.mode-set .card-band { border-left: 4px solid #DB2777; background: #FCE7F3; display: flex; flex-direction: column; }
   .row-card.mode-set .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #F472B6; }
   .row-card.mode-set .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FFE4E6; border-bottom: 1px solid #F472B6; }
-  .row-card.mode-set .row-num { color: #BE185D; }
+  .row-card.mode-set .row-num { color: BE185D; }
 
   .row-card.mode-cross { border-color: #93C5FD; }
   .row-card.mode-cross .card-band { border-left: 4px solid #2563EB; background: #DBEAFE; display: flex; flex-direction: column; }
@@ -379,7 +379,6 @@
         <button class="btn-mini del" onclick="closeMemoModal()">✕</button>
       </div>
       
-      <!-- 체크박스 영역 변경 (킵 추가) -->
       <div style="display:flex; gap:12px; margin-bottom:4px; padding:8px; background:#F1F5F9; border-radius:6px; flex-wrap: wrap;">
         <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbYt"> [유튜브]</label>
         <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbTt"> [틱톡]</label>
@@ -387,9 +386,7 @@
         <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbKp"> [킵]</label>
       </div>
 
-      <!-- 적립금/무배 알림 영역 -->
       <div id="rewardAlert" style="display:none; color:#059669; font-size:12px; font-weight:900; background:#ECFDF5; padding:6px; border-radius:4px; border:1px solid #34D399; margin-bottom:4px; text-align:center;">
-        <!-- 여기에 알림 텍스트 삽입 -->
       </div>
 
       <textarea id="memoInput" class="modal-textarea" placeholder="메모할 내용을 입력하세요..."></textarea>
@@ -436,7 +433,6 @@
 </div>
 
 <script>
-// 백엔드 연동용 URL
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLhT6zwSjVKGna_MugQwaeEC6gQjO8TBV10_xyrg-9Q64OYW1FDQsfO_yjRxVmBuzw/exec';
 
 let currentZoom = 100;
@@ -518,7 +514,10 @@ let matrixRedoStack = [];
 
 let pendingVisibilitySelector = null;
 
-// [1번 요청 반영] 가드(Guard)를 씌워 실제 가려질 때만 빠르고 부드럽게 스크롤을 움직임
+// ===== [개선] 포커스 시작 전 스크롤 위치 기억 및 복원 변수 =====
+let preFocusScrollY = null;
+let isCardFocusActive = false;
+
 function adjustScrollPosition(targetEl) {
   if (!targetEl) return;
   const card = targetEl.closest('.row-card');
@@ -531,10 +530,8 @@ function adjustScrollPosition(targetEl) {
   const bandRect = cardBand.getBoundingClientRect();
   const itemRect = item.getBoundingClientRect();
 
-  // 실제 화면상 상단 틀고정 밴드 하단 Y좌표 + 여백 8px
   const requiredMinTop = bandRect.bottom + 8;
 
-  // 아이템이 헤더보다 위로 올라가서 "실제로 가려졌을 때"만 즉각 보정 (화면 여유가 있으면 무시)
   if (itemRect.top < requiredMinTop) {
     const overlap = requiredMinTop - itemRect.top;
     window.scrollBy({ top: -overlap, behavior: 'smooth' }); 
@@ -545,6 +542,13 @@ function handleInputFocus(el) {
   if (!el) return;
   const card = el.closest('.row-card');
   if (card) card.classList.add('is-focused');
+
+  // 첫 입력창 포커스 시점의 화면 스크롤 위치 저장 (포커스 종료 후 복원용)
+  if (!isCardFocusActive) {
+    preFocusScrollY = window.scrollY;
+    isCardFocusActive = true;
+  }
+
   if (el.dataset.focused === "true") return;
   el.dataset.focused = "true";
   setTimeout(() => { try { el.select(); } catch(e){} }, 50);
@@ -552,13 +556,21 @@ function handleInputFocus(el) {
   el.addEventListener('blur', () => { 
     el.dataset.focused = "false";
     setTimeout(() => {
-      if (card && !card.querySelector('input:focus') && !document.body.classList.contains('ac-open')) {
-        card.classList.remove('is-focused');
-        
-        // 키보드가 내려가고 틀고정이 복귀할 때 단 한번 빠릿하게 보정 확인
-        setTimeout(() => { adjustScrollPosition(el); }, 100);
+      // 해당 카드의 모든 입력창에서 포커스가 해제되고 가상키보드/자동완성 툴바가 완전히 내려갔을 때
+      const hasActiveInput = card ? card.querySelector('input:focus') : null;
+      if (!hasActiveInput && !document.body.classList.contains('ac-open')) {
+        if (card) card.classList.remove('is-focused');
+        isCardFocusActive = false;
+
+        // [핵심] 포커스 전 위치로 스크롤을 복원하여 가려진 항목들이 원상복구되도록 처리
+        if (preFocusScrollY !== null) {
+          window.scrollTo({ top: preFocusScrollY, behavior: 'smooth' });
+          preFocusScrollY = null;
+        } else {
+          adjustScrollPosition(el);
+        }
       }
-    }, 100);
+    }, 150);
   }, { once: true });
 }
 
@@ -663,7 +675,7 @@ function createEmptyBuyer() {
   return { 
     id: uid(), nickname: '', memo: '', isCanceled: false,
     opt: 'full', c1: '', s1: '', c2: '', s2: '', m1: '', m2: '',
-    chkYt: false, chkTt: false, chkFs: false, chkKp: false // [2번 요청 반영] 킵 추가
+    chkYt: false, chkTt: false, chkFs: false, chkKp: false 
   };
 }
 
@@ -678,13 +690,12 @@ async function fetchAutocompleteData() {
   } catch(e) { console.log('Autocomplete sync failed'); }
 }
 
-// [1번 요청 반영] 강제로 정중앙으로 스크롤하던 코드(scrollIntoView)를 제거하고 빠른 가드 함수로 대체
 function autoCenterInput(inputEl) {
   if (!inputEl || inputEl.dataset.centered === "true") return;
   inputEl.dataset.centered = "true";
   setTimeout(() => {
-    adjustScrollPosition(inputEl); // 느리고 강제적인 중앙정렬을 부드럽고 빠른 보정으로 대체
-  }, 80); // 딜레이를 300ms에서 80ms로 대폭 단축하여 빠릿하게 동작
+    adjustScrollPosition(inputEl);
+  }, 80); 
   inputEl.addEventListener('blur', () => { inputEl.dataset.centered = "false"; }, {once: true});
 }
 
@@ -1086,7 +1097,6 @@ function renderSales() {
   updateSummaryLogic();
   saveLocalData();
 
-  // [1번 요청 반영] 지연 시간 대폭 단축하여 빠르고 부드러운 위치 보정
   if (pendingVisibilitySelector) {
     const selector = pendingVisibilitySelector;
     pendingVisibilitySelector = null;
@@ -1103,7 +1113,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
   const bBorder = p.mode === 'set' ? '#F472B6' : (p.mode === 'cross' ? '#60A5FA' : '#C084FC');
   const nickColor = p.mode === 'set' ? '#DB2777' : (p.mode === 'cross' ? '#2563EB' : '#7C3AED');
 
-  const hasMintCb = b.chkYt || b.chkTt || b.chkFs || b.chkKp; // [2번 요청 반영] 킵 조건 추가
+  const hasMintCb = b.chkYt || b.chkTt || b.chkFs || b.chkKp;
   const hasTextMemo = b.memo && b.memo.trim() !== '';
   let memoBtnClass = 'memo-btn';
   
@@ -1234,7 +1244,6 @@ function updateBuyerData(prodId, buyerId, field, val) {
   renderSales();
 }
 
-// [3번 요청 반영] 고객명 미입력 시 공란(없는 것)으로 간주
 function getStats() {
   let singleCnt = 0, setCnt = 0, crossCnt = 0;
   let physicalQty = 0, activeQty = 0;
@@ -1244,7 +1253,6 @@ function getStats() {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
       
-      // 고객명이 없으면 아예 카운트에서 제외함!
       const hasNick = (b.nickname || '').trim() !== '';
       if (!hasNick) return; 
 
@@ -1303,7 +1311,7 @@ function getFlattenedSales() {
       flat.push({
         prodId: p.id, buyerId: b.id, name: p.name, salePrice: sp, depositPrice: dp,
         nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled,
-        chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs, chkKp: b.chkKp // 킵 추가
+        chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs, chkKp: b.chkKp
       });
     });
   });
@@ -1354,7 +1362,7 @@ function openMemoModal(prodId, buyerId) {
     document.getElementById('memoCbYt').checked = !!buyer.chkYt;
     document.getElementById('memoCbTt').checked = !!buyer.chkTt;
     document.getElementById('memoCbFs').checked = !!buyer.chkFs;
-    document.getElementById('memoCbKp').checked = !!buyer.chkKp; // [2번 요청] 킵 로드
+    document.getElementById('memoCbKp').checked = !!buyer.chkKp;
 
     const alertEl = document.getElementById('rewardAlert');
     let normName = buyer.nickname ? buyer.nickname.replace(/\s+/g, '').toLowerCase() : '';
@@ -1387,7 +1395,7 @@ function saveMemoModal() {
       buyer.chkYt = document.getElementById('memoCbYt').checked;
       buyer.chkTt = document.getElementById('memoCbTt').checked;
       buyer.chkFs = document.getElementById('memoCbFs').checked;
-      buyer.chkKp = document.getElementById('memoCbKp').checked; // [2번 요청] 킵 저장
+      buyer.chkKp = document.getElementById('memoCbKp').checked;
       renderSales(); 
       toast('메모가 저장되었습니다.'); 
     } 
@@ -1696,7 +1704,6 @@ function renderSettlement() {
   document.getElementById('st-margin').textContent = `${fmt(margin)}원 (${marginPercent}%)`;
 
   const flat = getFlattenedSales();
-  // [3번 요청 반영] 고객명 공란인 줄은 정산표에서 제외
   const activeSales = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() !== '');
 
   const headEl = document.getElementById('st-table-head');
@@ -1776,7 +1783,6 @@ async function sendToSheet() {
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
-      // [3번 요청 반영] 구글 시트 전송 시에도 고객명이 공란이면 전송 안 함
       if (!(b.nickname || '').trim()) return;
 
       if (p.mode === 'normal') {
@@ -1828,7 +1834,6 @@ function shareKakaoText() {
 
 function exportJsonForPC() {
   const flat = getFlattenedSales();
-  // [3번 요청 반영] JSON 내보내기 시에도 고객명이 공란인 항목은 완전 배제
   const activeSales = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() !== '');
   if (activeSales.length === 0) { toast('⚠️ 공유할 데이터 없음'); return; }
 
@@ -1838,7 +1843,7 @@ function exportJsonForPC() {
     color: s.color || '', size: s.size || '', nickname: s.nickname || '',
     salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', memo: s.memo || '',
     autoReward: 0, 
-    tags: { yt: !!s.chkYt, tt: !!s.chkTt, fs: !!s.chkFs, kp: !!s.chkKp }, // 킵 속성 추가
+    tags: { yt: !!s.chkYt, tt: !!s.chkTt, fs: !!s.chkFs, kp: !!s.chkKp },
     createdAt: Date.now(), highlighted: false, sent: false
   }));
 
@@ -1870,7 +1875,7 @@ function importJsonFile(e) {
         if (!groupMap.has(key)) groupMap.set(key, { id: uid(), mode: 'normal', name: s.name || '', salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', topSale:'', topDep:'', botSale:'', botDep:'', matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], isMatrixCustomized: false, isFolded: false, buyers: [] });
         
         let yt = false, tt = false, fs = false, kp = false;
-        if(s.tags) { yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; kp = !!s.tags.kp; } // 킵 로드
+        if(s.tags) { yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; kp = !!s.tags.kp; }
 
         groupMap.get(key).buyers.push({ id: s.id || uid(), nickname: s.nickname || '', c1: s.color || '', s1: s.size || '', c2:'', s2:'', m1:'', m2:'', memo: s.memo || '', isCanceled: false, opt:'full', chkYt: yt, chkTt: tt, chkFs: fs, chkKp: kp });
       });
@@ -1886,13 +1891,12 @@ function importJsonFile(e) {
 function exportExcel() {
   let records = [];
 
-  // [2번 요청 반영] 체크박스 항목을 엑셀 메모란에 합쳐주는 헬퍼 함수
   function getExcelMemo(b) {
     let tags = [];
     if (b.chkYt) tags.push('[유튜브]');
     if (b.chkTt) tags.push('[틱톡]');
     if (b.chkFs) tags.push('[무배]');
-    if (b.chkKp) tags.push('[킵]'); // 킵 추가
+    if (b.chkKp) tags.push('[킵]');
     
     let result = tags.length > 0 ? tags.join(' ') + ' ' + (b.memo || '') : (b.memo || '');
     return result.trim();
@@ -1901,7 +1905,6 @@ function exportExcel() {
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
-      // [3번 요청 반영] 엑셀에서도 고객명이 없으면 공란으로 간주하여 포함시키지 않음
       if (!(b.nickname || '').trim()) return;
 
       let mergedMemo = getExcelMemo(b);
@@ -1969,7 +1972,7 @@ function loadLocalData() {
             opt: b.opt || 'full', 
             c1: b.c1 || b.color || '', s1: b.s1 || b.size || '', 
             c2: b.c2 || '', s2: b.s2 || '', m1: b.m1 || '', m2: b.m2 || '',
-            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs, chkKp: !!b.chkKp // 킵 데이터 불러오기
+            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs, chkKp: !!b.chkKp
           }));
           return {
             id: s.id || uid(), mode: s.mode || 'normal', name: s.name || '',
