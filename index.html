@@ -56,7 +56,7 @@
   .row-card {
     background: var(--card); border-radius: var(--radius); margin-bottom: 8px;
     border: 1.5px solid var(--line); box-shadow: 0 2px 4px rgba(0,0,0,0.06); overflow: visible; display: block; position: relative; transition: all 0.15s;
-    scroll-margin-top: 130px; /* 포커스 이동시 틀고정 아래로 숨지 않도록 방지 */
+    scroll-margin-top: 130px; 
   }
   
   .row-card .card-band {
@@ -517,7 +517,9 @@ let matrixState = { colors: [], sizes: [], orders: {} };
 let matrixHistoryStack = [];
 let matrixRedoStack = [];
 
-// [핵심 변경 1] 포커스 유지 및 해제 로직 보완 (틀고정 버그)
+// [핵심 변경 1] 틀고정 이슈 해결용 스크롤 상태 추적 변수
+let pendingVisibilitySelector = null;
+
 function handleInputFocus(el) {
   if (!el) return;
   const card = el.closest('.row-card');
@@ -528,11 +530,20 @@ function handleInputFocus(el) {
   
   el.addEventListener('blur', () => { 
     el.dataset.focused = "false";
-    // 0.3초 대기 후 포커스가 여전히 해당 카드 내에 없으면 is-focused 클래스를 제거
-    // 모바일 키보드가 내려갈 시간을 벌어주어 레이아웃이 튀지 않게 합니다.
     setTimeout(() => {
       if (card && !card.querySelector('input:focus') && !document.body.classList.contains('ac-open')) {
         card.classList.remove('is-focused');
+        
+        // 💡 [이슈 1번 해결] 틀고정이 다시 활성화된 직후, 가려지는지 확인하여 위로 스크롤
+        setTimeout(() => {
+          if (el.isConnected) {
+            const rect = el.getBoundingClientRect();
+            // 틀고정 높이(헤더+컨트롤바+카드밴드) 대략 160~180px 미만으로 올라가면 덮어쓰기 발생
+            if (rect.top > 0 && rect.top < 180) {
+              window.scrollBy({ top: rect.top - 190, behavior: 'smooth' });
+            }
+          }
+        }, 50);
       }
     }, 300);
   }, { once: true });
@@ -635,7 +646,6 @@ function createEmptyProduct() {
   };
 }
 
-// [핵심 변경 2] 체크박스 상태를 위해 chkYt, chkTt, chkFs 필드 추가
 function createEmptyBuyer() {
   return { 
     id: uid(), nickname: '', memo: '', isCanceled: false,
@@ -644,14 +654,13 @@ function createEmptyBuyer() {
   };
 }
 
-// [핵심 변경 3] 백엔드에서 받아온 rewardInfo를 할당
 async function fetchAutocompleteData() {
   try {
     const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ fn: 'getAutocompleteData', args: [] }) }).then(r => r.json());
     if (res && res.success) { 
       autoNicknames = res.nicknames || []; 
       autoBrands = res.brands || []; 
-      autoRewardInfo = res.rewardInfo || {}; // 새로 추가된 객체
+      autoRewardInfo = res.rewardInfo || {}; 
     }
   } catch(e) { console.log('Autocomplete sync failed'); }
 }
@@ -683,9 +692,17 @@ function positionDropdown(inputEl) {
   dropdown.scrollLeft = 0;
 }
 
-// ============== 적립금 및 무배 자동확인 로직 (신규) ==============
+// 💡 [이슈 2번 해결] 적립금 및 무배 자동확인 & 초기화 로직 수정
 function applyAutoRewardToBuyer(buyer) {
+  // 1. 기존에 시스템이 자동으로 입력했던 적립금과 무배 텍스트를 메모에서 깨끗하게 제거합니다.
+  if (buyer.memo) {
+    buyer.memo = buyer.memo.replace(/\(적립금\s*[0-9,]+원\)/g, '').replace(/\(무배\)/g, '').replace(/\s{2,}/g, ' ').trim();
+  }
+  // 2. 무배 체크박스 불빛도 기본적으로 꺼버립니다.
+  buyer.chkFs = false;
+
   if (!buyer.nickname) return;
+  
   // 백엔드와 동일하게 공백을 제거하고 소문자로 변환하여 매칭합니다.
   let normName = buyer.nickname.replace(/\s+/g, '').toLowerCase();
   let match = buyer.nickname.match(/\(([^)]+)\)/); // 괄호 닉네임 우선 추출
@@ -697,7 +714,7 @@ function applyAutoRewardToBuyer(buyer) {
     if (info.reward > 0) additions.push(`(적립금 ${fmt(info.reward)}원)`);
     if (info.freeShip) {
       additions.push(`(무배)`);
-      buyer.chkFs = true; // 무배 조건 발견 시 체크박스 자동 체크! (칩스 민트색 발동)
+      buyer.chkFs = true; // 새로 바뀐 대상에게 무배가 있다면 칩스 민트색 다시 발동
     }
     
     if (additions.length > 0) {
@@ -705,7 +722,7 @@ function applyAutoRewardToBuyer(buyer) {
       if (!buyer.memo) buyer.memo = '';
       if (!buyer.memo.includes(autoText)) { // 중복입력 방지
         buyer.memo = (buyer.memo + ' ' + autoText).trim();
-        toast('💰 적립금/무배 자동입력 됨');
+        toast('💰 적립금/무배 자동적용');
       }
     }
   }
@@ -744,6 +761,7 @@ function selectProdName(prodId, val) {
   const prod = sales.find(p => p.id === prodId);
   if (prod) { prod.name = val; }
   hideDropdown();
+  pendingVisibilitySelector = '#card-' + prodId; // 💡 렌더링 후 스크롤 재조정
   renderSales();
 }
 
@@ -781,7 +799,9 @@ function selectModelName(prodId, buyerId, fieldName, val) {
     const buyer = prod.buyers.find(b => b.id === buyerId);
     if (buyer) buyer[fieldName] = val;
   }
-  hideDropdown(); renderSales();
+  hideDropdown(); 
+  pendingVisibilitySelector = '[data-buyer-id="' + buyerId + '"]'; // 💡 렌더링 후 스크롤 재조정
+  renderSales();
 }
 
 function handleNickInput(inputEl, prodId, buyerId) {
@@ -812,11 +832,13 @@ function selectNick(prodId, buyerId, val) {
     if (buyer) { 
       const match = val.match(/\(([^)]+)\)/); 
       buyer.nickname = match ? match[1] : val; 
-      // 💡 자동입력 로직 호출
+      // 💡 닉네임 입력되었으므로 혜택 확인
       applyAutoRewardToBuyer(buyer);
     }
   }
-  hideDropdown(); renderSales();
+  hideDropdown(); 
+  pendingVisibilitySelector = '[data-buyer-id="' + buyerId + '"]'; // 💡 렌더링 후 스크롤 재조정
+  renderSales();
 }
 
 function handleColorFocus(inputEl, prodId, buyerId, targetFieldOrMatrixIdx = 'c1') {
@@ -865,6 +887,7 @@ function selectColor(prodId, buyerId, val, targetFieldOrMatrixIdx) {
       const buyer = prod.buyers.find(b => b.id === buyerId);
       if (buyer) buyer[targetFieldOrMatrixIdx] = val;
     }
+    pendingVisibilitySelector = '[data-buyer-id="' + buyerId + '"]'; // 💡 렌더링 후 스크롤 재조정
     renderSales();
   }
   hideDropdown();
@@ -931,6 +954,7 @@ function selectSize(prodId, buyerId, val, targetFieldOrMatrixIdx) {
       const buyer = prod.buyers.find(b => b.id === buyerId);
       if (buyer) buyer[targetFieldOrMatrixIdx] = val;
     }
+    pendingVisibilitySelector = '[data-buyer-id="' + buyerId + '"]'; // 💡 렌더링 후 스크롤 재조정
     renderSales();
   }
   hideDropdown();
@@ -1016,7 +1040,7 @@ function renderSales() {
     }
 
     displayHTML += `
-    <div class="row-card mode-${p.mode}">
+    <div class="row-card mode-${p.mode}" id="card-${p.id}">
       <div class="card-band">
         <div class="card-band-top">
           <button class="btn-mini del" onclick="deleteProduct('${p.id}')">✕</button>
@@ -1054,6 +1078,23 @@ function renderSales() {
   listEl.innerHTML = displayHTML || '<div style="text-align:center; padding:30px; color:#64748B; font-weight:700;">내역이 없습니다. 하단 + 버튼을 눌러 추가하세요.</div>';
   updateSummaryLogic();
   saveLocalData();
+
+  // 💡 [이슈 1번 해결] 키보드가 들어가고 틀고정이 원상복구된 후 해당 요소가 가려져 있다면 위로 빼주는 로직
+  if (pendingVisibilitySelector) {
+    const selector = pendingVisibilitySelector;
+    pendingVisibilitySelector = null;
+    setTimeout(() => {
+      const el = document.querySelector(selector);
+      // 여전히 포커스된 인풋이 없고 팝업이 닫힌 상태라면 실행
+      if (el && !document.querySelector('input:focus') && !document.body.classList.contains('ac-open')) {
+        const rect = el.getBoundingClientRect();
+        // 헤더+컨트롤바+틀고정까지 약 160~180px 미만으로 올라가면 덮임
+        if (rect.top > 0 && rect.top < 180) {
+          window.scrollBy({ top: rect.top - 190, behavior: 'smooth' });
+        }
+      }
+    }, 350); // 키보드가 완전히 내려가고 DOM이 안정화되는 시간 확보
+  }
 }
 
 function renderBuyerItemHTML(p, b, isMultiBuyer) {
@@ -1062,15 +1103,14 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
   const bBorder = p.mode === 'set' ? '#F472B6' : (p.mode === 'cross' ? '#60A5FA' : '#C084FC');
   const nickColor = p.mode === 'set' ? '#DB2777' : (p.mode === 'cross' ? '#2563EB' : '#7C3AED');
 
-  // [핵심 변경] 메모 버튼 색상 판별 (체크박스 확인)
   const hasMintCb = b.chkYt || b.chkTt || b.chkFs;
   const hasTextMemo = b.memo && b.memo.trim() !== '';
   let memoBtnClass = 'memo-btn';
   
   if (hasMintCb) {
-    memoBtnClass += ' has-memo-mint'; // 민트색 적용 클래스
+    memoBtnClass += ' has-memo-mint';
   } else if (hasTextMemo) {
-    memoBtnClass += ' has-memo'; // 기존 붉은색
+    memoBtnClass += ' has-memo';
   }
   const memoIcon = (hasMintCb || hasTextMemo) ? (hasMintCb ? '📝🟢' : '📝🔴') : '📝';
 
@@ -1172,6 +1212,9 @@ function updateProductData(prodId, field, val) {
   } else {
     prod[field] = val.trim();
   }
+  
+  // 💡 포커스 해제 후 가림 방지
+  pendingVisibilitySelector = '#card-' + prodId;
   renderSales();
 }
 
@@ -1183,12 +1226,14 @@ function updateBuyerData(prodId, buyerId, field, val) {
   if (buyer) { 
     if (field === 'nickname') {
       buyer.nickname = val.trim();
-      // 💡 수동 입력 후 포커스 아웃될 때(혹은 타이핑 시) 자동 확인
+      // 💡 수동 입력 후 닉네임이 바뀌면 무조건 혜택 초기화 & 적용
       applyAutoRewardToBuyer(buyer);
     } else {
       buyer[field] = val.trim(); 
     }
   }
+  // 💡 포커스 해제 후 가림 방지
+  pendingVisibilitySelector = '[data-buyer-id="' + buyerId + '"]';
   renderSales();
 }
 
@@ -1262,7 +1307,7 @@ function getFlattenedSales() {
       flat.push({
         prodId: p.id, buyerId: b.id, name: p.name, salePrice: sp, depositPrice: dp,
         nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled,
-        chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs // JSON 출력용 추가
+        chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs 
       });
     });
   });
@@ -1303,7 +1348,6 @@ function toggleCancel(prodId, buyerId) { saveState(); const prod = sales.find(p 
 function deleteProduct(prodId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const filledNicknames = prod.buyers.map(b => (b.nickname || '').trim()).filter(n => n !== ''); if (filledNicknames.length > 0) { if (!confirm(`⚠️ 고객명(${filledNicknames.join(', ')})이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?`)) return; } saveState(); const idx = sales.findIndex(p => p.id === prodId); if (idx !== -1) { sales.splice(idx, 1); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('상품 삭제 완료'); } }
 function deleteBuyer(prodId, buyerId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const buyer = prod.buyers.find(b => b.id === buyerId); if (!buyer) return; const nick = (buyer.nickname || '').trim(); if (nick !== '') { if (!confirm(`⚠️ 고객명('${nick}')이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?`)) return; } saveState(); const bIdx = prod.buyers.findIndex(b => b.id === buyerId); if (bIdx !== -1) { prod.buyers.splice(bIdx, 1); if (prod.buyers.length === 0) sales = sales.filter(p => p.id !== prodId); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('고객 삭제 완료'); } }
 
-// [핵심 변경] 메모 모달창 관련 연동
 function openMemoModal(prodId, buyerId) { 
   currentMemoTarget = { prodId, buyerId }; 
   const prod = sales.find(p => p.id === prodId); 
@@ -1315,7 +1359,6 @@ function openMemoModal(prodId, buyerId) {
     document.getElementById('memoCbTt').checked = !!buyer.chkTt;
     document.getElementById('memoCbFs').checked = !!buyer.chkFs;
 
-    // 녹색 알림 메시지 세팅
     const alertEl = document.getElementById('rewardAlert');
     let normName = buyer.nickname ? buyer.nickname.replace(/\s+/g, '').toLowerCase() : '';
     let match = buyer.nickname ? buyer.nickname.match(/\(([^)]+)\)/) : null;
@@ -1604,13 +1647,13 @@ function registerMatrixToSales() {
            let existing = prod.buyers.find(b => b.id === order.id);
            if (existing) {
              existing.nickname = val; existing.c1 = col; existing.s1 = sz;
-             applyAutoRewardToBuyer(existing); // 매트릭스 등록 시에도 자동입력 발동
+             applyAutoRewardToBuyer(existing);
              finalBuyers.push(existing); count++;
            }
         } else {
            let b = createEmptyBuyer();
            b.nickname = val; b.c1 = col; b.s1 = sz;
-           applyAutoRewardToBuyer(b); // 매트릭스 등록 시에도 자동입력 발동
+           applyAutoRewardToBuyer(b);
            finalBuyers.push(b); count++;
         }
       });
@@ -1794,7 +1837,6 @@ function exportJsonForPC() {
     color: s.color || '', size: s.size || '', nickname: s.nickname || '',
     salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', memo: s.memo || '',
     autoReward: 0, 
-    // [핵심 변경] PC 연동을 위해 생성된 체크박스 데이터 전달
     tags: { yt: !!s.chkYt, tt: !!s.chkTt, fs: !!s.chkFs }, 
     createdAt: Date.now(), highlighted: false, sent: false
   }));
@@ -1826,7 +1868,6 @@ function importJsonFile(e) {
         const key = `${s.name || ''}_${s.salePrice || ''}_${s.depositPrice || ''}`;
         if (!groupMap.has(key)) groupMap.set(key, { id: uid(), mode: 'normal', name: s.name || '', salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', topSale:'', topDep:'', botSale:'', botDep:'', matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], isMatrixCustomized: false, isFolded: false, buyers: [] });
         
-        // 가져올 때 태그도 복원
         let yt = false, tt = false, fs = false;
         if(s.tags) { yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; }
 
@@ -1843,7 +1884,6 @@ function importJsonFile(e) {
 
 function exportExcel() {
   let records = [];
-  // (엑셀 로직 기존 동일 생략 없이 그대로 유지)
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
@@ -1900,7 +1940,6 @@ function saveLocalData() {
   localStorage.setItem('m_live_pre_tags', JSON.stringify(preTags));
 }
 
-// [핵심 변경] 과거 버전 로컬스토리지 복원 시 누락된 체크박스 속성 안전 확보
 function loadLocalData() {
   const data = localStorage.getItem('m_live_ledger_v5.1');
   if (data) {
@@ -1913,7 +1952,7 @@ function loadLocalData() {
             opt: b.opt || 'full', 
             c1: b.c1 || b.color || '', s1: b.s1 || b.size || '', 
             c2: b.c2 || '', s2: b.s2 || '', m1: b.m1 || '', m2: b.m2 || '',
-            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs // 신규 속성 방어 로직
+            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs 
           }));
           return {
             id: s.id || uid(), mode: s.mode || 'normal', name: s.name || '',
