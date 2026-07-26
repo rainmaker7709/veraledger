@@ -304,9 +304,9 @@
         <button class="settle-grp-btn" id="btn-grp-product" onclick="setSettleGroup('product')">상품별 기준</button>
       </div>
 
-      <div class="metric-row">
+      <div class="metric-row" style="align-items: flex-start;">
         <span class="metric-label">총 판매 건수</span>
-        <span class="metric-val" id="st-total-qty" style="font-size:13.5px;">0건</span>
+        <span class="metric-val" id="st-total-qty" style="font-size:13.5px; text-align: right; line-height: 1.3;">0건</span>
       </div>
       <div class="metric-row">
         <span class="metric-label">총 입금가 합계</span>
@@ -1696,7 +1696,7 @@ function renderSettlement() {
   const margin = stats.totalSale - stats.totalDeposit;
   const marginPercent = stats.totalSale > 0 ? ((margin / stats.totalSale) * 100).toFixed(1) : '0';
 
-  document.getElementById('st-total-qty').innerHTML = `${stats.activeQty}건 <span style="font-size:12px; color:#64748B;">(단품 ${stats.singleCnt} / 세트 ${stats.setCnt} / 1+1 ${stats.crossCnt} / 📦 실물 ${stats.physicalQty}개)</span>`;
+  document.getElementById('st-total-qty').innerHTML = `${stats.activeQty}건 / 실물 ${stats.physicalQty}개<br><span style="font-size:11.5px; color:#64748B; font-weight:700;">(단품 ${stats.singleCnt} / 세트 ${stats.setCnt} / 1+1 ${stats.crossCnt})</span>`;
   document.getElementById('st-total-deposit').textContent = fmt(stats.totalDeposit) + '원';
   document.getElementById('st-total-sale').textContent = fmt(stats.totalSale) + '원';
   document.getElementById('st-margin').textContent = `${fmt(margin)}원 (${marginPercent}%)`;
