@@ -253,12 +253,6 @@
   .zoom-controls button { background: #fff; border: 1.5px solid #CBD5E1; border-radius: 4px; width: 22px; height: 22px; font-weight: bold; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--ink); padding: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
   .zoom-controls button:active { background: #E2E8F0; }
   .zoom-controls span { font-size: 11px; font-weight: 800; min-width: 36px; text-align: center; color: var(--ink); cursor: pointer; user-select: none; }
-  
-  /* ===== 자동완성 및 입력 필드 포커스 시 카드 헤더 틀고정 해제 ===== */
-  body.ac-open .row-card .card-band,
-  .row-card.is-focused .card-band {
-    position: static !important;
-  }
 </style>
 </head>
 <body>
@@ -514,10 +508,6 @@ let matrixRedoStack = [];
 
 let pendingVisibilitySelector = null;
 
-// ===== [개선] 포커스 시작 전 스크롤 위치 기억 및 복원 변수 =====
-let preFocusScrollY = null;
-let isCardFocusActive = false;
-
 function adjustScrollPosition(targetEl) {
   if (!targetEl) return;
   const card = targetEl.closest('.row-card');
@@ -538,19 +528,11 @@ function adjustScrollPosition(targetEl) {
   }
 }
 
+// ===== [개선] 스크롤 터치 먹통 현상 완전 해결 =====
 function handleInputFocus(el) {
-
   if (!el) return;
-
   const card = el.closest('.row-card');
-
   if (card) card.classList.add('is-focused');
-
-  // 첫 입력창 포커스 시점의 화면 스크롤 위치 저장 (포커스 종료 후 복원용)
-  if (!isCardFocusActive) {
-    preFocusScrollY = window.scrollY;
-    isCardFocusActive = true;
-  }
 
   if (el.dataset.focused === "true") return;
   el.dataset.focused = "true";
@@ -558,21 +540,12 @@ function handleInputFocus(el) {
   
   el.addEventListener('blur', () => { 
     el.dataset.focused = "false";
-
-    // handleInputFocus 내부 blur 이벤트 수정 예시
-setTimeout(() => {
-  const hasActiveInput = card ? card.querySelector('input:focus') : null;
-  if (!hasActiveInput && !document.body.classList.contains('ac-open')) {
-    if (card) card.classList.remove('is-focused');
-    isCardFocusActive = false;
-
-    if (preFocusScrollY !== null) {
-      // smooth -> auto로 변경하여 애니메이션으로 인한 터치 씹힘 방지
-      window.scrollTo({ top: preFocusScrollY, behavior: 'auto' });
-      preFocusScrollY = null;
-    }
-  }
-}, 50); // 150ms -> 50ms 단축
+    setTimeout(() => {
+      const hasActiveInput = card ? card.querySelector('input:focus') : null;
+      if (!hasActiveInput && !document.body.classList.contains('ac-open')) {
+        if (card) card.classList.remove('is-focused');
+      }
+    }, 100);
   }, { once: true });
 }
 
