@@ -271,6 +271,17 @@
   .matrix-nick-chip.empty input { color: #64748B !important; }
   .matrix-nick-chip button { background: none; border: none; color: var(--danger); font-size: 11px; font-weight: bold; cursor: pointer; padding: 0 1px; }
   .btn-add-matrix-buyer { background: var(--primary-bg); color: var(--primary); border: 1px dashed var(--primary); padding: 3px 0; border-radius: 4px; font-size: 11px; font-weight: 800; cursor: pointer; margin-bottom: 3px; }
+
+  /* ===== 줌 컨트롤 UI ===== */
+  .zoom-controls { display: flex; align-items: center; gap: 4px; background: #F1F5F9; border-radius: 6px; padding: 2px 4px; border: 1.5px solid var(--line); margin-left: 4px; }
+  .zoom-controls button { background: #fff; border: 1.5px solid #CBD5E1; border-radius: 4px; width: 22px; height: 22px; font-weight: bold; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--ink); padding: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+  .zoom-controls button:active { background: #E2E8F0; }
+  .zoom-controls span { font-size: 11px; font-weight: 800; min-width: 36px; text-align: center; color: var(--ink); cursor: pointer; user-select: none; }
+  
+  /* ===== 자동완성 활성화 시 카드 헤더 틀고정 해제 ===== */
+  body.ac-open .row-card .card-band {
+    position: static !important;
+  }
 </style>
 </head>
 <body>
@@ -279,7 +290,14 @@
   <div id="mainToast" class="header-toast-badge"></div>
 
   <header>
-    <h1><span>📱 방송 현장 장부</span></h1>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <h1><span>📱 방송 현장 장부</span></h1>
+      <div class="zoom-controls">
+        <button onclick="changeZoom(-5)">-</button>
+        <span id="zoomLabel" onclick="applyZoom(100)">100%</span>
+        <button onclick="changeZoom(5)">+</button>
+      </div>
+    </div>
     <button class="btn-gas" onclick="sendToSheet()">☁️ 구글시트 전송</button>
   </header>
 
@@ -419,6 +437,19 @@
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLhT6zwSjVKGna_MugQwaeEC6gQjO8TBV10_xyrg-9Q64OYW1FDQsfO_yjRxVmBuzw/exec';
+
+
+let currentZoom = 100;
+function applyZoom(zoom) {
+  currentZoom = Math.max(50, Math.min(200, zoom));
+  document.body.style.zoom = `${currentZoom}%`;
+  const label = document.getElementById('zoomLabel');
+  if (label) label.textContent = `${currentZoom}%`;
+  localStorage.setItem('m_live_zoom', currentZoom);
+}
+function changeZoom(delta) {
+  applyZoom(currentZoom + delta);
+}
 
 const PRESET_COLORS = ['블랙', '화이트', '크림', '그레이', '베이지', '네이비', '차콜', '핑크', '카키', '그린', '오렌지', '민트', '브라운', '쵸코', '소라', '아이보리', '옐로우', '보라', '블루', '버건디', '레드', '실버', '골드', '체크', '스트라이프', '레몬'];
 const PRESET_SIZES_CLOTHES = ['S', 'M', 'L', 'XL', '2XL', '44', '55', '66', '77'];
@@ -1937,6 +1968,9 @@ acDropdownEl.addEventListener('touchend', (e) => {
 window.onload = () => {
   loadLocalData();
   fetchAutocompleteData();
+  const savedZoom = localStorage.getItem('m_live_zoom');
+  if (savedZoom) applyZoom(Number(savedZoom));
+  else applyZoom(100);
 };
 </script>
 </body>
