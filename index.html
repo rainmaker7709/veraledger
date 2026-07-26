@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="index.json">
 
-<title>모바일 라이브 장부 V5.4 (기능 고도화)</title>
+<title>모바일 라이브 장부 V5.5 (UX 고도화)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root {
@@ -113,7 +113,6 @@
   .btn-mini { background: #E5E8EB; border: none; padding: 4px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #334155; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
   .btn-mini.del { color: var(--danger); background: #FFF0F0; border: 1px solid #FCA5A5; }
   
-  /* 메모 버튼 스타일링 */
   .btn-mini.memo-btn { background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; }
   .btn-mini.memo-btn.has-memo { background: #F59E0B; color: #FFFFFF; font-weight: 800; }
   .btn-mini.memo-btn.has-memo-mint { background: #14B8A6; color: #FFFFFF; font-weight: 800; border: 1px solid #0D9488; }
@@ -380,11 +379,12 @@
         <button class="btn-mini del" onclick="closeMemoModal()">✕</button>
       </div>
       
-      <!-- 체크박스 영역 추가 -->
-      <div style="display:flex; gap:12px; margin-bottom:4px; padding:8px; background:#F1F5F9; border-radius:6px;">
+      <!-- 체크박스 영역 변경 (킵 추가) -->
+      <div style="display:flex; gap:12px; margin-bottom:4px; padding:8px; background:#F1F5F9; border-radius:6px; flex-wrap: wrap;">
         <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbYt"> [유튜브]</label>
         <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbTt"> [틱톡]</label>
         <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbFs"> [무배]</label>
+        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbKp"> [킵]</label>
       </div>
 
       <!-- 적립금/무배 알림 영역 -->
@@ -518,7 +518,7 @@ let matrixRedoStack = [];
 
 let pendingVisibilitySelector = null;
 
-// 카드 종류별 틀고정 하단을 실시간으로 측정하여 가림 현상을 완벽히 보정하는 수식
+// [1번 요청 반영] 가드(Guard)를 씌워 실제 가려질 때만 빠르고 부드럽게 스크롤을 움직임
 function adjustScrollPosition(targetEl) {
   if (!targetEl) return;
   const card = targetEl.closest('.row-card');
@@ -531,16 +531,13 @@ function adjustScrollPosition(targetEl) {
   const bandRect = cardBand.getBoundingClientRect();
   const itemRect = item.getBoundingClientRect();
 
-  // 실제 화면상 상단 틀고정 밴드 하단 Y좌표 + 안전 여백 10px
-  const requiredMinTop = bandRect.bottom + 10;
+  // 실제 화면상 상단 틀고정 밴드 하단 Y좌표 + 여백 8px
+  const requiredMinTop = bandRect.bottom + 8;
 
-  // 입력한 항목이 틀고정 하단보다 위에 있어서 조금이라도 가려지고 있다면 스크롤 재조정
+  // 아이템이 헤더보다 위로 올라가서 "실제로 가려졌을 때"만 즉각 보정 (화면 여유가 있으면 무시)
   if (itemRect.top < requiredMinTop) {
     const overlap = requiredMinTop - itemRect.top;
-    window.scrollTo({
-      top: Math.max(0, window.pageYOffset - overlap),
-      behavior: 'smooth'
-    });
+    window.scrollBy({ top: -overlap, behavior: 'smooth' }); 
   }
 }
 
@@ -558,11 +555,10 @@ function handleInputFocus(el) {
       if (card && !card.querySelector('input:focus') && !document.body.classList.contains('ac-open')) {
         card.classList.remove('is-focused');
         
-        // 키보드가 내려가고 card-band가 sticky로 복귀한 후 정확한 수치로 2단계 재조정
+        // 키보드가 내려가고 틀고정이 복귀할 때 단 한번 빠릿하게 보정 확인
         setTimeout(() => { adjustScrollPosition(el); }, 100);
-        setTimeout(() => { adjustScrollPosition(el); }, 300);
       }
-    }, 150);
+    }, 100);
   }, { once: true });
 }
 
@@ -667,7 +663,7 @@ function createEmptyBuyer() {
   return { 
     id: uid(), nickname: '', memo: '', isCanceled: false,
     opt: 'full', c1: '', s1: '', c2: '', s2: '', m1: '', m2: '',
-    chkYt: false, chkTt: false, chkFs: false
+    chkYt: false, chkTt: false, chkFs: false, chkKp: false // [2번 요청 반영] 킵 추가
   };
 }
 
@@ -682,12 +678,13 @@ async function fetchAutocompleteData() {
   } catch(e) { console.log('Autocomplete sync failed'); }
 }
 
+// [1번 요청 반영] 강제로 정중앙으로 스크롤하던 코드(scrollIntoView)를 제거하고 빠른 가드 함수로 대체
 function autoCenterInput(inputEl) {
   if (!inputEl || inputEl.dataset.centered === "true") return;
   inputEl.dataset.centered = "true";
   setTimeout(() => {
-    try { inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e) {}
-  }, 300);
+    adjustScrollPosition(inputEl); // 느리고 강제적인 중앙정렬을 부드럽고 빠른 보정으로 대체
+  }, 80); // 딜레이를 300ms에서 80ms로 대폭 단축하여 빠릿하게 동작
   inputEl.addEventListener('blur', () => { inputEl.dataset.centered = "false"; }, {once: true});
 }
 
@@ -1089,18 +1086,14 @@ function renderSales() {
   updateSummaryLogic();
   saveLocalData();
 
-  // 자동완성 선택 또는 키보드 해제 후 틀고정 가림 현상 정밀 재조정 (2단계 타임아웃)
+  // [1번 요청 반영] 지연 시간 대폭 단축하여 빠르고 부드러운 위치 보정
   if (pendingVisibilitySelector) {
     const selector = pendingVisibilitySelector;
     pendingVisibilitySelector = null;
     setTimeout(() => {
       const el = document.querySelector(selector);
       if (el) adjustScrollPosition(el);
-    }, 100);
-    setTimeout(() => {
-      const el = document.querySelector(selector);
-      if (el) adjustScrollPosition(el);
-    }, 350);
+    }, 80); 
   }
 }
 
@@ -1110,7 +1103,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer) {
   const bBorder = p.mode === 'set' ? '#F472B6' : (p.mode === 'cross' ? '#60A5FA' : '#C084FC');
   const nickColor = p.mode === 'set' ? '#DB2777' : (p.mode === 'cross' ? '#2563EB' : '#7C3AED');
 
-  const hasMintCb = b.chkYt || b.chkTt || b.chkFs;
+  const hasMintCb = b.chkYt || b.chkTt || b.chkFs || b.chkKp; // [2번 요청 반영] 킵 조건 추가
   const hasTextMemo = b.memo && b.memo.trim() !== '';
   let memoBtnClass = 'memo-btn';
   
@@ -1241,6 +1234,7 @@ function updateBuyerData(prodId, buyerId, field, val) {
   renderSales();
 }
 
+// [3번 요청 반영] 고객명 미입력 시 공란(없는 것)으로 간주
 function getStats() {
   let singleCnt = 0, setCnt = 0, crossCnt = 0;
   let physicalQty = 0, activeQty = 0;
@@ -1250,12 +1244,10 @@ function getStats() {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
       
-      let isCounted = false;
-      if (p.mode === 'normal') { if (p.name || b.nickname || p.salePrice || p.depositPrice) isCounted = true; }
-      else if (p.mode === 'set') { if (p.name || b.nickname || p.topSale || p.botSale) isCounted = true; }
-      else if (p.mode === 'cross') { if (p.name || b.nickname || p.salePrice || p.depositPrice) isCounted = true; }
-      
-      if (!isCounted) return;
+      // 고객명이 없으면 아예 카운트에서 제외함!
+      const hasNick = (b.nickname || '').trim() !== '';
+      if (!hasNick) return; 
+
       activeQty++;
 
       if (p.mode === 'normal') {
@@ -1311,7 +1303,7 @@ function getFlattenedSales() {
       flat.push({
         prodId: p.id, buyerId: b.id, name: p.name, salePrice: sp, depositPrice: dp,
         nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled,
-        chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs 
+        chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs, chkKp: b.chkKp // 킵 추가
       });
     });
   });
@@ -1362,6 +1354,7 @@ function openMemoModal(prodId, buyerId) {
     document.getElementById('memoCbYt').checked = !!buyer.chkYt;
     document.getElementById('memoCbTt').checked = !!buyer.chkTt;
     document.getElementById('memoCbFs').checked = !!buyer.chkFs;
+    document.getElementById('memoCbKp').checked = !!buyer.chkKp; // [2번 요청] 킵 로드
 
     const alertEl = document.getElementById('rewardAlert');
     let normName = buyer.nickname ? buyer.nickname.replace(/\s+/g, '').toLowerCase() : '';
@@ -1394,6 +1387,7 @@ function saveMemoModal() {
       buyer.chkYt = document.getElementById('memoCbYt').checked;
       buyer.chkTt = document.getElementById('memoCbTt').checked;
       buyer.chkFs = document.getElementById('memoCbFs').checked;
+      buyer.chkKp = document.getElementById('memoCbKp').checked; // [2번 요청] 킵 저장
       renderSales(); 
       toast('메모가 저장되었습니다.'); 
     } 
@@ -1702,7 +1696,8 @@ function renderSettlement() {
   document.getElementById('st-margin').textContent = `${fmt(margin)}원 (${marginPercent}%)`;
 
   const flat = getFlattenedSales();
-  const activeSales = flat.filter(s => !s.isCanceled && (s.name || s.nickname || s.salePrice || s.depositPrice));
+  // [3번 요청 반영] 고객명 공란인 줄은 정산표에서 제외
+  const activeSales = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() !== '');
 
   const headEl = document.getElementById('st-table-head');
   const bodyEl = document.getElementById('st-table-body');
@@ -1738,10 +1733,10 @@ function renderSettlement() {
 function openSettleGroupDetail(mode, key) {
   const flat = getFlattenedSales();
   let matches = [];
-  if (mode === 'deposit') matches = flat.filter(s => !s.isCanceled && s.depositPrice === Number(key));
-  else if (mode === 'sale') matches = flat.filter(s => !s.isCanceled && s.salePrice === Number(key));
-  else if (mode === 'customer') matches = flat.filter(s => !s.isCanceled && (s.nickname || '미입력 고객') === key);
-  else if (mode === 'product') matches = flat.filter(s => !s.isCanceled && (s.name || '미입력 상품') === key);
+  if (mode === 'deposit') matches = flat.filter(s => !s.isCanceled && s.depositPrice === Number(key) && (s.nickname || '').trim() !== '');
+  else if (mode === 'sale') matches = flat.filter(s => !s.isCanceled && s.salePrice === Number(key) && (s.nickname || '').trim() !== '');
+  else if (mode === 'customer') matches = flat.filter(s => !s.isCanceled && (s.nickname || '미입력 고객') === key && (s.nickname || '').trim() !== '');
+  else if (mode === 'product') matches = flat.filter(s => !s.isCanceled && (s.name || '미입력 상품') === key && (s.nickname || '').trim() !== '');
 
   document.getElementById('settleDetailTitle').textContent = `🔍 [${key}] 세부 내역 (${matches.length}건)`;
   const contentEl = document.getElementById('settleDetailContent');
@@ -1781,7 +1776,8 @@ async function sendToSheet() {
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
-      if (!p.name && !b.nickname) return;
+      // [3번 요청 반영] 구글 시트 전송 시에도 고객명이 공란이면 전송 안 함
+      if (!(b.nickname || '').trim()) return;
 
       if (p.mode === 'normal') {
         records.push({
@@ -1832,7 +1828,8 @@ function shareKakaoText() {
 
 function exportJsonForPC() {
   const flat = getFlattenedSales();
-  const activeSales = flat.filter(s => !s.isCanceled && (s.name || s.nickname || s.salePrice || s.depositPrice));
+  // [3번 요청 반영] JSON 내보내기 시에도 고객명이 공란인 항목은 완전 배제
+  const activeSales = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() !== '');
   if (activeSales.length === 0) { toast('⚠️ 공유할 데이터 없음'); return; }
 
   const today = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
@@ -1841,7 +1838,7 @@ function exportJsonForPC() {
     color: s.color || '', size: s.size || '', nickname: s.nickname || '',
     salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', memo: s.memo || '',
     autoReward: 0, 
-    tags: { yt: !!s.chkYt, tt: !!s.chkTt, fs: !!s.chkFs }, 
+    tags: { yt: !!s.chkYt, tt: !!s.chkTt, fs: !!s.chkFs, kp: !!s.chkKp }, // 킵 속성 추가
     createdAt: Date.now(), highlighted: false, sent: false
   }));
 
@@ -1872,10 +1869,10 @@ function importJsonFile(e) {
         const key = `${s.name || ''}_${s.salePrice || ''}_${s.depositPrice || ''}`;
         if (!groupMap.has(key)) groupMap.set(key, { id: uid(), mode: 'normal', name: s.name || '', salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', topSale:'', topDep:'', botSale:'', botDep:'', matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], isMatrixCustomized: false, isFolded: false, buyers: [] });
         
-        let yt = false, tt = false, fs = false;
-        if(s.tags) { yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; }
+        let yt = false, tt = false, fs = false, kp = false;
+        if(s.tags) { yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; kp = !!s.tags.kp; } // 킵 로드
 
-        groupMap.get(key).buyers.push({ id: s.id || uid(), nickname: s.nickname || '', c1: s.color || '', s1: s.size || '', c2:'', s2:'', m1:'', m2:'', memo: s.memo || '', isCanceled: false, opt:'full', chkYt: yt, chkTt: tt, chkFs: fs });
+        groupMap.get(key).buyers.push({ id: s.id || uid(), nickname: s.nickname || '', c1: s.color || '', s1: s.size || '', c2:'', s2:'', m1:'', m2:'', memo: s.memo || '', isCanceled: false, opt:'full', chkYt: yt, chkTt: tt, chkFs: fs, chkKp: kp });
       });
       const importedProducts = Array.from(groupMap.values());
       if (isOverwrite) sales = importedProducts.length > 0 ? importedProducts : [createEmptyProduct()];
@@ -1888,30 +1885,46 @@ function importJsonFile(e) {
 
 function exportExcel() {
   let records = [];
+
+  // [2번 요청 반영] 체크박스 항목을 엑셀 메모란에 합쳐주는 헬퍼 함수
+  function getExcelMemo(b) {
+    let tags = [];
+    if (b.chkYt) tags.push('[유튜브]');
+    if (b.chkTt) tags.push('[틱톡]');
+    if (b.chkFs) tags.push('[무배]');
+    if (b.chkKp) tags.push('[킵]'); // 킵 추가
+    
+    let result = tags.length > 0 ? tags.join(' ') + ' ' + (b.memo || '') : (b.memo || '');
+    return result.trim();
+  }
+
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled) return;
-      if (!p.name && !b.nickname) return;
+      // [3번 요청 반영] 엑셀에서도 고객명이 없으면 공란으로 간주하여 포함시키지 않음
+      if (!(b.nickname || '').trim()) return;
+
+      let mergedMemo = getExcelMemo(b);
 
       if (p.mode === 'normal') {
-        records.push({ name: p.name || '', option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: b.memo || '' });
+        records.push({ name: p.name || '', option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
       } else if (p.mode === 'set') {
         if (b.opt === 'full') {
-          records.push({ name: `${p.name} 상의`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: b.memo || '' });
-          records.push({ name: `${p.name} 하의`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: b.memo || '' });
+          records.push({ name: `${p.name} 상의`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
+          records.push({ name: `${p.name} 하의`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
         } else if (b.opt === 'top') {
-          records.push({ name: `${p.name} 상의`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: b.memo || '' });
+          records.push({ name: `${p.name} 상의`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
         } else if (b.opt === 'bottom') {
-          records.push({ name: `${p.name} 하의`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: b.memo || '' });
+          records.push({ name: `${p.name} 하의`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
         }
       } else if (p.mode === 'cross') {
         if (b.opt === 'full') {
           const m1Name = b.m1 ? ` ${b.m1}` : ''; const m2Name = b.m2 ? ` ${b.m2}` : '';
-          records.push({ name: `${p.name}${m1Name}`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: b.memo || '' });
-          records.push({ name: `${p.name}${m2Name}`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: 0, depositPrice: 0, memo: b.memo || '' });
+          records.push({ name: `${p.name}${m1Name}`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
+          records.push({ name: `${p.name}${m2Name}`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: 0, depositPrice: 0, memo: mergedMemo });
         } else if (b.opt === 'single') {
           const m1Name = b.m1 ? ` ${b.m1}` : '';
-          records.push({ name: `${p.name}${m1Name}`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: (Number(p.salePrice) / 2) || 0, depositPrice: (Number(p.depositPrice) / 2) || 0, memo: b.memo || '' });
+          records.push({ name: `${p.name}${m1Name}`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: (Number(p.salePrice) / 2) || 0, depositPrice: (Number(p.depositPrice) / 2) || 0, memo: mergedMemo });
         }
       }
     });
@@ -1956,7 +1969,7 @@ function loadLocalData() {
             opt: b.opt || 'full', 
             c1: b.c1 || b.color || '', s1: b.s1 || b.size || '', 
             c2: b.c2 || '', s2: b.s2 || '', m1: b.m1 || '', m2: b.m2 || '',
-            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs 
+            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs, chkKp: !!b.chkKp // 킵 데이터 불러오기
           }));
           return {
             id: s.id || uid(), mode: s.mode || 'normal', name: s.name || '',
