@@ -279,8 +279,10 @@
   .zoom-controls button:active { background: #E2E8F0; }
   .zoom-controls span { font-size: 11px; font-weight: 800; min-width: 36px; text-align: center; color: var(--ink); cursor: pointer; user-select: none; }
   
-  /* ===== 자동완성 활성화 시 카드 헤더 틀고정 해제 ===== */
-  body.ac-open .row-card .card-band {
+  /* ===== 자동완성 및 입력 필드 포커스 시 카드 헤더 틀고정 해제 ===== */
+  body.ac-open .row-card .card-band,
+  .row-card:focus-within .card-band,
+  .row-card.is-focused .card-band {
     position: static !important;
   }
 </style>
@@ -529,10 +531,15 @@ let matrixRedoStack = [];
 
 function handleInputFocus(el) {
   if (!el) return;
+  const card = el.closest('.row-card');
+  if (card) card.classList.add('is-focused');
   if (el.dataset.focused === "true") return;
   el.dataset.focused = "true";
   setTimeout(() => { try { el.select(); } catch(e){} }, 50);
-  el.addEventListener('blur', () => { el.dataset.focused = "false"; }, { once: true });
+  el.addEventListener('blur', () => { 
+    el.dataset.focused = "false"; 
+    if (card) card.classList.remove('is-focused');
+  }, { once: true });
 }
 
 function clearLastInputEvent() {
@@ -710,6 +717,10 @@ function selectProdName(prodId, val) {
   if (prod) { prod.name = val; }
   hideDropdown();
   renderSales();
+  setTimeout(() => {
+    const cardEl = document.querySelector(`.row-card:nth-child(${sales.findIndex(p => p.id === prodId) + 1})`);
+    if (cardEl) cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 60);
 }
 
 function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
@@ -748,6 +759,10 @@ function selectModelName(prodId, buyerId, fieldName, val) {
   }
   hideDropdown();
   renderSales();
+  setTimeout(() => {
+    const buyerEl = document.querySelector(`[data-buyer-id="${buyerId}"]`);
+    if (buyerEl) buyerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 60);
 }
 
 function handleNickInput(inputEl, prodId, buyerId) {
@@ -777,6 +792,10 @@ function selectNick(prodId, buyerId, val) {
     if (buyer) { const match = val.match(/\(([^)]+)\)/); buyer.nickname = match ? match[1] : val; }
   }
   hideDropdown(); renderSales();
+  setTimeout(() => {
+    const buyerEl = document.querySelector(`[data-buyer-id="${buyerId}"]`);
+    if (buyerEl) buyerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 60);
 }
 
 function handleColorFocus(inputEl, prodId, buyerId, targetFieldOrMatrixIdx = 'c1') {
@@ -826,6 +845,10 @@ function selectColor(prodId, buyerId, val, targetFieldOrMatrixIdx) {
       if (buyer) buyer[targetFieldOrMatrixIdx] = val;
     }
     renderSales();
+    setTimeout(() => {
+      const buyerEl = document.querySelector(`[data-buyer-id="${buyerId}"]`);
+      if (buyerEl) buyerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
   }
   hideDropdown();
 }
@@ -892,6 +915,10 @@ function selectSize(prodId, buyerId, val, targetFieldOrMatrixIdx) {
       if (buyer) buyer[targetFieldOrMatrixIdx] = val;
     }
     renderSales();
+    setTimeout(() => {
+      const buyerEl = document.querySelector(`[data-buyer-id="${buyerId}"]`);
+      if (buyerEl) buyerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
   }
   hideDropdown();
 }
