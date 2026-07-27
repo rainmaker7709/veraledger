@@ -359,7 +359,6 @@
       </div>
     </div>
     
-    <!-- 👇 여기에 추가되었습니다 👇 -->
     <div style="text-align: center; margin-top: 25px; font-size: 11px; color: #94A3B8; font-weight: 600;">
       Created by 갱블맨
     </div>
@@ -437,7 +436,7 @@
         <button class="btn-chip redo" onclick="redoMatrix()">↻ 앞으로가기</button>
         <button class="btn-chip" id="btn-matrix-preset" onclick="toggleMatrixPreset()" style="background:#E2E8F0; color:#0F172A; font-weight:800;">👕 스포츠</button>
       </div>
-      <button class="btn-chip" style="background:var(--primary); color:#fff; font-weight:800; padding:6px 12px;" onclick="registerMatrixToSales()">⚡ 판매내역 등록</button>
+      <button class="btn-chip" style="background:var(--primary); color:#fff; font-weight:800; padding:6px 12px;" onclick="registerMatrixToSales()">⚡ 작성완료</button>
     </div>
     <div class="matrix-body">
       <table class="matrix-table" id="matrixTable"></table>
@@ -448,7 +447,6 @@
     <div class="paper-header">
       <div style="display:flex; align-items:center; gap:6px;">📋 방송 현장 장부</div>
       <div>
-        <!-- 추가: 빨간색 닫기 버튼 -->
         <button class="btn-chip" style="background:var(--danger); color:#fff; margin-right:4px; padding:6px 12px; font-weight:800;" onclick="closePaperLedger()">닫기</button>
         <button class="btn-chip" style="background:#111827; color:#fff; margin-right:8px; padding:6px 12px;" onclick="copyPaperLedger()">📋 전체 복사</button>
         <button style="background:none; border:none; color:#111827; font-size:22px; font-weight:bold; cursor:pointer;" onclick="closePaperLedger()">✕</button>
@@ -702,13 +700,13 @@ function undoMatrix() {
   if (matrixHistoryStack.length === 0) { toast('되돌릴 내역이 없습니다.'); return; }
   matrixRedoStack.push(JSON.parse(JSON.stringify(matrixState)));
   matrixState = matrixHistoryStack.pop();
-  syncMatrixAxesToProd(); updatePresetButtonText(); renderMatrixTable(); toast('↺ 되돌리기 완료');
+  syncMatrixAxesToProd(); updatePresetButtonText(); renderMatrixTable(); syncMatrixToSales(); toast('↺ 되돌리기 완료');
 }
 function redoMatrix() {
   if (matrixRedoStack.length === 0) { toast('앞으로 가기할 내역이 없습니다.'); return; }
   matrixHistoryStack.push(JSON.parse(JSON.stringify(matrixState)));
   matrixState = matrixRedoStack.pop();
-  syncMatrixAxesToProd(); updatePresetButtonText(); renderMatrixTable(); toast('↻ 앞으로 가기 완료');
+  syncMatrixAxesToProd(); updatePresetButtonText(); renderMatrixTable(); syncMatrixToSales(); toast('↻ 앞으로 가기 완료');
 }
 
 function toggleMatrixPreset() {
@@ -722,7 +720,7 @@ function toggleMatrixPreset() {
   currentPresetIndex = (currentPresetIndex + 1) % MATRIX_PRESETS.length;
   const preset = MATRIX_PRESETS[currentPresetIndex];
   matrixState.colors = [...preset.colors]; matrixState.sizes = [...preset.sizes]; matrixState.orders = {};
-  updatePresetButtonText(); syncMatrixAxesToProd(); renderMatrixTable(); toast(`[${preset.label}] 변환 완료`);
+  updatePresetButtonText(); syncMatrixAxesToProd(); renderMatrixTable(); syncMatrixToSales(); toast(`[${preset.label}] 변환 완료`);
 }
 function updatePresetButtonText() {
   const btn = document.getElementById('btn-matrix-preset');
@@ -969,6 +967,7 @@ function selectColor(prodId, buyerId, val, targetFieldOrMatrixIdx) {
     matrixState.colors[targetFieldOrMatrixIdx] = val;
     syncMatrixAxesToProd();
     renderMatrixTable();
+    syncMatrixToSales();
   } else {
     saveState();
     const prod = sales.find(p => p.id === prodId);
@@ -1036,6 +1035,7 @@ function selectSize(prodId, buyerId, val, targetFieldOrMatrixIdx) {
     matrixState.sizes[targetFieldOrMatrixIdx] = val;
     syncMatrixAxesToProd();
     renderMatrixTable();
+    syncMatrixToSales();
   } else {
     saveState();
     const prod = sales.find(p => p.id === prodId);
@@ -1510,6 +1510,78 @@ function syncMatrixAxesToProd() {
   }
 }
 
+/* 매트릭스 변경사항을 메인 sales 데이터 및 LocalStorage에 실시간 연동 */
+function syncMatrixToSales() {
+  if (!currentMatrixProdId) return;
+  const prod = sales.find(p => p.id === currentMatrixProdId);
+  if (!prod) return;
+
+  prod.matrixColors = [...matrixState.colors];
+  prod.matrixSizes = [...matrixState.sizes];
+  prod.isMatrixCustomized = true;
+
+  let finalBuyers = [];
+
+  prod.buyers.forEach(b => {
+    if (!matrixLoadedBuyerIds.has(b.id)) {
+      finalBuyers.push(b);
+    }
+  });
+
+  matrixState.sizes.forEach((sz, rIdx) => {
+    matrixState.colors.forEach((col, cIdx) => {
+      const key = `${cIdx}_${rIdx}`;
+      const orders = matrixState.orders[key] || [];
+
+      orders.forEach(order => {
+        let val = (order.nickname || '').trim();
+        let cVal = (col || '').trim();
+        let sVal = (sz || '').trim();
+
+        if (!val && !cVal && !sVal) return;
+
+        if (order.id) {
+          let existing = prod.buyers.find(b => b.id === order.id);
+          if (existing) {
+            existing.nickname = val;
+            existing.c1 = cVal;
+            existing.s1 = sVal;
+            applyAutoRewardToBuyer(existing);
+            finalBuyers.push(existing);
+          } else {
+            let b = createEmptyBuyer();
+            b.id = order.id;
+            b.nickname = val;
+            b.c1 = cVal;
+            b.s1 = sVal;
+            applyAutoRewardToBuyer(b);
+            finalBuyers.push(b);
+          }
+        } else {
+          let newId = uid();
+          order.id = newId;
+          matrixLoadedBuyerIds.add(newId);
+          let b = createEmptyBuyer();
+          b.id = newId;
+          b.nickname = val;
+          b.c1 = cVal;
+          b.s1 = sVal;
+          applyAutoRewardToBuyer(b);
+          finalBuyers.push(b);
+        }
+      });
+    });
+  });
+
+  if (finalBuyers.length === 0) {
+    finalBuyers.push(createEmptyBuyer());
+  }
+
+  prod.buyers = finalBuyers;
+  saveLocalData();
+  renderSales();
+}
+
 function openMatrixModal(prodId) {
   currentMatrixProdId = prodId;
   const prod = sales.find(p => p.id === prodId);
@@ -1576,16 +1648,19 @@ function renderMatrixTable() {
   `;
 
   matrixState.colors.forEach((col, cIdx) => {
-    const cStyle = getColorStyle(col);
+    const defaultColorLabel = `색상${cIdx + 1}`;
+    const displayColor = (col || '').trim() !== '' ? col : defaultColorLabel;
+    const cStyle = getColorStyle(displayColor);
+
     html += `
       <th style="position: sticky; top: 0; z-index: 20; padding-bottom: 20px; background-color: ${cStyle.main};">
         <div style="display:flex; flex-direction:column; align-items:center;">
-          <input type="text" class="matrix-hdr-inp" value="${col}" placeholder="색상"
+          <input type="text" class="matrix-hdr-inp" value="${col}" placeholder="${defaultColorLabel}"
                  style="width:100%; border:none; background:transparent; font-weight:800; text-align:center; font-size:12px; color: ${cStyle.text};"
                  onfocus="handleColorFocus(this, null, null, ${cIdx})"
                  onclick="handleColorFocus(this, null, null, ${cIdx})"
                  oninput="handleColorFocus(this, null, null, ${cIdx})"
-                 onchange="matrixState.colors[${cIdx}]=this.value; syncMatrixAxesToProd();">
+                 onchange="matrixState.colors[${cIdx}]=this.value; syncMatrixAxesToProd(); syncMatrixToSales();">
         </div>
         <div class="matrix-ctrl-box" style="position: absolute; bottom: 2px; right: 2px; margin: 0; display: flex; gap: 2px;">
           ${cIdx === matrixState.colors.length - 1 ? `
@@ -1608,13 +1683,15 @@ function renderMatrixTable() {
                    onfocus="handleSizeFocus(this, null, null, ${rIdx})"
                    onclick="handleSizeFocus(this, null, null, ${rIdx})"
                    oninput="handleSizeFocus(this, null, null, ${rIdx})"
-                   onchange="matrixState.sizes[${rIdx}]=this.value; syncMatrixAxesToProd();">
+                   onchange="matrixState.sizes[${rIdx}]=this.value; syncMatrixAxesToProd(); syncMatrixToSales();">
           </div>
           <button class="matrix-btn-sm del" onclick="deleteMatrixSize(${rIdx})" title="행 삭제" style="position: absolute; bottom: 2px; right: 2px; padding: 1px 4px; font-size: 10px;">✕</button>
         </th>
     `;
     matrixState.colors.forEach((col, cIdx) => {
-      const cStyle = getColorStyle(col);
+      const defaultColorLabel = `색상${cIdx + 1}`;
+      const displayColor = (col || '').trim() !== '' ? col : defaultColorLabel;
+      const cStyle = getColorStyle(displayColor);
       const key = `${cIdx}_${rIdx}`;
       const nicks = matrixState.orders[key] || [];
 
@@ -1653,7 +1730,7 @@ function deleteMatrixColor(delC) {
   });
   matrixState.colors.splice(delC, 1);
   matrixState.orders = newOrders;
-  syncMatrixAxesToProd(); renderMatrixTable(); toast('색상 열 삭제 완료');
+  syncMatrixAxesToProd(); renderMatrixTable(); syncMatrixToSales(); toast('색상 열 삭제 완료');
 }
 
 function deleteMatrixSize(delR) {
@@ -1668,7 +1745,7 @@ function deleteMatrixSize(delR) {
   });
   matrixState.sizes.splice(delR, 1);
   matrixState.orders = newOrders;
-  syncMatrixAxesToProd(); renderMatrixTable(); toast('사이즈 행 삭제 완료');
+  syncMatrixAxesToProd(); renderMatrixTable(); syncMatrixToSales(); toast('사이즈 행 삭제 완료');
 }
 
 function addEmptyMatrixNick(key) {
@@ -1676,6 +1753,7 @@ function addEmptyMatrixNick(key) {
   if (!matrixState.orders[key]) matrixState.orders[key] = [];
   matrixState.orders[key].push({ id: null, nickname: '' });
   renderMatrixTable();
+  syncMatrixToSales();
 }
 
 function updateMatrixNick(key, nIdx, val) {
@@ -1683,6 +1761,7 @@ function updateMatrixNick(key, nIdx, val) {
   if (matrixState.orders[key] && matrixState.orders[key][nIdx]) {
     matrixState.orders[key][nIdx].nickname = val;
     renderMatrixTable();
+    syncMatrixToSales();
   }
 }
 
@@ -1713,63 +1792,21 @@ function selectMatrixNick(key, nIdx, val) {
   if (matrixState.orders[key] && matrixState.orders[key][nIdx]) {
     matrixState.orders[key][nIdx].nickname = match ? match[1] : val;
   }
-  hideDropdown(); renderMatrixTable();
+  hideDropdown(); renderMatrixTable(); syncMatrixToSales();
 }
 
-function addMatrixColor() { saveMatrixState(); matrixState.colors.push(''); syncMatrixAxesToProd(); renderMatrixTable(); }
-function addMatrixSize() { saveMatrixState(); matrixState.sizes.push(''); syncMatrixAxesToProd(); renderMatrixTable(); }
+function addMatrixColor() { saveMatrixState(); matrixState.colors.push(''); syncMatrixAxesToProd(); renderMatrixTable(); syncMatrixToSales(); }
+function addMatrixSize() { saveMatrixState(); matrixState.sizes.push(''); syncMatrixAxesToProd(); renderMatrixTable(); syncMatrixToSales(); }
 
 function removeMatrixNick(key, idx) {
   saveMatrixState();
-  if (matrixState.orders[key]) { matrixState.orders[key].splice(idx, 1); renderMatrixTable(); }
+  if (matrixState.orders[key]) { matrixState.orders[key].splice(idx, 1); renderMatrixTable(); syncMatrixToSales(); }
 }
 
 function registerMatrixToSales() {
-  if (!currentMatrixProdId) return;
-  const prod = sales.find(p => p.id === currentMatrixProdId);
-  if (!prod) return;
-
-  saveState();
-  let count = 0; let finalBuyers = [];
-  
-  prod.buyers.forEach(b => {
-    if (!matrixLoadedBuyerIds.has(b.id)) finalBuyers.push(b);
-  });
-
-  matrixState.sizes.forEach((sz, rIdx) => {
-    matrixState.colors.forEach((col, cIdx) => {
-      const key = `${cIdx}_${rIdx}`;
-      const orders = matrixState.orders[key] || [];
-      
-      orders.forEach(order => {
-        let val = order.nickname.trim();
-        if (!val) return;
-        
-        if (order.id) {
-           let existing = prod.buyers.find(b => b.id === order.id);
-           if (existing) {
-             existing.nickname = val; existing.c1 = col; existing.s1 = sz;
-             applyAutoRewardToBuyer(existing);
-             finalBuyers.push(existing); count++;
-           }
-        } else {
-           let b = createEmptyBuyer();
-           b.nickname = val; b.c1 = col; b.s1 = sz;
-           applyAutoRewardToBuyer(b);
-           finalBuyers.push(b); count++;
-        }
-      });
-    });
-  });
-
-  if (finalBuyers.length === 0) finalBuyers.push(createEmptyBuyer());
-  prod.buyers = finalBuyers;
-  prod.isMatrixCustomized = true; 
-  prod.isFolded = false;
-
-  matrixState.orders = {};
-  matrixLoadedBuyerIds.clear();
-  renderSales(); closeMatrixModal(); toast(`주문 ${count}건 동기화 완료!`);
+  syncMatrixToSales();
+  closeMatrixModal(); 
+  toast(`⚡ 판매내역 연동 등록 완료!`);
 }
 
 function switchTab(tab) {
