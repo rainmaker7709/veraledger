@@ -439,6 +439,8 @@
     <div class="paper-header">
       <div style="display:flex; align-items:center; gap:6px;">📋 방송 현장 장부</div>
       <div>
+        <!-- 추가: 빨간색 닫기 버튼 -->
+        <button class="btn-chip" style="background:var(--danger); color:#fff; margin-right:4px; padding:6px 12px; font-weight:800;" onclick="closePaperLedger()">닫기</button>
         <button class="btn-chip" style="background:#111827; color:#fff; margin-right:8px; padding:6px 12px;" onclick="copyPaperLedger()">📋 전체 복사</button>
         <button style="background:none; border:none; color:#111827; font-size:22px; font-weight:bold; cursor:pointer;" onclick="closePaperLedger()">✕</button>
       </div>
@@ -607,7 +609,14 @@ function handleInputFocus(el) {
 
   if (el.dataset.focused === "true") return;
   el.dataset.focused = "true";
-  setTimeout(() => { try { el.select(); } catch(e){} }, 50);
+  setTimeout(() => { 
+    try { 
+      // 수정 1: 상품명(inp-prod)은 전체 선택(select)을 제외하여 터치 위치에 커서가 유지되도록 함
+      if (!el.classList.contains('inp-prod')) {
+        el.select(); 
+      }
+    } catch(e){} 
+  }, 50);
   
   el.addEventListener('blur', () => { 
     el.dataset.focused = "false";
@@ -817,12 +826,28 @@ function handleProdFocus(inputEl, prodId) {
 }
 
 function selectProdName(prodId, val) {
-  clearLastInputEvent(); saveState();
+  // 수정 1-2: 자동완성 후 포커스 및 커서를 맨 뒤로 유지하기 위해 기존 clearLastInputEvent 및 renderSales 회피
+  saveState();
   const prod = sales.find(p => p.id === prodId);
   if (prod) { prod.name = val; }
   hideDropdown();
-  pendingVisibilitySelector = '#card-' + prodId;
-  renderSales();
+  
+  // DOM 직접 업데이트를 통해 키보드가 내려가는 현상을 막고 커서를 맨 뒤로 보냄
+  if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
+    lastFocusedInput.value = val;
+    // 포커스를 강제로 다시 한 번 잡아줌
+    lastFocusedInput.focus();
+    // setTimeout을 이용해 렌더링 사이클 이후에 커서 위치를 글자 맨 끝으로 이동
+    setTimeout(() => {
+      const len = lastFocusedInput.value.length;
+      lastFocusedInput.setSelectionRange(len, len);
+    }, 10);
+  } else {
+    pendingVisibilitySelector = '#card-' + prodId;
+    renderSales();
+  }
+  
+  saveLocalData(); // 상태만 조용히 저장
 }
 
 function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
