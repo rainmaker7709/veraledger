@@ -1268,7 +1268,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
         </div>
         <div class="item-line">
           <span class="item-label" style="background:#1E40AF; color:#FFFFFF; font-weight:900;">1</span>
-          <input type="text" class="inp inp-model" value="${b.m1}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" onchange="updateBuyerData('${p.id}', '${p.id}', 'm1', this.value)">
+          <input type="text" class="inp inp-model" value="${b.m1}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'm1', this.value)">
           <input type="text" class="inp inp-color" value="${b.c1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
           <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
         </div>
