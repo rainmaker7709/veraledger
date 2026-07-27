@@ -931,7 +931,14 @@ function selectNick(prodId, buyerId, val) {
 function handleColorFocus(inputEl, prodId, buyerId, targetFieldOrMatrixIdx = 'c1') {
   handleInputFocus(inputEl);
   lastFocusedInput = inputEl; autoCenterInput(inputEl);
-  const q = inputEl.value.trim().toLowerCase();
+  
+  let q = inputEl.value.trim().toLowerCase();
+  
+  // "색상1", "색상2" 등 기본 임시 텍스트인 경우 검색어를 빈값으로 처리하여 전체 목록 노출
+  if (/^색상\d+$/.test(q)) {
+    q = '';
+  }
+
   const filtered = PRESET_COLORS.filter(c => !q || c.toLowerCase().includes(q));
   const dropdown = document.getElementById('acDropdown');
   const isMatrix = (typeof targetFieldOrMatrixIdx === 'number');
@@ -1605,7 +1612,7 @@ function openMatrixModal(prodId) {
     if (!prod.matrixSizes || prod.matrixSizes.length === 0) prod.matrixSizes = ['S', 'M', 'L', 'XL', '2XL'];
   }
 
-  matrixState.colors = (prod.matrixColors || ['', '']).map((col, idx) => (col || '').trim() || `색상${idx + 1}`);
+  matrixState.colors = (prod.matrixColors || ['', '']).map((col, idx) => (col || '').trim());
   matrixState.sizes = [...prod.matrixSizes];
 
   updatePresetButtonText();
@@ -1613,7 +1620,16 @@ function openMatrixModal(prodId) {
   prod.buyers.forEach(b => {
     if (!b.nickname && !b.c1 && !b.s1) return;
     
-    let cIdx = matrixState.colors.indexOf((b.c1 || '').trim());
+    let targetColor = (b.c1 || '').trim();
+    let cIdx = matrixState.colors.indexOf(targetColor);
+    
+    if (cIdx === -1 && /^색상\d+$/.test(targetColor)) {
+      const defaultIdx = parseInt(targetColor.replace('색상', ''), 10) - 1;
+      if (defaultIdx >= 0 && defaultIdx < matrixState.colors.length) {
+        cIdx = defaultIdx;
+      }
+    }
+    
     let rIdx = matrixState.sizes.indexOf((b.s1 || '').trim());
     
     if (cIdx !== -1 && rIdx !== -1) {
