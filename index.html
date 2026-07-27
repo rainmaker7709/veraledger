@@ -131,7 +131,7 @@
   .inp-color { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
   .inp-size { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
   .inp-nick { font-weight: 800; flex: 1; min-width: 40px; }
-  .inp-model { flex: 0.8; min-width: 40px; }
+  .inp-model { flex: none; width: 55px; min-width: 40px; }
   .inp-num { text-align: right; font-weight: 800; font-family: monospace; }
   .select-mode { border: 1.5px solid var(--line); background: #fff; border-radius: 5px; padding: 4px 2px; font-size: 11px; font-weight: 800; outline: none; color: var(--ink); flex-shrink: 0; }
 
@@ -824,7 +824,7 @@ function handleProdFocus(inputEl, prodId) {
   if (matches.length === 0) { hideDropdown(); return; }
 
   dropdown.innerHTML = matches.map(m => 
-    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${m.text.replace(/'/g, "\\'")}')">
+    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${m.text.replace(/'/g, "\'")}')">
       ${m.isTag ? '🏷️ ' + m.text : '📦 ' + m.text}
     </div>`
   ).join('');
@@ -873,7 +873,7 @@ function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
   if (matches.length === 0) { hideDropdown(); return; }
 
   dropdown.innerHTML = matches.map(m => 
-    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectModelName('${prodId}', '${buyerId}', '${fieldName}', '${m.text.replace(/'/g, "\\'")}')">
+    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectModelName('${prodId}', '${buyerId}', '${fieldName}', '${m.text.replace(/'/g, "\'")}')">
       ${m.isTag ? '🏷️ ' + m.text : '📦 ' + m.text}
     </div>`
   ).join('');
@@ -908,7 +908,7 @@ function handleNickInput(inputEl, prodId, buyerId) {
   
   if (matches.length === 0) { hideDropdown(); return; }
   
-  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectNick('${prodId}', '${buyerId}', '${m.replace(/'/g, "\\'")}')">👤 ${m}</div>`).join('');
+  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectNick('${prodId}', '${buyerId}', '${m.replace(/'/g, "\'")}')">👤 ${m}</div>`).join('');
   positionDropdown(inputEl);
 }
 
@@ -953,7 +953,7 @@ function handleColorFocus(inputEl, prodId, buyerId, targetFieldOrMatrixIdx = 'c1
   }).join('');
 
   if (q && !PRESET_COLORS.includes(q)) {
-    const safeVal = inputEl.value.trim().replace(/'/g, "\\'");
+    const safeVal = inputEl.value.trim().replace(/'/g, "\'");
     if (isMatrix) {
       html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="selectColor(null, null, '${safeVal}', ${targetFieldOrMatrixIdx})">➕ "${safeVal}"</div>`;
     } else {
@@ -1017,7 +1017,7 @@ function renderSizeDropdown(inputEl, prodId, buyerId, targetFieldOrMatrixIdx) {
   }).join('');
 
   if (q && !list.includes(q)) {
-    const safeVal = targetEl ? targetEl.value.trim().replace(/'/g, "\\'") : '';
+    const safeVal = targetEl ? targetEl.value.trim().replace(/'/g, "\'") : '';
     if (isMatrix) {
       items += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="selectSize(null, null, '${safeVal}', ${targetFieldOrMatrixIdx})">➕ "${safeVal}"</div>`;
     } else {
@@ -1247,6 +1247,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
           <span class="item-label" style="background:${bBg}; color:${bColor};">하</span>
           <input type="text" class="inp inp-color" value="${b.c2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
           <input type="text" class="inp inp-size" value="${b.s2}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" onchange="updateBuyerData('${p.id}', '${b.id}', 's2', this.value)">
+          <button type="button" class="btn-mini copy" onclick="copyOption('${p.id}', '${b.id}')">옵션동일</button>
         </div>
       </div>
     `;
@@ -1267,7 +1268,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
         </div>
         <div class="item-line">
           <span class="item-label" style="background:#1E40AF; color:#FFFFFF; font-weight:900;">1</span>
-          <input type="text" class="inp inp-model" value="${b.m1}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'm1', this.value)">
+          <input type="text" class="inp inp-model" value="${b.m1}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" onchange="updateBuyerData('${p.id}', '${p.id}', 'm1', this.value)">
           <input type="text" class="inp inp-color" value="${b.c1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
           <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
         </div>
@@ -1276,10 +1277,25 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
           <input type="text" class="inp inp-model" value="${b.m2}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm2')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'm2', this.value)">
           <input type="text" class="inp inp-color" value="${b.c2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
           <input type="text" class="inp inp-size" value="${b.s2}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" onchange="updateBuyerData('${p.id}', '${b.id}', 's2', this.value)">
+          <button type="button" class="btn-mini copy" onclick="copyOption('${p.id}', '${b.id}')">옵션동일</button>
         </div>
       </div>
     `;
   }
+}
+
+function copyOption(prodId, buyerId) {
+  saveState();
+  const prod = sales.find(p => p.id === prodId);
+  if (!prod) return;
+  const buyer = prod.buyers.find(b => b.id === buyerId);
+  if (buyer) {
+    buyer.c2 = buyer.c1;
+    buyer.s2 = buyer.s1;
+  }
+  pendingVisibilitySelector = '[data-buyer-id="' + buyerId + '"]';
+  renderSales();
+  toast('✅ 옵션 동일 적용 완료');
 }
 
 function updateProductData(prodId, field, val) {
@@ -1289,7 +1305,7 @@ function updateProductData(prodId, field, val) {
   if (field === 'mode' && prod.mode !== val) {
     const hasNick = prod.buyers.some(b => (b.nickname || '').trim() !== '');
     if (hasNick) {
-      if (!confirm('⚠️ 고객명이 입력되어 있는 카드입니다.\n카드 종류를 변경하시겠습니까?')) {
+      if (!confirm("⚠️ 고객명이 입력되어 있는 카드입니다.\n카드 종류를 변경하시겠습니까?")) {
         renderSales();
         return;
       }
@@ -1444,8 +1460,8 @@ function addBuyerToProduct(prodId) {
 }
 
 function toggleCancel(prodId, buyerId) { saveState(); const prod = sales.find(p => p.id === prodId); if (prod) { const buyer = prod.buyers.find(b => b.id === buyerId); if (buyer) { buyer.isCanceled = !buyer.isCanceled; renderSales(); } } }
-function deleteProduct(prodId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const filledNicknames = prod.buyers.map(b => (b.nickname || '').trim()).filter(n => n !== ''); if (filledNicknames.length > 0) { if (!confirm(`⚠️ 고객명(${filledNicknames.join(', ')})이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?`)) return; } saveState(); const idx = sales.findIndex(p => p.id === prodId); if (idx !== -1) { sales.splice(idx, 1); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('상품 삭제 완료'); } }
-function deleteBuyer(prodId, buyerId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const buyer = prod.buyers.find(b => b.id === buyerId); if (!buyer) return; const nick = (buyer.nickname || '').trim(); if (nick !== '') { if (!confirm(`⚠️ 고객명('${nick}')이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?`)) return; } saveState(); const bIdx = prod.buyers.findIndex(b => b.id === buyerId); if (bIdx !== -1) { prod.buyers.splice(bIdx, 1); if (prod.buyers.length === 0) sales = sales.filter(p => p.id !== prodId); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('고객 삭제 완료'); } }
+function deleteProduct(prodId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const filledNicknames = prod.buyers.map(b => (b.nickname || '').trim()).filter(n => n !== ''); if (filledNicknames.length > 0) { if (!confirm("⚠️ 고객명(" + filledNicknames.join(', ') + ")이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?")) return; } saveState(); const idx = sales.findIndex(p => p.id === prodId); if (idx !== -1) { sales.splice(idx, 1); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('상품 삭제 완료'); } }
+function deleteBuyer(prodId, buyerId) { const prod = sales.find(p => p.id === prodId); if (!prod) return; const buyer = prod.buyers.find(b => b.id === buyerId); if (!buyer) return; const nick = (buyer.nickname || '').trim(); if (nick !== '') { if (!confirm("⚠️ 고객명('" + nick + "')이 입력되어 있는 항목입니다.\n정말 삭제하시겠습니까?")) return; } saveState(); const bIdx = prod.buyers.findIndex(b => b.id === buyerId); if (bIdx !== -1) { prod.buyers.splice(bIdx, 1); if (prod.buyers.length === 0) sales = sales.filter(p => p.id !== prodId); if (sales.length === 0) sales.push(createEmptyProduct()); renderSales(); toast('고객 삭제 완료'); } }
 
 function openMemoModal(prodId, buyerId) { 
   currentMemoTarget = { prodId, buyerId }; 
@@ -1749,7 +1765,7 @@ function deleteMatrixColor(delC) {
 
   if (filledNicks.length > 0) {
     const colName = matrixState.colors[delC] ? `[${matrixState.colors[delC]}]` : `색상${delC + 1}`;
-    if (!confirm(`⚠️ ${colName} 열에 고객명(${filledNicks.join(', ')})이 입력되어 있습니다.\n정말 삭제하시겠습니까?`)) {
+    if (!confirm("⚠️ " + colName + " 열에 고객명(" + filledNicks.join(', ') + ")이 입력되어 있습니다.\n정말 삭제하시겠습니까?")) {
       return;
     }
   }
@@ -1783,7 +1799,7 @@ function deleteMatrixSize(delR) {
 
   if (filledNicks.length > 0) {
     const rowName = matrixState.sizes[delR] ? `[${matrixState.sizes[delR]}]` : `사이즈${delR + 1}`;
-    if (!confirm(`⚠️ ${rowName} 행에 고객명(${filledNicks.join(', ')})이 입력되어 있습니다.\n정말 삭제하시겠습니까?`)) {
+    if (!confirm("⚠️ " + rowName + " 행에 고객명(" + filledNicks.join(', ') + ")이 입력되어 있습니다.\n정말 삭제하시겠습니까?")) {
       return;
     }
   }
@@ -1835,7 +1851,7 @@ function showMatrixAutocomplete(inputEl, key, nIdx) {
 
   if (matches.length === 0) { hideDropdown(); return; }
 
-  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectMatrixNick('${key}', ${nIdx}, '${m.replace(/'/g, "\\'")}')">👤 ${m}</div>`).join('');
+  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectMatrixNick('${key}', ${nIdx}, '${m.replace(/'/g, "\'")}')">👤 ${m}</div>`).join('');
   positionDropdown(inputEl);
 }
 
@@ -1855,7 +1871,7 @@ function removeMatrixNick(key, idx) {
   if (matrixState.orders[key] && matrixState.orders[key][idx]) {
     const nick = (matrixState.orders[key][idx].nickname || '').trim();
     if (nick !== '') {
-      if (!confirm(`⚠️ 고객명('${nick}')을 정말 삭제하시겠습니까?`)) {
+      if (!confirm("⚠️ 고객명('" + nick + "')을 정말 삭제하시겠습니까?")) {
         return;
       }
     }
@@ -1964,7 +1980,7 @@ function renderSettlement() {
       entries = entries.filter(([nick]) => nick.toLowerCase().includes(sq));
     }
     bodyEl.innerHTML = entries.sort((a, b) => b[1].sale - a[1].sale)
-      .map(([nick, d]) => `<tr onclick="openSettleGroupDetail('customer', '${nick.replace(/'/g, "\\'")}')"><td>${nick}</td><td style="text-align:center;">${d.qty}</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
+      .map(([nick, d]) => `<tr onclick="openSettleGroupDetail('customer', '${nick.replace(/'/g, "\'")}')"><td>${nick}</td><td style="text-align:center;">${d.qty}</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
   } else if (settleGroupMode === 'product') {
     titleEl.textContent = '📦 상품별 판매 집계';
     headEl.innerHTML = '<tr><th>상품명</th><th style="text-align:center;">수량</th><th style="text-align:right;">입금가 합계</th><th style="text-align:right;">판매가 합계</th></tr>';
@@ -1974,7 +1990,7 @@ function renderSettlement() {
       entries = entries.filter(([pName]) => pName.toLowerCase().includes(sq));
     }
     bodyEl.innerHTML = entries.sort((a, b) => b[1].qty - a[1].qty)
-      .map(([pName, d]) => `<tr onclick="openSettleGroupDetail('product', '${pName.replace(/'/g, "\\'")}')"><td>${pName}</td><td style="text-align:center;">${d.qty}개</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
+      .map(([pName, d]) => `<tr onclick="openSettleGroupDetail('product', '${pName.replace(/'/g, "\'")}')"><td>${pName}</td><td style="text-align:center;">${d.qty}개</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
   }
 }
 
@@ -2033,7 +2049,8 @@ function openPaperLedger(targetProdId = null) {
       priceTxt = `${fmt(p.salePrice)}원, ${fmt(p.depositPrice)}원`;
     }
 
-    textForCopy += `${displayProdIndex}. ${typeTxt}${pName}, ${priceTxt}\n`;
+    textForCopy += `${displayProdIndex}. ${typeTxt}${pName}, ${priceTxt}
+`;
 
     html += `<div class="paper-group">`;
     html += `
@@ -2087,7 +2104,8 @@ function openPaperLedger(targetProdId = null) {
 
       const numMark = circledNumbers[bIdx] || `(${bIdx+1})`;
       
-      textForCopy += `  ${numMark} ${b.nickname}, ${optTxt}${memoText}\n`;
+      textForCopy += `  ${numMark} ${b.nickname}, ${optTxt}${memoText}
+`;
 
       html += `
         <div class="paper-buyer-line">
@@ -2100,7 +2118,8 @@ function openPaperLedger(targetProdId = null) {
     });
 
     html += `</div>`;
-    textForCopy += `\n`;
+    textForCopy += `
+`;
     displayProdIndex++;
   });
 
@@ -2132,7 +2151,7 @@ async function sendToSheet() {
   if (!targetDate) return;
 
   lastTargetDate = targetDate;
-  const modeChoice = prompt(`☁️ 구글시트로 데이터를 전송하는 방식을 선택하세요:\n\n1 : 해당 날짜 기준 데이터 [덮어쓰기]\n2 : 기존 데이터 아래에 [이어서 붙이기]\n3 : 전체 시트 초기화 후 [덮어씌우기]\n\n(취소: 중단)`, "1");
+  const modeChoice = prompt("☁️ 구글시트로 데이터를 전송하는 방식을 선택하세요:\n\n1 : 해당 날짜 기준 데이터 [덮어쓰기]\n2 : 기존 데이터 아래에 [이어서 붙이기]\n3 : 전체 시트 초기화 후 [덮어씌우기]\n\n(취소: 중단)", "1");
   if (!["1", "2", "3"].includes(modeChoice)) return;
 
   let mode = "overwrite";
@@ -2219,7 +2238,7 @@ function exportJsonForPC() {
 
 function importJsonFile(e) {
   const file = e.target.files[0]; if (!file) return;
-  const modeChoice = prompt(`📂 불러올 방식을 선택하세요:\n\n1 : [덮어쓰기]\n2 : [이어서 붙이기]`, "2");
+  const modeChoice = prompt("📂 불러올 방식을 선택하세요:\n\n1 : [덮어쓰기]\n2 : [이어서 붙이기]", "2");
   if (modeChoice !== "1" && modeChoice !== "2") { e.target.value = ''; return; }
   const isOverwrite = (modeChoice === "1");
 
@@ -2307,7 +2326,7 @@ function exportExcel() {
 }
 
 function clearAllMobileData() {
-  if (!confirm('🚨 모든 장부 데이터가 완전히 초기화됩니다.\n정말로 삭제하시겠습니까?')) return;
+  if (!confirm("🚨 모든 장부 데이터가 완전히 초기화됩니다.\n정말로 삭제하시겠습니까?")) return;
   saveState();
   sales = [createEmptyProduct()];
   localStorage.removeItem('m_live_ledger_v5.6');
