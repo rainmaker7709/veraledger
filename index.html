@@ -131,7 +131,7 @@
   .inp-color { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
   .inp-size { width: 48px; text-align: center; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
   .inp-nick { font-weight: 800; flex: 1; min-width: 40px; }
-  .inp-model { flex: 0.8; min-width: 40px; }
+  .inp-model { flex: none; width: 55px; min-width: 40px; }
   .inp-num { text-align: right; font-weight: 800; font-family: monospace; }
   .select-mode { border: 1.5px solid var(--line); background: #fff; border-radius: 5px; padding: 4px 2px; font-size: 11px; font-weight: 800; outline: none; color: var(--ink); flex-shrink: 0; }
 
@@ -712,7 +712,8 @@ function redoMatrix() {
 function toggleMatrixPreset() {
   const hasOrders = Object.values(matrixState.orders).some(arr => arr && arr.some(o => o.nickname && o.nickname.trim() !== ''));
   if (hasOrders) {
-    if (!confirm('⚠️ 매트릭스 표에 이미 고객명이 입력되어 있습니다.\n프리셋을 변환하면 기존 입력값이 초기화됩니다. 계속하시겠습니까?')) {
+    if (!confirm('⚠️ 매트릭스 표에 이미 고객명이 입력되어 있습니다.
+프리셋을 변환하면 기존 입력값이 초기화됩니다. 계속하시겠습니까?')) {
       return;
     }
   }
@@ -824,7 +825,7 @@ function handleProdFocus(inputEl, prodId) {
   if (matches.length === 0) { hideDropdown(); return; }
 
   dropdown.innerHTML = matches.map(m => 
-    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${m.text.replace(/'/g, "\\'")}')">
+    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${m.text.replace(/'/g, "\'")}')">
       ${m.isTag ? '🏷️ ' + m.text : '📦 ' + m.text}
     </div>`
   ).join('');
@@ -873,7 +874,7 @@ function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
   if (matches.length === 0) { hideDropdown(); return; }
 
   dropdown.innerHTML = matches.map(m => 
-    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectModelName('${prodId}', '${buyerId}', '${fieldName}', '${m.text.replace(/'/g, "\\'")}')">
+    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectModelName('${prodId}', '${buyerId}', '${fieldName}', '${m.text.replace(/'/g, "\'")}')">
       ${m.isTag ? '🏷️ ' + m.text : '📦 ' + m.text}
     </div>`
   ).join('');
@@ -908,7 +909,7 @@ function handleNickInput(inputEl, prodId, buyerId) {
   
   if (matches.length === 0) { hideDropdown(); return; }
   
-  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectNick('${prodId}', '${buyerId}', '${m.replace(/'/g, "\\'")}')">👤 ${m}</div>`).join('');
+  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectNick('${prodId}', '${buyerId}', '${m.replace(/'/g, "\'")}')">👤 ${m}</div>`).join('');
   positionDropdown(inputEl);
 }
 
@@ -953,7 +954,7 @@ function handleColorFocus(inputEl, prodId, buyerId, targetFieldOrMatrixIdx = 'c1
   }).join('');
 
   if (q && !PRESET_COLORS.includes(q)) {
-    const safeVal = inputEl.value.trim().replace(/'/g, "\\'");
+    const safeVal = inputEl.value.trim().replace(/'/g, "\'");
     if (isMatrix) {
       html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="selectColor(null, null, '${safeVal}', ${targetFieldOrMatrixIdx})">➕ "${safeVal}"</div>`;
     } else {
@@ -1017,7 +1018,7 @@ function renderSizeDropdown(inputEl, prodId, buyerId, targetFieldOrMatrixIdx) {
   }).join('');
 
   if (q && !list.includes(q)) {
-    const safeVal = targetEl ? targetEl.value.trim().replace(/'/g, "\\'") : '';
+    const safeVal = targetEl ? targetEl.value.trim().replace(/'/g, "\'") : '';
     if (isMatrix) {
       items += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="selectSize(null, null, '${safeVal}', ${targetFieldOrMatrixIdx})">➕ "${safeVal}"</div>`;
     } else {
@@ -1247,6 +1248,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
           <span class="item-label" style="background:${bBg}; color:${bColor};">하</span>
           <input type="text" class="inp inp-color" value="${b.c2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
           <input type="text" class="inp inp-size" value="${b.s2}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" onchange="updateBuyerData('${p.id}', '${b.id}', 's2', this.value)">
+          <button type="button" class="btn-mini copy" onclick="copyOption('${p.id}', '${b.id}')">옵션동일</button>
         </div>
       </div>
     `;
@@ -1276,10 +1278,25 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
           <input type="text" class="inp inp-model" value="${b.m2}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm2')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'm2', this.value)">
           <input type="text" class="inp inp-color" value="${b.c2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
           <input type="text" class="inp inp-size" value="${b.s2}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" onchange="updateBuyerData('${p.id}', '${b.id}', 's2', this.value)">
+          <button type="button" class="btn-mini copy" onclick="copyOption('${p.id}', '${b.id}')">옵션동일</button>
         </div>
       </div>
     `;
   }
+}
+
+function copyOption(prodId, buyerId) {
+  saveState();
+  const prod = sales.find(p => p.id === prodId);
+  if (!prod) return;
+  const buyer = prod.buyers.find(b => b.id === buyerId);
+  if (buyer) {
+    buyer.c2 = buyer.c1;
+    buyer.s2 = buyer.s1;
+  }
+  pendingVisibilitySelector = '[data-buyer-id="' + buyerId + '"]';
+  renderSales();
+  toast('✅ 옵션 동일 적용 완료');
 }
 
 function updateProductData(prodId, field, val) {
@@ -1835,7 +1852,7 @@ function showMatrixAutocomplete(inputEl, key, nIdx) {
 
   if (matches.length === 0) { hideDropdown(); return; }
 
-  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectMatrixNick('${key}', ${nIdx}, '${m.replace(/'/g, "\\'")}')">👤 ${m}</div>`).join('');
+  dropdown.innerHTML = matches.map(m => `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectMatrixNick('${key}', ${nIdx}, '${m.replace(/'/g, "\'")}')">👤 ${m}</div>`).join('');
   positionDropdown(inputEl);
 }
 
@@ -1964,7 +1981,7 @@ function renderSettlement() {
       entries = entries.filter(([nick]) => nick.toLowerCase().includes(sq));
     }
     bodyEl.innerHTML = entries.sort((a, b) => b[1].sale - a[1].sale)
-      .map(([nick, d]) => `<tr onclick="openSettleGroupDetail('customer', '${nick.replace(/'/g, "\\'")}')"><td>${nick}</td><td style="text-align:center;">${d.qty}</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
+      .map(([nick, d]) => `<tr onclick="openSettleGroupDetail('customer', '${nick.replace(/'/g, "\'")}')"><td>${nick}</td><td style="text-align:center;">${d.qty}</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
   } else if (settleGroupMode === 'product') {
     titleEl.textContent = '📦 상품별 판매 집계';
     headEl.innerHTML = '<tr><th>상품명</th><th style="text-align:center;">수량</th><th style="text-align:right;">입금가 합계</th><th style="text-align:right;">판매가 합계</th></tr>';
@@ -1974,7 +1991,7 @@ function renderSettlement() {
       entries = entries.filter(([pName]) => pName.toLowerCase().includes(sq));
     }
     bodyEl.innerHTML = entries.sort((a, b) => b[1].qty - a[1].qty)
-      .map(([pName, d]) => `<tr onclick="openSettleGroupDetail('product', '${pName.replace(/'/g, "\\'")}')"><td>${pName}</td><td style="text-align:center;">${d.qty}개</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
+      .map(([pName, d]) => `<tr onclick="openSettleGroupDetail('product', '${pName.replace(/'/g, "\'")}')"><td>${pName}</td><td style="text-align:center;">${d.qty}개</td><td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td><td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
   }
 }
 
@@ -2126,7 +2143,7 @@ function copyPaperLedger() {
 }
 
 async function sendToSheet() {
-  const todayStr = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
+  const todayStr = new Date().toISOString().slice(2, 10).replace(/\-/g, '.');
   const defaultDate = lastTargetDate ? lastTargetDate : todayStr;
   const targetDate = prompt("☁️ 전송할 날짜를 입력하세요 (형식: YY.MM.DD):", defaultDate);
   if (!targetDate) return;
@@ -2197,7 +2214,7 @@ function exportJsonForPC() {
   const activeSales = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() !== '');
   if (activeSales.length === 0) { toast('⚠️ 공유할 데이터 없음'); return; }
 
-  const today = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
+  const today = new Date().toISOString().slice(2, 10).replace(/\-/g, '.');
   const pcSales = activeSales.map(s => ({
     id: s.buyerId || uid(), rowDate: today, prodNum: '', name: s.name || '',
     color: s.color || '', size: s.size || '', nickname: s.nickname || '',
