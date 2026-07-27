@@ -241,22 +241,29 @@
     position: static !important;
   }
 
-  /* 방송 현장 장부 (종이 장부 뷰 모달 CSS) */
-  .paper-modal-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: #F2F4F6; z-index: 500; display: none; flex-direction: column; overflow: hidden; }
+  /* 방송 현장 장부 (종이 장부 뷰 모달 CSS) - 백지 느낌의 계층형 텍스트 뷰 */
+  .paper-modal-fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: #FFFFFF; z-index: 500; display: none; flex-direction: column; overflow: hidden; }
   .paper-header { background: #FFFFFF; border-bottom: 1.5px solid var(--line); padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: 800; color: #111827; flex-shrink: 0; }
-  .paper-content { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
-  .paper-item {
-    background: #FFFFFF; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px;
-    border: 1px solid #CBD5E1; box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-    white-space: nowrap; overflow-x: auto; font-size: 13.5px;
-    -webkit-overflow-scrolling: touch;
-  }
-  .paper-item .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #fff; margin-right: 6px; vertical-align: text-bottom; }
-  .paper-item .badge.normal { background: #7C3AED; }
-  .paper-item .badge.set { background: #DB2777; }
-  .paper-item .badge.cross { background: #2563EB; }
-  .paper-item .badge.single { background: #F59E0B; margin-left: 2px; }
-  .paper-item .memo-chip { background: #FEF3C7; color: #B45309; padding: 3px 6px; border-radius: 4px; font-size: 11.5px; font-weight: 800; margin-left: 8px; border: 1px solid #FCD34D; }
+  .paper-content { flex: 1; overflow-y: auto; padding: 16px 12px; -webkit-overflow-scrolling: touch; font-family: "Pretendard", sans-serif; }
+
+  /* 그룹핑 영역 (선/박스 없음, 하단에 연한 여백 선으로만 상품 구분) */
+  .paper-group { margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid #F1F5F9; }
+  .paper-group:last-child { border-bottom: none; margin-bottom: 40px; }
+
+  /* 1. 상품(부모) 줄 스타일 */
+  .paper-prod-line { font-size: 14.5px; font-weight: 800; color: #111827; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .paper-prod-line .badge { padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #fff; line-height: 1; }
+  .paper-prod-line .badge.normal { background: #7C3AED; }
+  .paper-prod-line .badge.set { background: #DB2777; }
+  .paper-prod-line .badge.cross { background: #2563EB; }
+  .paper-prod-price { font-size: 13px; color: #475569; font-weight: 700; margin-left: 2px; }
+
+  /* ① 고객(자식) 줄 스타일 (들여쓰기 적용) */
+  .paper-buyer-line { font-size: 13.5px; font-weight: 600; color: #334155; margin-bottom: 5px; padding-left: 22px; position: relative; line-height: 1.4; word-break: keep-all; }
+  .paper-buyer-num { position: absolute; left: 4px; color: #94A3B8; font-size: 13px; font-weight: 800; top: 0px; }
+  .paper-buyer-name { color: #2563EB; font-weight: 800; margin-right: 4px; }
+  .paper-buyer-opt { color: #111827; }
+  .paper-buyer-memo { color: #D97706; background: #FEF3C7; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 800; margin-left: 6px; display: inline-block; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -1835,69 +1842,105 @@ function openPaperLedger(targetProdId = null) {
   const container = document.getElementById('paperLedgerContent');
   let html = '';
   let textForCopy = '';
+  let displayProdIndex = 1;
 
-  sales.forEach((p, pIdx) => {
+  sales.forEach((p) => {
     if (targetProdId && p.id !== targetProdId) return;
 
-    p.buyers.forEach((b) => {
-      if (b.isCanceled || !(b.nickname || '').trim()) return; 
+    // 유효 고객(취소 안됨 & 이름 있음)만 필터링
+    const validBuyers = p.buyers.filter(b => !b.isCanceled && (b.nickname || '').trim() !== '');
+    if (validBuyers.length === 0) return; // 고객 없으면 상품 통째로 렌더링 안함
 
-      let badgeHtml = ''; let typeTxt = ''; let optTxt = ''; let priceTxt = '';
+    // --- 1. 상품(부모) 줄 생성 ---
+    let badgeHtml = ''; let typeTxt = ''; let priceTxt = '';
+    let pName = p.name || '상품명 미입력';
 
+    if (p.mode === 'normal') {
+      badgeHtml = ''; 
+      typeTxt = ``;
+      priceTxt = `${fmt(p.salePrice)}원, ${fmt(p.depositPrice)}원`;
+    } else if (p.mode === 'set') {
+      badgeHtml = `<span class="badge set">세트</span>`; typeTxt = `세트, `;
+      priceTxt = `상(${fmt(p.topSale)}원, ${fmt(p.topDep)}원) / 하(${fmt(p.botSale)}원, ${fmt(p.botDep)}원)`;
+    } else if (p.mode === 'cross') {
+      badgeHtml = `<span class="badge cross">1+1</span>`; typeTxt = `1+1, `;
+      priceTxt = `${fmt(p.salePrice)}원, ${fmt(p.depositPrice)}원`;
+    }
+
+    // 복사 텍스트용: 1. 세트, 상품명, 상(판매가,입금가) / 하(...)
+    textForCopy += `${displayProdIndex}. ${typeTxt}${pName}, ${priceTxt}\n`;
+
+    html += `<div class="paper-group">`;
+    html += `
+      <div class="paper-prod-line">
+        <span>${displayProdIndex}.</span>
+        ${badgeHtml} <span>${pName}</span>
+        <span class="paper-prod-price">, ${priceTxt}</span>
+      </div>
+    `;
+
+    // --- 2. 고객(자식) 줄 생성 ---
+    const circledNumbers = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
+    
+    validBuyers.forEach((b, bIdx) => {
+      let optTxt = '';
+      
       if (p.mode === 'normal') {
-        badgeHtml = `<span class="badge normal">일반</span>`; typeTxt = `[일반]`;
         optTxt = `${b.c1 || '-'}, ${b.s1 || '-'}`;
-        priceTxt = `${fmt(p.salePrice)}원 / 입금: ${fmt(p.depositPrice)}원`;
       } else if (p.mode === 'set') {
-        badgeHtml = `<span class="badge set">세트</span>`; typeTxt = `[세트]`;
         if (b.opt === 'full') {
           optTxt = `상(${b.c1 || '-'} ${b.s1 || '-'}) / 하(${b.c2 || '-'} ${b.s2 || '-'})`;
-          priceTxt = `상(${fmt(p.topSale)}원, ${fmt(p.topDep)}원) / 하(${fmt(p.botSale)}원, ${fmt(p.botDep)}원)`;
-        } else {
-          badgeHtml += `<span class="badge single">단품</span>`; typeTxt += `[단품]`;
-          optTxt = b.opt === 'top' ? `상(${b.c1 || '-'} ${b.s1 || '-'})` : `하(${b.c2 || '-'} ${b.s2 || '-'})`;
-          priceTxt = b.opt === 'top' ? `상(${fmt(p.topSale)}원, ${fmt(p.topDep)}원)` : `하(${fmt(p.botSale)}원, ${fmt(p.botDep)}원)`;
+        } else if (b.opt === 'top') {
+          optTxt = `상(${b.c1 || '-'} ${b.s1 || '-'})`;
+        } else if (b.opt === 'bottom') {
+          optTxt = `하(${b.c2 || '-'} ${b.s2 || '-'})`;
         }
       } else if (p.mode === 'cross') {
-        badgeHtml = `<span class="badge cross">1+1</span>`; typeTxt = `[1+1]`;
         if (b.opt === 'full') {
-          optTxt = `1:[${b.m1||'-'}] ${b.c1||'-'}, ${b.s1||'-'} / 2:[${b.m2||'-'}] ${b.c2||'-'}, ${b.s2||'-'}`;
-          priceTxt = `${fmt(p.salePrice)}원 / 입금: ${fmt(p.depositPrice)}원`;
-        } else {
-          badgeHtml += `<span class="badge single">단품</span>`; typeTxt += `[단품]`;
-          optTxt = `[${b.m1||'-'}] ${b.c1||'-'}, ${b.s1||'-'}`;
-          priceTxt = `${fmt(p.salePrice/2)}원 / 입금: ${fmt(p.depositPrice/2)}원`;
+          const m1 = b.m1 ? b.m1 : '모델1';
+          const m2 = b.m2 ? b.m2 : '모델2';
+          optTxt = `${m1}(${b.c1 || '-'}, ${b.s1 || '-'}) / ${m2}(${b.c2 || '-'}, ${b.s2 || '-'})`;
+        } else if (b.opt === 'single') {
+          const m1 = b.m1 ? b.m1 : '모델1';
+          optTxt = `${m1}(${b.c1 || '-'}, ${b.s1 || '-'})`;
         }
       }
 
-      let memoStr = ''; let memoHtml = ''; let memoTags = [];
+      // 메모 조립
+      let memoTags = [];
       if (b.chkYt) memoTags.push('유튜브');
       if (b.chkTt) memoTags.push('틱톡');
       if (b.chkFs) memoTags.push('무배');
       if (b.chkKp) memoTags.push('킵');
       if (b.memo) memoTags.push(b.memo);
 
+      let memoHtml = '';
+      let memoText = '';
       if (memoTags.length > 0) {
-        memoStr = ` | 📝 메모: ${memoTags.join(', ')}`;
-        memoHtml = `<span class="memo-chip">📝 ${memoTags.join(', ')}</span>`;
+        const memoMerged = memoTags.join(', ');
+        memoHtml = `<span class="paper-buyer-memo">메모: ${memoMerged}</span>`;
+        memoText = `, ${memoMerged}`;
       }
 
-      const lineTxt = `${pIdx+1}. ${typeTxt} ${p.name || '상품명 미입력'} | ${priceTxt} | 👤 ${b.nickname} : ${optTxt}${memoStr}`;
-      textForCopy += lineTxt + '\n';
+      // 20개가 넘어가면 (21) 형태로 대체
+      const numMark = circledNumbers[bIdx] || `(${bIdx+1})`;
+      
+      // 복사 텍스트용: ① 고객명, 옵션, 메모
+      textForCopy += `  ${numMark} ${b.nickname}, ${optTxt}${memoText}\n`;
 
       html += `
-        <div class="paper-item">
-          <div style="font-weight: 800; color: #111827; display: flex; align-items: center; gap: 4px; min-width: max-content;">
-            <span style="color:#64748B;">${pIdx+1}.</span>
-            ${badgeHtml} <span style="font-size:14px; margin-right:8px; font-weight:900;">${p.name || '상품명 미입력'}</span>
-            <span style="color:#64748B; font-size:12px; font-weight:700;">| ${priceTxt} |</span>
-            <span style="color:var(--primary); font-size:15px; margin-left:8px; font-weight:900;">👤 ${b.nickname}</span>
-            <span style="color:#334155; margin-left:4px;">: ${optTxt}</span>
-            ${memoHtml}
-          </div>
+        <div class="paper-buyer-line">
+          <span class="paper-buyer-num">${numMark}</span>
+          <span class="paper-buyer-name">${b.nickname},</span>
+          <span class="paper-buyer-opt">${optTxt}</span>
+          ${memoHtml}
         </div>
       `;
     });
+
+    html += `</div>`; // .paper-group 종료
+    textForCopy += `\n`; // 복사 시 상품 간 띄어쓰기 한 줄 추가
+    displayProdIndex++;
   });
 
   if (!html) {
@@ -1906,7 +1949,7 @@ function openPaperLedger(targetProdId = null) {
 
   container.innerHTML = html;
   document.getElementById('paperLedgerModal').style.display = 'flex';
-  document.getElementById('paperLedgerModal').dataset.copyText = textForCopy;
+  document.getElementById('paperLedgerModal').dataset.copyText = textForCopy; // 클립보드 복사 데이터 세팅
 }
 
 function closePaperLedger() {
