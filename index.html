@@ -934,7 +934,6 @@ function handleColorFocus(inputEl, prodId, buyerId, targetFieldOrMatrixIdx = 'c1
   
   let q = inputEl.value.trim().toLowerCase();
   
-  // "색상1", "색상2" 등 기본 임시 텍스트인 경우 검색어를 빈값으로 처리하여 전체 목록 노출
   if (/^색상\d+$/.test(q)) {
     q = '';
   }
@@ -1736,6 +1735,25 @@ function renderMatrixTable() {
 
 function deleteMatrixColor(delC) {
   if (matrixState.colors.length <= 1) { toast('최소 1개 색상 필요'); return; }
+
+  const filledNicks = [];
+  Object.keys(matrixState.orders).forEach(key => {
+    const [cStr, rStr] = key.split('_');
+    if (parseInt(cStr, 10) === delC) {
+      (matrixState.orders[key] || []).forEach(o => {
+        const name = (o.nickname || '').trim();
+        if (name) filledNicks.push(name);
+      });
+    }
+  });
+
+  if (filledNicks.length > 0) {
+    const colName = matrixState.colors[delC] ? `[${matrixState.colors[delC]}]` : `색상${delC + 1}`;
+    if (!confirm(`⚠️ ${colName} 열에 고객명(${filledNicks.join(', ')})이 입력되어 있습니다.\n정말 삭제하시겠습니까?`)) {
+      return;
+    }
+  }
+
   saveMatrixState();
   const newOrders = {};
   Object.keys(matrixState.orders).forEach(key => {
@@ -1751,13 +1769,32 @@ function deleteMatrixColor(delC) {
 
 function deleteMatrixSize(delR) {
   if (matrixState.sizes.length <= 1) { toast('최소 1개 사이즈 필요'); return; }
+
+  const filledNicks = [];
+  Object.keys(matrixState.orders).forEach(key => {
+    const [cStr, rStr] = key.split('_');
+    if (parseInt(rStr, 10) === delR) {
+      (matrixState.orders[key] || []).forEach(o => {
+        const name = (o.nickname || '').trim();
+        if (name) filledNicks.push(name);
+      });
+    }
+  });
+
+  if (filledNicks.length > 0) {
+    const rowName = matrixState.sizes[delR] ? `[${matrixState.sizes[delR]}]` : `사이즈${delR + 1}`;
+    if (!confirm(`⚠️ ${rowName} 행에 고객명(${filledNicks.join(', ')})이 입력되어 있습니다.\n정말 삭제하시겠습니까?`)) {
+      return;
+    }
+  }
+
   saveMatrixState();
   const newOrders = {};
   Object.keys(matrixState.orders).forEach(key => {
     const [cStr, rStr] = key.split('_');
     const c = parseInt(cStr, 10); const r = parseInt(rStr, 10);
     if (r < delR) newOrders[`${c}_${r}`] = matrixState.orders[key];
-    else if (r > delR) newOrders[`${c}_${r}`] = matrixState.orders[key];
+    else if (r > delR) newOrders[`${c}_${r - 1}`] = matrixState.orders[key];
   });
   matrixState.sizes.splice(delR, 1);
   matrixState.orders = newOrders;
@@ -1815,8 +1852,18 @@ function addMatrixColor() { saveMatrixState(); matrixState.colors.push(''); sync
 function addMatrixSize() { saveMatrixState(); matrixState.sizes.push(''); syncMatrixAxesToProd(); renderMatrixTable(); syncMatrixToSales(); }
 
 function removeMatrixNick(key, idx) {
-  saveMatrixState();
-  if (matrixState.orders[key]) { matrixState.orders[key].splice(idx, 1); renderMatrixTable(); syncMatrixToSales(); }
+  if (matrixState.orders[key] && matrixState.orders[key][idx]) {
+    const nick = (matrixState.orders[key][idx].nickname || '').trim();
+    if (nick !== '') {
+      if (!confirm(`⚠️ 고객명('${nick}')을 정말 삭제하시겠습니까?`)) {
+        return;
+      }
+    }
+    saveMatrixState();
+    matrixState.orders[key].splice(idx, 1);
+    renderMatrixTable();
+    syncMatrixToSales();
+  }
 }
 
 function registerMatrixToSales() {
