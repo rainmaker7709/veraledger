@@ -1423,7 +1423,12 @@ function updateSummaryLogic() {
 
 function addEmptyRow() { 
   saveState(); 
+  // 마지막 카드가 있다면 그 카드의 모드를 가져오고, 없으면 기본값 'normal' 적용
+  const lastMode = sales.length > 0 ? sales[sales.length - 1].mode : 'normal';
+  
   const newProd = createEmptyProduct();
+  newProd.mode = lastMode; // 새 카드의 모드를 이전 카드와 동일하게 설정
+
   sales.push(newProd); 
   document.getElementById('searchInput').value = ''; 
   renderSales(); 
