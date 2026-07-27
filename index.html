@@ -1535,7 +1535,7 @@ function syncMatrixToSales() {
 
       orders.forEach(order => {
         let val = (order.nickname || '').trim();
-        let cVal = (col || '').trim();
+        let cVal = (col || '').trim() || `색상${cIdx + 1}`;
         let sVal = (sz || '').trim();
 
         if (!val && !cVal && !sVal) return;
@@ -1605,7 +1605,7 @@ function openMatrixModal(prodId) {
     if (!prod.matrixSizes || prod.matrixSizes.length === 0) prod.matrixSizes = ['S', 'M', 'L', 'XL', '2XL'];
   }
 
-  matrixState.colors = [...prod.matrixColors];
+  matrixState.colors = (prod.matrixColors || ['', '']).map((col, idx) => (col || '').trim() || `색상${idx + 1}`);
   matrixState.sizes = [...prod.matrixSizes];
 
   updatePresetButtonText();
