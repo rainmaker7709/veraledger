@@ -732,7 +732,8 @@ function createEmptyProduct() {
     id: uid(), mode: 'normal', name: '', 
     salePrice: '', depositPrice: '',
     topSale: '', topDep: '', botSale: '', botDep: '',
-    matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], 
+    // 아래 matrixSizes 기본값에 '프리'가 추가되었습니다.
+    matrixColors: ['', ''], matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'], 
     isMatrixCustomized: false, isFolded: false, 
     buyers: [createEmptyBuyer()] 
   };
@@ -1634,10 +1635,12 @@ function openMatrixModal(prodId) {
 
   if (!prod.isMatrixCustomized && (cardColors.length > 0 || cardSizes.length > 0)) {
     prod.matrixColors = cardColors.length > 0 ? cardColors : ['', ''];
-    prod.matrixSizes = cardSizes.length > 0 ? cardSizes : ['S', 'M', 'L', 'XL', '2XL'];
+    // 기본값에 '프리' 추가
+    prod.matrixSizes = cardSizes.length > 0 ? cardSizes : ['프리', 'S', 'M', 'L', 'XL', '2XL'];
   } else {
     if (!prod.matrixColors || prod.matrixColors.length === 0) prod.matrixColors = ['', ''];
-    if (!prod.matrixSizes || prod.matrixSizes.length === 0) prod.matrixSizes = ['S', 'M', 'L', 'XL', '2XL'];
+    // 기본값에 '프리' 추가
+    if (!prod.matrixSizes || prod.matrixSizes.length === 0) prod.matrixSizes = ['프리', 'S', 'M', 'L', 'XL', '2XL'];
   }
 
   matrixState.colors = (prod.matrixColors || ['', '']).map((col, idx) => (col || '').trim());
@@ -2376,7 +2379,7 @@ function loadLocalData() {
             id: s.id || uid(), mode: s.mode || 'normal', name: s.name || '',
             salePrice: s.salePrice || '', depositPrice: s.depositPrice || '',
             topSale: s.topSale || '', topDep: s.topDep || '', botSale: s.botSale || '', botDep: s.botDep || '',
-            matrixColors: s.matrixColors || ['', ''], matrixSizes: s.matrixSizes || ['S', 'M', 'L', 'XL', '2XL'],
+            matrixColors: s.matrixColors || ['', ''], matrixSizes: s.matrixSizes || ['프리', 'S', 'M', 'L', 'XL', '2XL'],
             isMatrixCustomized: !!s.isMatrixCustomized, isFolded: !!s.isFolded, buyers: bArr
           };
         });
