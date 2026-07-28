@@ -471,7 +471,7 @@ function applyZoom(zoom) {
 function changeZoom(delta) { applyZoom(currentZoom + delta); }
 
 const PRESET_COLORS = ['블랙', '화이트', '크림', '그레이', '베이지', '네이비', '차콜', '핑크', '카키', '그린', '오렌지', '민트', '브라운', '쵸코', '소라', '아이보리', '옐로우', '보라', '블루', '버건디', '레드', '실버', '골드', '체크', '스트라이프', '레몬'];
-const PRESET_SIZES_CLOTHES = ['S', 'M', 'L', 'XL', '2XL', '44', '55', '66', '77'];
+const PRESET_SIZES_CLOTHES = ['프리', 'S', 'M', 'L', 'XL', '2XL', '44', '55', '66', '77'];
 const PRESET_SIZES_SHOES = Array.from({length: (285 - 220) / 5 + 1}, (_, i) => String(220 + i * 5));
 let activeSizeCategory = 'clothes';
 
@@ -511,8 +511,8 @@ function getColorStyle(colorName) {
 }
 
 const MATRIX_PRESETS = [
-  { label: '스포츠', name: '👕 스포츠', colors: ['', ''], sizes: ['S', 'M', 'L', 'XL', '2XL'] },
-  { label: '여성복', name: '👗 여성복', colors: ['', ''], sizes: ['44', '55', '66', '77'] },
+  { label: '스포츠', name: '👕 스포츠', colors: ['', ''], sizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'] },
+  { label: '여성복', name: '👗 여성복', colors: ['', ''], sizes: ['프리', '44', '55', '66', '77'] },
   { label: '신발',   name: '👟 신발',   colors: ['', ''], sizes: PRESET_SIZES_SHOES }
 ];
 let currentPresetIndex = 0;
