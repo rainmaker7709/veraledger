@@ -1193,6 +1193,10 @@ function renderSales() {
 }
 
 function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
+  // '색상1', '색상2' 등의 기본 시스템 문구면 빈칸으로 치환
+  const displayC1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
+  const displayC2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
+
   const bColor = p.mode === 'set' ? '#BE185D' : (p.mode === 'cross' ? '#1E40AF' : '#6B21A8');
   const bBg = p.mode === 'set' ? '#FCE7F3' : (p.mode === 'cross' ? '#DBEAFE' : '#F3E8FF');
   const bBorder = p.mode === 'set' ? '#F472B6' : (p.mode === 'cross' ? '#60A5FA' : '#C084FC');
@@ -1217,7 +1221,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
         ${safeDelNumBtn}
         <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
         ${memoBtn}
-        <input type="text" class="inp inp-color" value="${b.c1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
+        <input type="text" class="inp inp-color" value="${displayC1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
         <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
         ${cancelBtn}
       </div>
@@ -1240,12 +1244,12 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
         </div>
         <div class="item-line ${b.opt==='bottom'?'disabled-line':''}">
           <span class="item-label" style="background:#BE185D; color:#FFFFFF; font-weight:900;">상</span>
-          <input type="text" class="inp inp-color" value="${b.c1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
+          <input type="text" class="inp inp-color" value="${displayC1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
           <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
         </div>
         <div class="item-line ${b.opt==='top'?'disabled-line':''}">
           <span class="item-label" style="background:${bBg}; color:${bColor};">하</span>
-          <input type="text" class="inp inp-color" value="${b.c2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
+          <input type="text" class="inp inp-color" value="${displayC2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
           <input type="text" class="inp inp-size" value="${b.s2}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" onchange="updateBuyerData('${p.id}', '${b.id}', 's2', this.value)">
           <button type="button" class="btn-mini copy" onclick="copyOption('${p.id}', '${b.id}')">옵션동일</button>
         </div>
@@ -1269,13 +1273,13 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
         <div class="item-line">
           <span class="item-label" style="background:#1E40AF; color:#FFFFFF; font-weight:900;">1</span>
           <input type="text" class="inp inp-model" value="${b.m1}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'm1', this.value)">
-          <input type="text" class="inp inp-color" value="${b.c1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
+          <input type="text" class="inp inp-color" value="${displayC1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
           <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
         </div>
         <div class="item-line ${b.opt==='single'?'disabled-line':''}">
           <span class="item-label" style="background:${bBg}; color:${bColor};">2</span>
           <input type="text" class="inp inp-model" value="${b.m2}" placeholder="모델명" onfocus="handleModelFocus(this, '${p.id}', '${b.id}', 'm2')" oninput="handleModelFocus(this, '${p.id}', '${b.id}', 'm2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'm2', this.value)">
-          <input type="text" class="inp inp-color" value="${b.c2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
+          <input type="text" class="inp inp-color" value="${displayC2}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c2')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c2', this.value)">
           <input type="text" class="inp inp-size" value="${b.s2}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's2')" onchange="updateBuyerData('${p.id}', '${b.id}', 's2', this.value)">
           <button type="button" class="btn-mini copy" onclick="copyOption('${p.id}', '${b.id}')">옵션동일</button>
         </div>
@@ -1390,18 +1394,22 @@ function getFlattenedSales() {
     p.buyers.forEach(b => {
       let sp = 0, dp = 0;
       let colorStr = '', sizeStr = '';
+      
+      // 내보내기용 클린업 처리
+      let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
+      let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
       if (p.mode === 'normal') {
         sp = Number(p.salePrice) || 0; dp = Number(p.depositPrice) || 0;
-        colorStr = b.c1; sizeStr = b.s1;
+        colorStr = c1; sizeStr = b.s1;
       } else if (p.mode === 'set') {
-        if (b.opt === 'full') { sp = (Number(p.topSale)||0) + (Number(p.botSale)||0); dp = (Number(p.topDep)||0) + (Number(p.botDep)||0); colorStr = `상:${b.c1}/하:${b.c2}`; sizeStr = `상:${b.s1}/하:${b.s2}`; }
-        else if (b.opt === 'top') { sp = Number(p.topSale)||0; dp = Number(p.topDep)||0; colorStr = `상:${b.c1}`; sizeStr = `상:${b.s1}`; }
-        else if (b.opt === 'bottom') { sp = Number(p.botSale)||0; dp = Number(p.botDep)||0; colorStr = `하:${b.c2}`; sizeStr = `하:${b.s2}`; }
+        if (b.opt === 'full') { sp = (Number(p.topSale)||0) + (Number(p.botSale)||0); dp = (Number(p.topDep)||0) + (Number(p.botDep)||0); colorStr = `상:${c1}/하:${c2}`; sizeStr = `상:${b.s1}/하:${b.s2}`; }
+        else if (b.opt === 'top') { sp = Number(p.topSale)||0; dp = Number(p.topDep)||0; colorStr = `상:${c1}`; sizeStr = `상:${b.s1}`; }
+        else if (b.opt === 'bottom') { sp = Number(p.botSale)||0; dp = Number(p.botDep)||0; colorStr = `하:${c2}`; sizeStr = `하:${b.s2}`; }
       } else if (p.mode === 'cross') {
         sp = Number(p.salePrice) || 0; dp = Number(p.depositPrice) || 0;
-        if (b.opt === 'single') { sp = sp / 2; dp = dp / 2; colorStr = `[${b.m1}] ${b.c1}`; sizeStr = b.s1; }
-        else { colorStr = `1:[${b.m1}]${b.c1} / 2:[${b.m2}]${b.c2}`; sizeStr = `1:${b.s1} / 2:${b.s2}`; }
+        if (b.opt === 'single') { sp = sp / 2; dp = dp / 2; colorStr = `[${b.m1}] ${c1}`; sizeStr = b.s1; }
+        else { colorStr = `1:[${b.m1}]${c1} / 2:[${b.m2}]${c2}`; sizeStr = `1:${b.s1} / 2:${b.s2}`; }
       }
 
       flat.push({
@@ -2054,9 +2062,7 @@ function openPaperLedger(targetProdId = null) {
       priceTxt = `${fmt(p.salePrice)}원, ${fmt(p.depositPrice)}원`;
     }
 
-    textForCopy += `${displayProdIndex}. ${typeTxt}${pName}, ${priceTxt}
-`;
-
+    textForCopy += `${displayProdIndex}. ${typeTxt}${pName}, ${priceTxt}\n`;
     html += `<div class="paper-group">`;
     html += `
       <div class="paper-prod-line">
@@ -2069,26 +2075,29 @@ function openPaperLedger(targetProdId = null) {
     const circledNumbers = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
     
     validBuyers.forEach((b, bIdx) => {
+      // 내보내기용 클린업 처리
+      let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
+      let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
       let optTxt = '';
       
       if (p.mode === 'normal') {
-        optTxt = `${b.c1 || '-'}, ${b.s1 || '-'}`;
+        optTxt = `${c1 || '-'}, ${b.s1 || '-'}`;
       } else if (p.mode === 'set') {
         if (b.opt === 'full') {
-          optTxt = `상(${b.c1 || '-'} ${b.s1 || '-'}) / 하(${b.c2 || '-'} ${b.s2 || '-'})`;
+          optTxt = `상(${c1 || '-'} ${b.s1 || '-'}) / 하(${c2 || '-'} ${b.s2 || '-'})`;
         } else if (b.opt === 'top') {
-          optTxt = `상(${b.c1 || '-'} ${b.s1 || '-'})`;
+          optTxt = `상(${c1 || '-'} ${b.s1 || '-'})`;
         } else if (b.opt === 'bottom') {
-          optTxt = `하(${b.c2 || '-'} ${b.s2 || '-'})`;
+          optTxt = `하(${c2 || '-'} ${b.s2 || '-'})`;
         }
       } else if (p.mode === 'cross') {
         if (b.opt === 'full') {
           const m1 = b.m1 ? b.m1 : '모델1';
           const m2 = b.m2 ? b.m2 : '모델2';
-          optTxt = `${m1}(${b.c1 || '-'}, ${b.s1 || '-'}) / ${m2}(${b.c2 || '-'}, ${b.s2 || '-'})`;
+          optTxt = `${m1}(${c1 || '-'}, ${b.s1 || '-'}) / ${m2}(${c2 || '-'}, ${b.s2 || '-'})`;
         } else if (b.opt === 'single') {
           const m1 = b.m1 ? b.m1 : '모델1';
-          optTxt = `${m1}(${b.c1 || '-'}, ${b.s1 || '-'})`;
+          optTxt = `${m1}(${c1 || '-'}, ${b.s1 || '-'})`;
         }
       }
 
@@ -2109,8 +2118,7 @@ function openPaperLedger(targetProdId = null) {
 
       const numMark = circledNumbers[bIdx] || `(${bIdx+1})`;
       
-      textForCopy += `  ${numMark} ${b.nickname}, ${optTxt}${memoText}
-`;
+      textForCopy += `  ${numMark} ${b.nickname}, ${optTxt}${memoText}\n`;
 
       html += `
         <div class="paper-buyer-line">
@@ -2123,8 +2131,7 @@ function openPaperLedger(targetProdId = null) {
     });
 
     html += `</div>`;
-    textForCopy += `
-`;
+    textForCopy += `\n`;
     displayProdIndex++;
   });
 
@@ -2169,29 +2176,33 @@ async function sendToSheet() {
       if (b.isCanceled) return;
       if (!(b.nickname || '').trim()) return;
 
+      // 내보내기용 클린업 처리
+      let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
+      let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
+
       if (p.mode === 'normal') {
         records.push({
-          date: targetDate, name: p.name, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'),
+          date: targetDate, name: p.name, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'),
           nickname: b.nickname, price: p.salePrice || 0
         });
       } else if (p.mode === 'set') {
         if (b.opt === 'full') {
-          records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0 });
-          records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [b.c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0 });
+          records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0 });
+          records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0 });
         } else if (b.opt === 'top') {
-          records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0 });
+          records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0 });
         } else if (b.opt === 'bottom') {
-          records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [b.c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0 });
+          records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0 });
         }
       } else if (p.mode === 'cross') {
         if (b.opt === 'full') {
           const m1Name = b.m1 ? ` ${b.m1}` : '';
           const m2Name = b.m2 ? ` ${b.m2}` : '';
-          records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.salePrice || 0 });
-          records.push({ date: targetDate, name: `${p.name}${m2Name}`, colorSize: [b.c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: 0 });
+          records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.salePrice || 0 });
+          records.push({ date: targetDate, name: `${p.name}${m2Name}`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: 0 });
         } else if (b.opt === 'single') {
           const m1Name = b.m1 ? ` ${b.m1}` : '';
-          records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [b.c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: (p.salePrice / 2) || 0 });
+          records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: (p.salePrice / 2) || 0 });
         }
       }
     });
@@ -2292,26 +2303,29 @@ function exportExcel() {
       if (!(b.nickname || '').trim()) return;
 
       let mergedMemo = getExcelMemo(b);
+      // 내보내기용 클린업 처리
+      let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
+      let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
       if (p.mode === 'normal') {
-        records.push({ name: p.name || '', option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
+        records.push({ name: p.name || '', option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
       } else if (p.mode === 'set') {
         if (b.opt === 'full') {
-          records.push({ name: `${p.name} 상의`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
-          records.push({ name: `${p.name} 하의`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
+          records.push({ name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
+          records.push({ name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
         } else if (b.opt === 'top') {
-          records.push({ name: `${p.name} 상의`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
+          records.push({ name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
         } else if (b.opt === 'bottom') {
-          records.push({ name: `${p.name} 하의`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
+          records.push({ name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
         }
       } else if (p.mode === 'cross') {
         if (b.opt === 'full') {
           const m1Name = b.m1 ? ` ${b.m1}` : ''; const m2Name = b.m2 ? ` ${b.m2}` : '';
-          records.push({ name: `${p.name}${m1Name}`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
-          records.push({ name: `${p.name}${m2Name}`, option: [b.c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: 0, depositPrice: 0, memo: mergedMemo });
+          records.push({ name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
+          records.push({ name: `${p.name}${m2Name}`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: 0, depositPrice: 0, memo: mergedMemo });
         } else if (b.opt === 'single') {
           const m1Name = b.m1 ? ` ${b.m1}` : '';
-          records.push({ name: `${p.name}${m1Name}`, option: [b.c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: (Number(p.salePrice) / 2) || 0, depositPrice: (Number(p.depositPrice) / 2) || 0, memo: mergedMemo });
+          records.push({ name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: (Number(p.salePrice) / 2) || 0, depositPrice: (Number(p.depositPrice) / 2) || 0, memo: mergedMemo });
         }
       }
     });
