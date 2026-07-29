@@ -200,6 +200,19 @@
   .summary-table th { text-align: left; color: #334155; padding: 6px 0; border-bottom: 2px solid var(--line); font-size: 12px; font-weight: 800; }
   .summary-table td { padding: 9px 0; border-bottom: 1px dashed var(--line); font-weight: 700; color: var(--ink); cursor: pointer; }
 
+/* 정산 요약 넘버링 버튼 및 강조 색상 */
+.settle-num-btn {
+  width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #CBD5E1;
+  background: #F1F5F9; color: #475569; font-size: 11px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0; user-select: none;
+}
+.settle-num-btn.bg-yellow { background: #FEF08A; border-color: #EAB308; color: #854D0E; }
+.settle-num-btn.bg-red { background: #FECDD3; border-color: #F43F5E; color: #9F1239; }
+
+tr.row-highlight-yellow { background-color: #FEF9C3 !important; }
+tr.row-highlight-red { background-color: #FFE4E6 !important; }
+
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); display: none; justify-content: center; align-items: center; z-index: 300; }
   .modal-box { background: #fff; border-radius: 12px; width: 320px; max-width: 92vw; padding: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 10px; }
   .modal-title { font-size: 14px; font-weight: 800; color: var(--ink); display: flex; justify-content: space-between; align-items: center; }
@@ -279,7 +292,7 @@
   <div id="view-sales" style="display:flex; flex-direction:column; flex:1;">
     <div class="control-bar">
       <div class="search-box">
-        <input type="text" id="searchInput" placeholder="🔍 상품, 고객명 검색..." onfocus="handleInputFocus(this)" oninput="renderSales()">
+        <input type="text" id="searchInput" placeholder="🔍 상품, 고객명 검색..." oninput="renderSales()">
       </div>
       <button class="btn-chip undo" onclick="undo()">↺ 되돌리기</button>
       <button class="btn-chip redo" onclick="redo()">↻ 앞으로가기</button>
@@ -329,7 +342,7 @@
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
       <button class="btn-chip" style="background:#2F80ED; color:#fff; padding:8px;" onclick="exportJsonForPC()">📁 PC용 JSON 공유</button>
       <button class="btn-chip" style="background:#8B5CF6; color:#fff; padding:8px;" onclick="document.getElementById('mobile-json-import').click()">📥 PC JSON 불러오기</button>
-      <button class="btn-chip" style="background:#FEE500; color:#111; padding:8px;" onclick="shareKakaoText()">💬 카톡 정산 요약</button>
+      <button class="btn-chip" style="background:#10B981; color:#fff; padding:8px;" onclick="exportWarehouseExcel()">📦 창고 정산용 엑셀</button>
       <button class="btn-chip" style="background:#27AE60; color:#fff; padding:8px;" onclick="exportExcel()">📊 엑셀 내보내기</button>
     </div>
     <input type="file" id="mobile-json-import" accept=".json" style="display:none;" onchange="importJsonFile(event)">
@@ -1946,6 +1959,17 @@ function setSettleGroup(mode) {
   renderSettlement();
 }
 
+// 색상 상태 저장 객체 및 토글 함수
+let settleHighlights = {};
+function toggleSettleColor(key, e) {
+  if (e) e.stopPropagation();
+  const current = settleHighlights[key] || 'none';
+  if (current === 'none') settleHighlights[key] = 'yellow';
+  else if (current === 'yellow') settleHighlights[key] = 'red';
+  else settleHighlights[key] = 'none';
+  renderSettlement();
+}
+
 function renderSettlement() {
   const stats = getStats();
   const margin = stats.totalSale - stats.totalDeposit;
@@ -2345,6 +2369,91 @@ function exportExcel() {
   XLSX.utils.book_append_sheet(wb, ws, "정산대장");
   XLSX.writeFile(wb, `모바일장부_${new Date().toISOString().slice(2,10)}.xlsx`);
   toast('📊 엑셀 다운로드 완료!');
+}
+
+function exportWarehouseExcel() {
+  const flat = getFlattenedSales();
+  const activeSales = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() !== '');
+
+  if (activeSales.length === 0) { 
+    toast('⚠️ 내보낼 데이터가 없습니다.'); 
+    return; 
+  }
+
+  let rowNum = 1;
+  let records = [];
+
+  sales.forEach(p => {
+    p.buyers.forEach(b => {
+      if (b.isCanceled || !(b.nickname || '').trim()) return;
+
+      let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
+      let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
+
+      if (p.mode === 'normal') {
+        records.push({
+          '넘버링': rowNum++,
+          '상품명': p.name || '',
+          '색상': c1,
+          '사이즈': b.s1 || '',
+          '수량': 1,
+          '입금가': Number(p.depositPrice) || 0
+        });
+      } else if (p.mode === 'set') {
+        if (b.opt === 'full' || b.opt === 'top') {
+          records.push({
+            '넘버링': rowNum++,
+            '상품명': `${p.name} 상의`.trim(),
+            '색상': c1,
+            '사이즈': b.s1 || '',
+            '수량': 1,
+            '입금가': Number(p.topDep) || 0
+          });
+        }
+        if (b.opt === 'full' || b.opt === 'bottom') {
+          records.push({
+            '넘버링': rowNum++,
+            '상품명': `${p.name} 하의`.trim(),
+            '색상': c2,
+            '사이즈': b.s2 || '',
+            '수량': 1,
+            '입금가': Number(p.botDep) || 0
+          });
+        }
+      } else if (p.mode === 'cross') {
+        if (b.opt === 'full' || b.opt === 'single') {
+          const m1Name = b.m1 ? ` ${b.m1}` : '';
+          records.push({
+            '넘버링': rowNum++,
+            '상품명': `${p.name}${m1Name}`.trim(),
+            '색상': c1,
+            '사이즈': b.s1 || '',
+            '수량': 1,
+            '입금가': b.opt === 'single' ? (Number(p.depositPrice) / 2) || 0 : Number(p.depositPrice) || 0
+          });
+        }
+        if (b.opt === 'full') {
+          const m2Name = b.m2 ? ` ${b.m2}` : '';
+          records.push({
+            '넘버링': rowNum++,
+            '상품명': `${p.name}${m2Name}`.trim(),
+            '색상': c2,
+            '사이즈': b.s2 || '',
+            '수량': 1,
+            '입금가': 0
+          });
+        }
+      }
+    });
+  });
+
+  const ws = XLSX.utils.json_to_sheet(records);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "창고정산");
+
+  const today = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+  XLSX.writeFile(wb, `창고정산용_${today}.xlsx`);
+  toast('📦 창고 정산용 엑셀 다운로드 완료!');
 }
 
 function clearAllMobileData() {
