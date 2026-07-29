@@ -1970,23 +1970,6 @@ function toggleSettleColor(key, e) {
   renderSettlement();
 }
 
-// ⬇️ 여기부터 새로 추가된 함수 ⬇️
-function autoFitFontSize() {
-  const fitCells = document.querySelectorAll('.auto-fit-cell');
-  fitCells.forEach(cell => {
-    let fontSize = 12.5; // 기본 폰트 크기
-    cell.style.fontSize = fontSize + 'px';
-    cell.style.whiteSpace = 'nowrap';
-    
-    // 내용이 넘치면 폰트 크기를 줄임 (최소 8px)
-    while (cell.scrollWidth > cell.clientWidth && fontSize > 8) {
-      fontSize -= 0.5;
-      cell.style.fontSize = fontSize + 'px';
-    }
-  });
-}
-// ⬆️ 여기까지 ⬆️
-
 function renderSettlement() {
   const stats = getStats();
   const margin = stats.totalSale - stats.totalDeposit;
@@ -2078,35 +2061,12 @@ function renderSettlement() {
 
   } else if (settleGroupMode === 'product') {
     titleEl.textContent = '📦 상품별 판매 집계';
-    // 💡 머릿글(수량, 입금가, 판매가) 수정사항 포함
-    headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>상품명</th><th style="text-align:center; white-space:nowrap;">수량</th><th style="text-align:right;">입금가</th><th style="text-align:right;">판매가</th></tr>';
+    headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>상품명</th><th style="text-align:center;">수량</th><th style="text-align:right;">입금가</th><th style="text-align:right;">판매가</th></tr>';
     const map = {}; activeSales.forEach(s => { const k = s.name || '미입력 상품'; if (!map[k]) map[k] = { qty: 0, deposit: 0, sale: 0 }; map[k].qty++; map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; });
     let entries = Object.entries(map);
     if (sq) {
       entries = entries.filter(([pName]) => pName.toLowerCase().includes(sq));
     }
-    bodyEl.innerHTML = entries.sort((a, b) => b[1].qty - a[1].qty)
-      .map(([pName, d], idx) => {
-        const safePName = pName.replace(/'/g, "\\'");
-        const itemKey = `product_${pName}`;
-        const hl = settleHighlights[itemKey] || 'none';
-        const trClass = hl === 'yellow' ? 'row-highlight-yellow' : (hl === 'red' ? 'row-highlight-red' : '');
-        const btnClass = hl === 'yellow' ? 'bg-yellow' : (hl === 'red' ? 'bg-red' : '');
-        
-        // 💡 폰트 크기 자동 조절을 위해 상품명/입금가/판매가 칸에 .auto-fit-cell을 적용
-        return `<tr class="${trClass}" onclick="openSettleGroupDetail('product', '${safePName}')">
-          <td style="text-align:center; padding: 4px 2px;"><button class="settle-num-btn ${btnClass}" onclick="toggleSettleColor('${itemKey.replace(/'/g, "\\'")}', event)">${idx + 1}</button></td>
-          <td style="max-width: 90px;"><div class="auto-fit-cell" style="overflow:hidden; display:inline-block; width:100%;">${pName}</div></td>
-          <td style="text-align:center; white-space:nowrap;">${d.qty}개</td>
-          <td style="text-align:right; color:var(--accent-deposit); font-weight:800; max-width: 70px;"><div class="auto-fit-cell" style="overflow:hidden; display:inline-block; width:100%; text-align:right;">${fmt(d.deposit)}원</div></td>
-          <td style="text-align:right; color:var(--purple); font-weight:800; max-width: 70px;"><div class="auto-fit-cell" style="overflow:hidden; display:inline-block; width:100%; text-align:right;">${fmt(d.sale)}원</div></td>
-        </tr>`;
-      }).join('') || '<tr><td colspan="5" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
-      
-    // 💡 표가 그려진 직후에 폰트 크기 자동 조절 실행
-    setTimeout(autoFitFontSize, 10);
-  }
-}
     bodyEl.innerHTML = entries.sort((a, b) => b[1].qty - a[1].qty)
       .map(([pName, d], idx) => {
         const safePName = pName.replace(/'/g, "\\'");
