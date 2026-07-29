@@ -2061,7 +2061,7 @@ function renderSettlement() {
 
   } else if (settleGroupMode === 'product') {
     titleEl.textContent = '📦 상품별 판매 집계';
-    headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>상품명</th><th style="text-align:center;">수량</th><th style="text-align:right;">입금가</th><th style="text-align:right;">판매가</th></tr>';
+    headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>상품명</th><th style="text-align:center; white-space:nowrap;">수량</th><th style="text-align:right;">입금가</th><th style="text-align:right;">판매가</th></tr>';
     const map = {}; activeSales.forEach(s => { const k = s.name || '미입력 상품'; if (!map[k]) map[k] = { qty: 0, deposit: 0, sale: 0 }; map[k].qty++; map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; });
     let entries = Object.entries(map);
     if (sq) {
