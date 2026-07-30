@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="index.json">
 
-<title>모바일 라이브 장부 V5.6 (현장 뷰 복구 및 고도화)</title>
+<title>모바일 라이브 장부 V5.7 (전체 기능 통합본)</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root {
@@ -277,6 +277,85 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
   .paper-buyer-name { color: #2563EB; font-weight: 800; margin-right: 4px; }
   .paper-buyer-opt { color: #111827; }
   .paper-buyer-memo { color: #D97706; background: #FEF3C7; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 800; margin-left: 6px; display: inline-block; vertical-align: middle; }
+
+  /* ===== 💰 입금정산 탭 전용 CSS ===== */
+  #view-deposit { display: none; padding: 10px 10px 120px 10px; flex-direction: column; gap: 10px; }
+  
+  .accordion-header {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 45px;
+    z-index: 30;
+    padding: 12px; display: flex; justify-content: space-between; align-items: center;
+    font-size: 13.5px; font-weight: 800; cursor: pointer; user-select: none;
+    border-bottom: 1.5px solid rgba(0,0,0,0.05);
+    border-top-left-radius: calc(var(--radius) - 1.5px);
+    border-top-right-radius: calc(var(--radius) - 1.5px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08); /* 스크롤 시 아래 목록과 구분되는 입체감 */
+  }
+  .accordion-content {
+    display: flex; flex-direction: column; gap: 8px; padding: 10px;
+    background: #F8FAFC;
+  }
+  
+  .deposit-card {
+    background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px;
+    padding: 10px; display: flex; flex-direction: column; gap: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04); position: relative;
+    transition: transform 0.2s, opacity 0.2s, background 0.2s;
+  }
+  
+  .deposit-card.moving {
+    transform: scale(0.95); opacity: 0; pointer-events: none;
+  }
+
+  .dep-top-row { display: flex; justify-content: space-between; align-items: flex-start; }
+  .dep-name { font-size: 14.5px; font-weight: 900; color: #0F172A; }
+  
+  /* ===== 💰 입금정산 고대비 (High-Contrast) & 스마트 배지 CSS 개편 ===== */
+  .badge-status { padding: 4px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 900; color: #FFFFFF !important; }
+  .badge-ok { background: #059669 !important; } /* 진녹색 High-Contrast */
+  .badge-lack { background: #DC2626 !important; } /* 진빨강 High-Contrast */
+  .badge-over { background: #D97706 !important; } /* 짙은 주황 High-Contrast */
+  .badge-none { background: #475569 !important; } /* 짙은 회색 */
+
+  /* 실명 태그 및 메모 스마트 뱃지 */
+  .tag-realname { background: #2563EB; color: #FFFFFF; font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 4px; display: inline-flex; align-items: center; }
+  .badge-auto-green { background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-right: 4px; display: inline-flex; }
+  .badge-memo-red { background: #DC2626; color: #FFFFFF; font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 4px; display: inline-flex; }
+
+  /* 스마트 계산기 모달 전용 스타일 */
+  .calc-item-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; margin-bottom: 4px; }
+  .calc-item-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #3182F6; }
+  .calc-banner-ok { background: #059669; color: #FFFFFF; padding: 10px; border-radius: 6px; text-align: center; font-size: 14px; font-weight: 900; }
+  .calc-banner-lack { background: #DC2626; color: #FFFFFF; padding: 10px; border-radius: 6px; text-align: center; font-size: 14px; font-weight: 900; }
+  .calc-banner-over { background: #D97706; color: #FFFFFF; padding: 10px; border-radius: 6px; text-align: center; font-size: 14px; font-weight: 900; }
+  
+  .dep-price-row { display: flex; gap: 8px; font-size: 13px; font-weight: 700; color: #334155; margin-top: 4px; }
+  
+  .btn-move {
+    background: #3182F6; color: #FFF; border: none; padding: 6px 12px;
+    border-radius: 6px; font-size: 11.5px; font-weight: 800; cursor: pointer;
+    box-shadow: 0 2px 4px rgba(49,130,246,0.3);
+  }
+  .btn-restore {
+    background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1;
+    padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; cursor: pointer;
+  }
+  
+  /* 색상 칩 제어 */
+  .color-chip-group { display: flex; gap: 4px; margin-top: 4px; }
+  .d-chip { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.15); cursor: pointer; }
+  .d-chip.c-yellow { background: #FDE047; }
+  .d-chip.c-red { background: #FCA5A5; }
+  .d-chip.c-green { background: #86EFAC; }
+  .d-chip.c-clear { background: #FFFFFF; position:relative; }
+  .d-chip.c-clear::after { content: "✕"; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:9px; color:#94A3B8; font-weight:bold; }
+  
+  /* 카드 색상 반영 (배경) */
+  .deposit-card.hl-yellow { background: #FEF9C3; border-color: #FDE047; }
+  .deposit-card.hl-red { background: #FEE2E2; border-color: #FCA5A5; }
+  .deposit-card.hl-green { background: #DCFCE7; border-color: #86EFAC; }
 </style>
 </head>
 <body>
@@ -378,6 +457,73 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
 
   </main>
 
+  <!-- 💰 입금정산 탭 추가 -->
+  <main id="view-deposit">
+    
+    <div class="settle-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-weight:800; font-size:14px;">📂 카카오뱅크 엑셀 업로드</div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-chip" style="background:var(--danger); color:#fff; padding:6px 12px;" onclick="clearDepositData()">초기화</button>
+          <button class="btn-chip" style="background:var(--primary); color:#fff; padding:6px 12px;" onclick="document.getElementById('mobile-deposit-import').click()">파일 선택</button>
+        </div>
+        <input type="file" id="mobile-deposit-import" accept=".xlsx, .xls" style="display:none;" onchange="handleDepositFile(this.files[0])">
+      </div>
+      <div id="deposit-meta" style="font-size:11px; color:var(--ink-sub); margin-top:6px; display:none;"></div>
+      
+      <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+        <span style="font-size:12px; font-weight:800; color:var(--ink-sub);">🚚 총 배송비 일괄적용:</span>
+        <input type="text" id="global-shipping-input" class="inp inp-num" style="width: 80px;" placeholder="0" value="0" onchange="renderDepositTab()">
+      </div>
+
+      <!-- 🔍 입금정산 전체 통합검색창 추가 -->
+      <div style="margin-top:10px;">
+        <input type="text" id="depositSearchInput" class="inp" style="width:100%; padding:8px 10px; font-size:13px; font-weight:700; background:#F8FAFC;" placeholder="🔍 통합검색 (고객명, 실명, 입금자명, 금액...)" oninput="renderDepositTab()">
+      </div>
+    </div>
+
+    <!-- 미매칭 (진행중) 패널 -->
+    <div class="settle-card" style="padding:0; overflow:visible; border-color:#F59E0B;">
+      <div class="accordion-header" onclick="toggleAcc('acc-unmatched')" style="background:#FEF3C7; color:#B45309;">
+        <span>⚠️ 미매칭 목록 (<span id="cnt-unmatched">0</span>건)</span>
+        <span id="acc-unmatched-icon">▲</span>
+      </div>
+      <div id="acc-unmatched" class="accordion-content" style="display:flex;"></div>
+    </div>
+
+    <!-- 정산완료 패널 -->
+    <div class="settle-card" style="padding:0; overflow:visible; border-color:#10B981;">
+      <div class="accordion-header" onclick="toggleAcc('acc-completed')" style="background:#D1FAE5; color:#047857;">
+        <span>✅ 정산완료 목록 (<span id="cnt-completed">0</span>건)</span>
+        <span id="acc-completed-icon">▼</span>
+      </div>
+      <div id="acc-completed" class="accordion-content" style="display:none;"></div>
+    </div>
+
+    <!-- 장부 미등록 입금건 -->
+    <div class="settle-card" style="padding:0; overflow:visible; border-color:#EF4444;">
+      <div class="accordion-header" onclick="toggleAcc('acc-unknown')" style="background:#FEE2E2; color:#B91C1C;">
+        <span>❓ 장부 미등록 통장 내역 (<span id="cnt-unknown">0</span>건)</span>
+        <span id="acc-unknown-icon">▼</span>
+      </div>
+      <div id="acc-unknown" class="accordion-content" style="display:none;"></div>
+    </div>
+
+    <!-- 통장 원본 -->
+    <div class="settle-card" style="padding:0; overflow:visible; border-color:#94A3B8;">
+      <div class="accordion-header" onclick="toggleAcc('acc-bank')" style="background:#F1F5F9; color:#334155;">
+        <span>🏦 통장 원본 확인 (<span id="cnt-bank">0</span>건)</span>
+        <span id="acc-bank-icon">▼</span>
+      </div>
+      <div id="acc-bank" class="accordion-content" style="display:none;">
+        <input type="text" id="bankSearchInput" class="inp" style="width:100%; margin-bottom:8px;" placeholder="🔍 입금자명 또는 금액 검색..." oninput="renderDepositTab()">
+        <div id="bank-list-container" style="display:flex; flex-direction:column; gap:4px;"></div>
+      </div>
+    </div>
+
+  </main>
+
+
   <div class="ac-dropdown" id="acDropdown" onmousedown="event.preventDefault()"></div>
 
   <div class="bottom-bar">
@@ -395,6 +541,7 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
     <div class="tab-group">
       <button class="tab-btn active" id="tab-sales" onclick="switchTab('sales')">📋 판매대장</button>
       <button class="tab-btn" id="tab-settle" onclick="switchTab('settle')">📊 정산요약</button>
+      <button class="tab-btn" id="tab-deposit" onclick="switchTab('deposit')">💰 입금정산</button>
     </div>
   </div>
 
@@ -434,7 +581,35 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
       </div>
     </div>
   </div>
+  <!-- 🧮 실시간 차액 검증 스마트 계산기 모달 -->
+  <div class="modal-overlay" id="smartCalcModal">
+    <div class="modal-box" style="width:380px; max-height:85vh;">
+      <div class="modal-title">
+        <span id="smartCalcTitle">🧮 실시간 차액 계산기</span>
+        <button class="btn-mini del" onclick="closeSmartCalcModal()">✕</button>
+      </div>
+      
+      <div id="smartCalcSubInfo" style="font-size:12px; color:#475569; font-weight:700; background:#F1F5F9; padding:6px 8px; border-radius:6px; margin-bottom:4px;">
+        💡 구매 내역을 켜고 끄면서 실제 통장 입금액과 차액을 계산하세요.
+      </div>
 
+      <div id="smartCalcList" style="max-height:45vh; overflow-y:auto; display:flex; flex-direction:column; gap:4px; margin-top:6px;">
+        <!-- 구매 상품 체크박스 목록 동적 생성 -->
+      </div>
+
+      <div id="smartCalcSummaryBox" style="margin-top:10px; padding:10px; border-radius:8px; background:#F8FAFC; border:1.5px solid #CBD5E1; display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; font-weight:800; font-size:12.5px; color:#1E293B;">
+          <span>체크 상품 총액: <strong id="smartCalcCheckedTotal" style="color:var(--purple); font-size:14px;">0원</strong></span>
+          <span>통장 입금액: <strong id="smartCalcBankTotal" style="color:var(--accent-deposit); font-size:14px;">0원</strong></span>
+        </div>
+        <div id="smartCalcBanner" class="calc-banner-ok">✅ 일치! (차액 0원)</div>
+      </div>
+
+      <div class="modal-btns" style="margin-top:6px;">
+        <button class="btn-mini" style="background:var(--primary); color:#fff; width:100%; padding:8px; font-size:13px; font-weight:800;" onclick="closeSmartCalcModal()">확인 및 닫기</button>
+      </div>
+    </div>
+  </div>
   <div class="matrix-modal-fullscreen" id="matrixModal">
     <div class="matrix-header">
       <div style="display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden;">
@@ -555,6 +730,14 @@ let preFocusScrollY = null;
 let isCardFocusActive = false;
 
 let deleteTimeouts = {};
+
+// ===== 입금정산 로직 전역 변수 =====
+let bankRecords = [];
+let depositFileName = "";
+let completedDepositIds = new Set(); 
+let depositColors = {}; 
+let depositGlobalShipping = 0;
+
 
 function getAutoBrands() {
   const localBrands = sales.map(p => p.name).filter(Boolean);
@@ -745,7 +928,6 @@ function createEmptyProduct() {
     id: uid(), mode: 'normal', name: '', 
     salePrice: '', depositPrice: '',
     topSale: '', topDep: '', botSale: '', botDep: '',
-    // 아래 matrixSizes 기본값에 '프리'가 추가되었습니다.
     matrixColors: ['', ''], matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'], 
     isMatrixCustomized: false, isFolded: false, 
     buyers: [createEmptyBuyer()] 
@@ -1207,7 +1389,6 @@ function renderSales() {
 }
 
 function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
-  // '색상1', '색상2' 등의 기본 시스템 문구면 빈칸으로 치환
   const displayC1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
   const displayC2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
@@ -1409,7 +1590,6 @@ function getFlattenedSales() {
       let sp = 0, dp = 0;
       let colorStr = '', sizeStr = '';
       
-      // 내보내기용 클린업 처리
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
@@ -1445,12 +1625,9 @@ function updateSummaryLogic() {
 
 function addEmptyRow() { 
   saveState(); 
-  // 마지막 카드가 있다면 그 카드의 모드를 가져오고, 없으면 기본값 'normal' 적용
   const lastMode = sales.length > 0 ? sales[sales.length - 1].mode : 'normal';
-  
   const newProd = createEmptyProduct();
-  newProd.mode = lastMode; // 새 카드의 모드를 이전 카드와 동일하게 설정
-
+  newProd.mode = lastMode; 
   sales.push(newProd); 
   document.getElementById('searchInput').value = ''; 
   renderSales(); 
@@ -1518,7 +1695,6 @@ function openMemoModal(prodId, buyerId) {
       alertEl.style.display = 'none';
     }
   }
-
   document.getElementById('memoModal').style.display = 'flex'; 
 }
 
@@ -1559,7 +1735,6 @@ function syncMatrixAxesToProd() {
   }
 }
 
-/* 매트릭스 변경사항을 메인 sales 데이터 및 LocalStorage에 실시간 연동 */
 function syncMatrixToSales() {
   if (!currentMatrixProdId) return;
   const prod = sales.find(p => p.id === currentMatrixProdId);
@@ -1648,11 +1823,9 @@ function openMatrixModal(prodId) {
 
   if (!prod.isMatrixCustomized && (cardColors.length > 0 || cardSizes.length > 0)) {
     prod.matrixColors = cardColors.length > 0 ? cardColors : ['', ''];
-    // 기본값에 '프리' 추가
     prod.matrixSizes = cardSizes.length > 0 ? cardSizes : ['프리', 'S', 'M', 'L', 'XL', '2XL'];
   } else {
     if (!prod.matrixColors || prod.matrixColors.length === 0) prod.matrixColors = ['', ''];
-    // 기본값에 '프리' 추가
     if (!prod.matrixSizes || prod.matrixSizes.length === 0) prod.matrixSizes = ['프리', 'S', 'M', 'L', 'XL', '2XL'];
   }
 
@@ -1914,22 +2087,28 @@ function removeMatrixNick(key, idx) {
 function registerMatrixToSales() {
   syncMatrixToSales();
   closeMatrixModal(); 
-  toast(`⚡ 판매내역 연동 등록 완료!`);
+  toast(`⚡ 판매내역 연동 완료!`);
 }
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
+  
+  document.getElementById('view-sales').style.display = 'none';
+  document.getElementById('view-settle').style.display = 'none';
+  document.getElementById('view-deposit').style.display = 'none';
+  document.getElementById('dash-summary').style.display = 'none';
+
   if (tab === 'sales') {
     document.getElementById('view-sales').style.display = 'flex';
-    document.getElementById('view-settle').style.display = 'none';
     document.getElementById('dash-summary').style.display = 'flex';
-  } else {
-    document.getElementById('view-sales').style.display = 'none';
+  } else if (tab === 'settle') {
     document.getElementById('view-settle').style.display = 'flex';
-    document.getElementById('dash-summary').style.display = 'none';
     renderSettlement();
     renderPreTags();
+  } else if (tab === 'deposit') {
+    document.getElementById('view-deposit').style.display = 'flex';
+    renderDepositTab();
   }
 }
 
@@ -1959,7 +2138,6 @@ function setSettleGroup(mode) {
   renderSettlement();
 }
 
-// 색상 상태 저장 객체 및 토글 함수
 let settleHighlights = {};
 function toggleSettleColor(key, e) {
   if (e) e.stopPropagation();
@@ -2153,7 +2331,6 @@ function openPaperLedger(targetProdId = null) {
     const circledNumbers = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
     
     validBuyers.forEach((b, bIdx) => {
-      // 내보내기용 클린업 처리
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
       let optTxt = '';
@@ -2236,25 +2413,21 @@ function copyPaperLedger() {
 
 async function sendToSheet() {
   const todayStr = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
-  // 1. 앱을 껐다 켜도 유지되도록 로컬스토리지에서 날짜 불러오기
   let savedDate = localStorage.getItem('m_live_last_date');
   const defaultDate = savedDate ? savedDate : todayStr;
 
-  // 2. 리셋 안내 문구 추가
   let targetDate = prompt("☁️ 전송할 날짜를 입력하세요 (형식: YY.MM.DD):\n💡 오늘 날짜로 리셋하려면 내용을 전부 지우고 '확인'을 누르세요.", defaultDate);
   
-  if (targetDate === null) return; // 취소 누르면 종료
+  if (targetDate === null) return; 
 
   targetDate = targetDate.trim();
 
-  // 3. 내용 지우고 확인 눌렀을 때 -> 오늘 날짜로 리셋
   if (targetDate === "") {
     localStorage.removeItem('m_live_last_date');
     alert("날짜가 오늘(" + todayStr + ")로 리셋되었습니다. 전송 버튼을 다시 눌러주세요.");
     return;
   }
 
-  // 4. 입력한 날짜를 기기에 영구 저장
   localStorage.setItem('m_live_last_date', targetDate);
   lastTargetDate = targetDate;
 
@@ -2271,7 +2444,6 @@ async function sendToSheet() {
       if (b.isCanceled) return;
       if (!(b.nickname || '').trim()) return;
 
-      // 내보내기용 클린업 처리
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
@@ -2398,7 +2570,6 @@ function exportExcel() {
       if (!(b.nickname || '').trim()) return;
 
       let mergedMemo = getExcelMemo(b);
-      // 내보내기용 클린업 처리
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
@@ -2529,7 +2700,12 @@ function clearAllMobileData() {
   saveState();
   sales = [createEmptyProduct()];
   localStorage.removeItem('m_live_ledger_v5.6');
+  
+  // 모든 탭 화면 즉시 갱신
   renderSales();
+  renderSettlement(); // 👈 정산요약 탭 화면 즉시 갱신 추가
+  if (typeof renderDepositTab === 'function') renderDepositTab(); // 👈 입금정산 탭 즉시 갱신 추가
+  
   toast('💥 전체 데이터 초기화 완료');
 }
 
@@ -2570,6 +2746,547 @@ function loadLocalData() {
   
   renderSales();
 }
+
+function toggleAcc(id) {
+  const el = document.getElementById(id);
+  const icon = document.getElementById(id + '-icon');
+  if(el.style.display === 'none') {
+    el.style.display = 'flex';
+    if(icon) icon.textContent = '▲';
+  } else {
+    el.style.display = 'none';
+    if(icon) icon.textContent = '▼';
+  }
+}
+
+// 엑셀 통장 내역 초기화 기능
+function clearDepositData() {
+  if (bankRecords.length === 0) {
+    toast('⚠️ 초기화할 통장 내역이 없습니다.');
+    return;
+  }
+  if (!confirm("🚨 업로드된 통장 내역 및 정산(매칭) 상태가 모두 초기화됩니다.\n정말로 초기화하시겠습니까?")) {
+    return;
+  }
+  
+  // 데이터 초기화
+  bankRecords = [];
+  depositFileName = "";
+  completedDepositIds.clear();
+  depositColors = {};
+  
+  // 파일 인풋 초기화 (같은 파일을 다시 올릴 수 있도록)
+  const fileInput = document.getElementById('mobile-deposit-import');
+  if (fileInput) fileInput.value = '';
+  
+  // 파일 정보 텍스트 숨김
+  const metaBar = document.getElementById('deposit-meta');
+  if (metaBar) metaBar.style.display = 'none';
+  
+  // 저장 및 화면 갱신
+  saveDepositData();
+  renderDepositTab();
+  toast('🗑️ 통장 내역이 완전히 초기화되었습니다.');
+}
+
+function handleDepositFile(file) {
+  if (!file) return;
+  depositFileName = file.name;
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      parseKakaoBankExcel(jsonRows);
+    } catch (err) {
+      alert("⚠️ 파일 읽기 오류: " + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseKakaoBankExcel(rows) {
+  if (!rows || rows.length === 0) return;
+  let headerIdx = -1, colTime = -1, colAmount = -1, colContent = -1;
+
+  for (let i = 0; i < Math.min(rows.length, 30); i++) {
+    const row = rows[i];
+    if (Array.isArray(row)) {
+      const rowStr = row.map(v => String(v || '').replace(/\s/g, '')).join('|');
+      if ((rowStr.includes('거래일시') || rowStr.includes('날짜')) && 
+          (rowStr.includes('금액') || rowStr.includes('입금')) && 
+          (rowStr.includes('내용') || rowStr.includes('입금자'))) {
+        
+        headerIdx = i;
+        row.forEach((cell, cIdx) => {
+          const sCell = String(cell || '').replace(/\s/g, '');
+          if (sCell.includes('일시') || sCell.includes('날짜')) colTime = cIdx;
+          if ((sCell.includes('입금') || sCell.includes('금액')) && !sCell.includes('출금')) colAmount = cIdx;
+          if (sCell.includes('내용') || sCell.includes('입금자')) colContent = cIdx;
+        });
+        break;
+      }
+    }
+  }
+
+  if (headerIdx === -1 || colAmount === -1 || colContent === -1) {
+    colTime = 0; colContent = 1; colAmount = 2; headerIdx = 0; 
+  }
+
+  bankRecords = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || r.length === 0) continue;
+    const timeVal = String(r[colTime] || '').trim();
+    const contentVal = String(r[colContent] || '').trim();
+    const amountVal = Number(String(r[colAmount] || '').replace(/,/g, '')) || 0;
+
+    if (amountVal > 0 && contentVal) {
+      bankRecords.push({ id: uid(), time: timeVal, name: contentVal, amount: amountVal });
+    }
+  }
+
+  saveDepositData();
+  toast(`📄 ${bankRecords.length}건 실입금 기록 추출 성공`);
+  renderDepositTab();
+}
+
+// ===== 입금정산 핵심 로직 개선 (스마트 계산기, 실명 추적, 스마트 Merge 메모, 고대비 넘버링) =====
+
+let realNameTagMap = new Map(); // 닉네임 -> 실명 매칭 추적 Map
+let currentCalcNick = null;
+let calcCheckedMap = {}; // itemId -> boolean
+
+function cleanBuyerName(str) {
+  if (!str) return '';
+  let clean = String(str).replace(/\s+/g, '').toLowerCase();
+  clean = clean.replace(/^[\(\[\{\<]+|[\)\]\}\>]+$/g, '');
+  clean = clean.replace(/(입금|결제|송금|통장|값|옷|방송)$/g, '');
+  return clean;
+}
+
+// 1. 실명 매칭 지도 구축 (회원정보 B열 및 자동완성 데이터 연동)
+function buildRealNameMap() {
+  const nameMap = new Map();
+  realNameTagMap.clear();
+
+  // 자동완성 데이터(autoNicknames: "성명(닉네임)" 형태) 파싱
+  (autoNicknames || []).forEach(item => {
+    const match = item.match(/^([^(]+)\(([^)]+)\)$/);
+    if (match) {
+      const realName = match[1].trim();
+      const nickName = match[2].trim();
+      if (realName && nickName) {
+        nameMap.set(cleanBuyerName(realName), nickName);
+        realNameTagMap.set(nickName, realName);
+      }
+    }
+  });
+
+  // 판매대장 수기 메모 "실명: 홍길동" 체크
+  sales.forEach(p => {
+    (p.buyers || []).forEach(b => {
+      const nick = (b.nickname || '').trim();
+      if (nick) {
+        nameMap.set(cleanBuyerName(nick), nick);
+        if (b.memo && b.memo.includes('실명')) {
+          const memoMatch = b.memo.match(/실명\s*[:\s]*\s*([^\s,\|]+)/);
+          if (memoMatch) {
+            const realName = memoMatch[1].trim();
+            nameMap.set(cleanBuyerName(realName), nick);
+            realNameTagMap.set(nick, realName);
+          }
+        }
+      }
+    });
+  });
+
+  return nameMap;
+}
+
+// 2. 판매장부 메모 연동 및 중복 제거 (스마트 Merge 유틸)
+function getMergedBuyerMemoInfo(nick) {
+  let hasYt = false, hasTt = false, hasFs = false, hasKp = false;
+  const memoTexts = new Set();
+
+  sales.forEach(p => {
+    (p.buyers || []).forEach(b => {
+      if (!b.isCanceled && (b.nickname || '').trim() === nick) {
+        if (b.chkYt) hasYt = true;
+        if (b.chkTt) hasTt = true;
+        if (b.chkFs) hasFs = true;
+        if (b.chkKp) hasKp = true;
+
+        if (b.memo) {
+          // 적립금/무배 등 자동 삽입 텍스트 제외 후 수기 메모만 추출
+          let cleanMemo = b.memo.replace(/\(적립금\s*[0-9,]+원\)/g, '').replace(/\(무배\)/g, '').replace(/\s{2,}/g, ' ').trim();
+          if (cleanMemo) memoTexts.add(cleanMemo);
+        }
+      }
+    });
+  });
+
+  // 적립금 자동 확인 데이터 조회
+  let normName = nick.replace(/\s+/g, '').toLowerCase();
+  let match = nick.match(/\(([^)]+)\)/);
+  let pureNick = match ? match[1].replace(/\s+/g, '').toLowerCase() : normName;
+  let info = autoRewardInfo[pureNick] || autoRewardInfo[normName];
+
+  const autoBadges = [];
+  if (hasYt) autoBadges.push('유튜브');
+  if (hasTt) autoBadges.push('틱톡');
+  if (hasFs || (info && info.freeShip)) autoBadges.push('무배');
+  if (hasKp) autoBadges.push('킵');
+  if (info && info.reward > 0) autoBadges.push(`적립금 ${fmt(info.reward)}원`);
+
+  return {
+    autoBadges: Array.from(new Set(autoBadges)),
+    manualMemo: Array.from(memoTexts).join(' / ')
+  };
+}
+
+// 3. 입금정산 탭 렌더링 (태그, 고대비 CSS, 넘버링 버튼 적용)
+function renderDepositTab() {
+  depositGlobalShipping = Number(document.getElementById('global-shipping-input').value.replace(/,/g, '')) || 0;
+  const searchQuery = (document.getElementById('depositSearchInput') ? document.getElementById('depositSearchInput').value : '').trim().toLowerCase();
+  
+  const metaBar = document.getElementById('deposit-meta');
+  if(depositFileName && bankRecords.length > 0) {
+    metaBar.style.display = 'block';
+    metaBar.textContent = `📄 파일: ${depositFileName} | ${bankRecords.length}건 로드됨`;
+  }
+
+  const nameMap = buildRealNameMap();
+  const ledgerMap = new Map();
+  
+  sales.forEach(p => {
+    (p.buyers || []).forEach(b => {
+      const nick = (b.nickname || '').trim();
+      if(nick && !b.isCanceled) {
+        let dp = 0;
+        if (p.mode === 'normal') {
+          dp = Number(p.depositPrice) || 0;
+        } else if (p.mode === 'set') {
+          if (b.opt === 'full') dp = (Number(p.topDep) || 0) + (Number(p.botDep) || 0);
+          else if (b.opt === 'top') dp = Number(p.topDep) || 0;
+          else if (b.opt === 'bottom') dp = Number(p.botDep) || 0;
+        } else if (p.mode === 'cross') {
+          dp = Number(p.depositPrice) || 0;
+          if (b.opt === 'single') dp = dp / 2;
+        }
+        ledgerMap.set(nick, (ledgerMap.get(nick) || 0) + dp);
+      }
+    });
+  });
+
+  const bankMappedMap = new Map();     
+  const unassignedBankList = [];      
+  const matchedViaRealNameSet = new Set();
+
+  bankRecords.forEach(b => {
+    const cleanBankName = cleanBuyerName(b.name);
+    let matchedNick = nameMap.get(cleanBankName);
+
+    if (!matchedNick) {
+      for (let [key, val] of nameMap.entries()) {
+        if (cleanBankName.startsWith(key) && key.length >= 2) { matchedNick = val; break; }
+      }
+    }
+
+    if (matchedNick) { 
+      if (!bankMappedMap.has(matchedNick)) bankMappedMap.set(matchedNick, 0);
+      bankMappedMap.set(matchedNick, bankMappedMap.get(matchedNick) + b.amount);
+
+      if (cleanBankName !== cleanBuyerName(matchedNick)) {
+        matchedViaRealNameSet.add(matchedNick);
+      }
+    } else { 
+      unassignedBankList.push(b); 
+    }
+  });
+
+  let unmatchedHtml = '';
+  let completedHtml = '';
+  let unCnt = 0;
+  let cmCnt = 0;
+  let cardIdx = 1;
+
+  ledgerMap.forEach((ledgerBaseAmt, nick) => {
+    const bankAmt = bankMappedMap.get(nick) || 0;
+    const finalLedgerAmt = ledgerBaseAmt + depositGlobalShipping;
+    const diff = bankAmt - finalLedgerAmt;
+    const realName = realNameTagMap.get(nick) || '';
+
+    // 🔍 통합검색 필터링 (닉네임, 실명, 청구금액, 입금금액 매칭)
+    if (searchQuery) {
+      const matchNick = nick.toLowerCase().includes(searchQuery);
+      const matchReal = realName.toLowerCase().includes(searchQuery);
+      const matchAmt1 = String(finalLedgerAmt).includes(searchQuery);
+      const matchAmt2 = String(bankAmt).includes(searchQuery);
+      if (!matchNick && !matchReal && !matchAmt1 && !matchAmt2) return;
+    }
+    
+    let statusBadge = '';
+    if (bankAmt === 0) statusBadge = `<span class="badge-status badge-none">미입금</span>`;
+    else if (diff === 0) statusBadge = `<span class="badge-status badge-ok">정상 완료</span>`;
+    else if (diff > 0) statusBadge = `<span class="badge-status badge-over">+${fmt(diff)}원</span>`;
+    else statusBadge = `<span class="badge-status badge-lack">-${fmt(Math.abs(diff))}원</span>`;
+
+    const hlColor = depositColors[nick] || 'clear';
+    const cardClass = hlColor !== 'clear' ? `deposit-card hl-${hlColor}` : 'deposit-card';
+
+    const realNameTagHtml = (matchedViaRealNameSet.has(nick) && realName) 
+      ? `<span class="tag-realname">🏷️ 실명: ${realName}</span>` 
+      : '';
+
+    const memoInfo = getMergedBuyerMemoInfo(nick);
+    let memoBadgeHtml = '';
+    if (memoInfo.autoBadges.length > 0) {
+      memoBadgeHtml += memoInfo.autoBadges.map(b => `<span class="badge-auto-green">🟢 [${b}]</span>`).join('');
+    }
+    if (memoInfo.manualMemo) {
+      memoBadgeHtml += `<span class="badge-memo-red">🔴 ${memoInfo.manualMemo}</span>`;
+    }
+
+    const currentCardNum = cardIdx++;
+
+    const cardHtml = `
+      <div class="${cardClass}" id="dep-card-${nick}">
+        <div class="dep-top-row">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button class="settle-num-btn" onclick="toggleDepositColor('${nick}', 'next', event)" title="색상 토글">${currentCardNum}</button>
+            <div class="dep-name" onclick="openSmartCalcModal('${nick}')" style="cursor:pointer;" title="스마트 계산기">👤 ${nick}</div>
+          </div>
+          <div>${statusBadge}</div>
+        </div>
+
+        <div class="dep-price-row">
+          <div>청구: <span style="color:var(--purple);">${fmt(finalLedgerAmt)}원</span></div>
+          <div>입금: <span style="color:var(--accent-deposit);">${fmt(bankAmt)}원</span>${realNameTagHtml}</div>
+        </div>
+
+        ${memoBadgeHtml ? `<div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:3px;">${memoBadgeHtml}</div>` : ''}
+
+        <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:6px; gap:4px;">
+          <button class="btn-mini" style="background:#E2E8F0; color:#0F172A; font-weight:800;" onclick="openSmartCalcModal('${nick}')">🧮 계산기</button>
+          ${completedDepositIds.has(nick) 
+            ? `<button class="btn-restore" onclick="moveToUnmatched('${nick}')">↩ 미매칭 복원</button>` 
+            : `<button class="btn-move" onclick="moveToCompleted('${nick}')">정산완료 ➔</button>`}
+        </div>
+      </div>
+    `;
+
+    if (completedDepositIds.has(nick)) {
+      completedHtml += cardHtml;
+      cmCnt++;
+    } else {
+      unmatchedHtml += cardHtml;
+      unCnt++;
+    }
+  });
+
+  // 장부 미등록 입금건 필터링
+  const filteredUnassigned = unassignedBankList.filter(b => {
+    if (!searchQuery) return true;
+    return b.name.toLowerCase().includes(searchQuery) || String(b.amount).includes(searchQuery);
+  });
+
+  document.getElementById('acc-unmatched').innerHTML = unmatchedHtml || '<div style="text-align:center; padding:10px; color:#94A3B8;">내역이 없습니다.</div>';
+  document.getElementById('cnt-unmatched').textContent = unCnt;
+
+  document.getElementById('acc-completed').innerHTML = completedHtml || '<div style="text-align:center; padding:10px; color:#94A3B8;">내역이 없습니다.</div>';
+  document.getElementById('cnt-completed').textContent = cmCnt;
+
+  document.getElementById('cnt-unknown').textContent = filteredUnassigned.length;
+  document.getElementById('acc-unknown').innerHTML = filteredUnassigned.map(b => {
+    const hlColor = depositColors[b.id] || 'clear';
+    const cardClass = hlColor !== 'clear' ? `deposit-card hl-${hlColor}` : 'deposit-card';
+    return `
+      <div class="${cardClass}">
+        <div class="dep-top-row"><div class="dep-name">👤 ${b.name}</div><div style="font-weight:800; color:var(--accent-deposit);">${fmt(b.amount)}원</div></div>
+        <div style="font-size:11px; color:var(--ink-sub);">${b.time}</div>
+      </div>
+    `;
+  }).join('') || '<div style="text-align:center; padding:10px; color:#94A3B8;">미등록 입금건이 없습니다.</div>';
+
+  // 💡 검색어가 있을 때 검색 결과가 존재하는 패널 자동 펼침 (Accordion Auto-Expand)
+  if (searchQuery) {
+    if (unCnt > 0) { document.getElementById('acc-unmatched').style.display = 'flex'; document.getElementById('acc-unmatched-icon').textContent = '▲'; }
+    if (cmCnt > 0) { document.getElementById('acc-completed').style.display = 'flex'; document.getElementById('acc-completed-icon').textContent = '▲'; }
+    if (filteredUnassigned.length > 0) { document.getElementById('acc-unknown').style.display = 'flex'; document.getElementById('acc-unknown-icon').textContent = '▲'; }
+  }
+
+  // 통장 원본 내역 필터링
+  const bankQuery = searchQuery || (document.getElementById('bankSearchInput') ? document.getElementById('bankSearchInput').value.trim().toLowerCase() : '');
+  const filteredBank = bankRecords.filter(b => b.name.toLowerCase().includes(bankQuery) || String(b.amount).includes(bankQuery));
+  
+  document.getElementById('cnt-bank').textContent = bankRecords.length;
+  document.getElementById('bank-list-container').innerHTML = filteredBank.map(b => `
+    <div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #E2E8F0; font-size:12.5px;">
+      <div><span style="font-weight:800; color:#1E293B; margin-right:6px;">${b.name}</span><span style="color:#64748B; font-size:11px;">${b.time}</span></div>
+      <div style="color:var(--accent-deposit); font-weight:800;">${fmt(b.amount)}원</div>
+    </div>
+  `).join('') || '<div style="text-align:center; padding:10px; color:#94A3B8;">검색 결과가 없습니다.</div>';
+}
+
+// 4. 카드 색상 토글 제어
+function toggleDepositColor(key, color, e) {
+  if (e) e.stopPropagation();
+  if (color === 'next') {
+    const cur = depositColors[key] || 'clear';
+    if (cur === 'clear') depositColors[key] = 'yellow';
+    else if (cur === 'yellow') depositColors[key] = 'red';
+    else if (cur === 'red') depositColors[key] = 'green';
+    else depositColors[key] = 'clear';
+  } else {
+    depositColors[key] = color;
+  }
+  saveDepositData();
+  renderDepositTab();
+}
+
+function moveToCompleted(nick) {
+  const card = document.getElementById(`dep-card-${nick}`);
+  if(card) card.classList.add('moving');
+  setTimeout(() => {
+    completedDepositIds.add(nick);
+    saveDepositData();
+    renderDepositTab();
+  }, 200);
+}
+
+function moveToUnmatched(nick) {
+  const card = document.getElementById(`dep-card-${nick}`);
+  if(card) card.classList.add('moving');
+  setTimeout(() => {
+    completedDepositIds.delete(nick);
+    saveDepositData();
+    renderDepositTab();
+  }, 200);
+}
+
+// 5. 🧮 스마트 계산기 모달 로직
+function openSmartCalcModal(nick) {
+  currentCalcNick = nick;
+  const flat = getFlattenedSales();
+  const buyerItems = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() === nick);
+
+  if (buyerItems.length === 0) {
+    toast('해당 고객의 구매 내역이 없습니다.');
+    return;
+  }
+
+  // 초기 진입 시 전체 체크 ON
+  buyerItems.forEach(item => {
+    if (calcCheckedMap[item.buyerId] === undefined) {
+      calcCheckedMap[item.buyerId] = true;
+    }
+  });
+
+  document.getElementById('smartCalcTitle').textContent = `🧮 [${nick}] 스마트 계산기`;
+  renderSmartCalcItems(buyerItems);
+  recalcSmartModal();
+  document.getElementById('smartCalcModal').style.display = 'flex';
+}
+
+function renderSmartCalcItems(buyerItems) {
+  const container = document.getElementById('smartCalcList');
+  container.innerHTML = buyerItems.map((item) => {
+    const isChecked = calcCheckedMap[item.buyerId] !== false;
+    const optStr = [item.color, item.size].filter(Boolean).join('/') || '옵션없음';
+    return `
+      <div class="calc-item-row">
+        <input type="checkbox" id="chk_calc_${item.buyerId}" ${isChecked ? 'checked' : ''} onchange="toggleSmartCalcItem('${item.buyerId}')">
+        <label for="chk_calc_${item.buyerId}" style="flex:1; font-size:12.5px; font-weight:700; color:#1E293B; cursor:pointer;">
+          <div>📦 ${item.name || '상품명 미입력'} <span style="font-size:11px; color:#64748B;">(${optStr})</span></div>
+          <div style="font-size:12px; color:var(--purple); font-weight:800; margin-top:2px;">판매가: ${fmt(item.salePrice)}원</div>
+        </label>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleSmartCalcItem(buyerId) {
+  calcCheckedMap[buyerId] = !calcCheckedMap[buyerId];
+  recalcSmartModal();
+}
+
+function recalcSmartModal() {
+  if (!currentCalcNick) return;
+  const flat = getFlattenedSales();
+  const buyerItems = flat.filter(s => !s.isCanceled && (s.nickname || '').trim() === currentCalcNick);
+
+  let checkedTotal = 0;
+  buyerItems.forEach(item => {
+    if (calcCheckedMap[item.buyerId] !== false) {
+      checkedTotal += (Number(item.salePrice) || 0);
+    }
+  });
+
+  // 통장 실입금액 합산
+  const nameMap = buildRealNameMap();
+  let bankAmt = 0;
+  bankRecords.forEach(b => {
+    const cleanBankName = cleanBuyerName(b.name);
+    let matchedNick = nameMap.get(cleanBankName);
+    if (!matchedNick) {
+      for (let [key, val] of nameMap.entries()) {
+        if (cleanBankName.startsWith(key) && key.length >= 2) { matchedNick = val; break; }
+      }
+    }
+    if (matchedNick === currentCalcNick) {
+      bankAmt += b.amount;
+    }
+  });
+
+  document.getElementById('smartCalcCheckedTotal').textContent = fmt(checkedTotal) + '원';
+  document.getElementById('smartCalcBankTotal').textContent = fmt(bankAmt) + '원';
+
+  const diff = bankAmt - checkedTotal;
+  const bannerEl = document.getElementById('smartCalcBanner');
+
+  if (diff === 0) {
+    bannerEl.className = 'calc-banner-ok';
+    bannerEl.textContent = '✅ 일치! (차액 0원)';
+  } else if (diff > 0) {
+    bannerEl.className = 'calc-banner-over';
+    bannerEl.textContent = `⚠️ 통장 입금액이 더 큼 (+${fmt(diff)}원)`;
+  } else {
+    bannerEl.className = 'calc-banner-lack';
+    bannerEl.textContent = `❌ 통장 입금액 부족 (-${fmt(Math.abs(diff))}원)`;
+  }
+}
+
+function closeSmartCalcModal() {
+  document.getElementById('smartCalcModal').style.display = 'none';
+  currentCalcNick = null;
+}
+
+function saveDepositData() {
+  localStorage.setItem('m_live_bank_records', JSON.stringify(bankRecords));
+  localStorage.setItem('m_live_deposit_filename', depositFileName);
+  localStorage.setItem('m_live_deposit_completed', JSON.stringify(Array.from(completedDepositIds)));
+  localStorage.setItem('m_live_deposit_colors', JSON.stringify(depositColors));
+}
+
+function loadDepositData() {
+  try {
+    const bankData = localStorage.getItem('m_live_bank_records');
+    if (bankData) bankRecords = JSON.parse(bankData);
+    const fname = localStorage.getItem('m_live_deposit_filename');
+    if (fname) depositFileName = fname;
+    const completed = localStorage.getItem('m_live_deposit_completed');
+    if (completed) completedDepositIds = new Set(JSON.parse(completed));
+    const colors = localStorage.getItem('m_live_deposit_colors');
+    if (colors) depositColors = JSON.parse(colors);
+  } catch(e) {}
+}
+
 
 const acDropdownEl = document.getElementById('acDropdown');
 let touchStartX = 0;
@@ -2648,6 +3365,7 @@ acDropdownEl.addEventListener('touchend', (e) => {
 window.onload = () => {
   loadLocalData();
   fetchAutocompleteData();
+  loadDepositData(); // 입금정산 초기화
   const savedZoom = localStorage.getItem('m_live_zoom');
   if (savedZoom) applyZoom(Number(savedZoom));
   else applyZoom(100);
