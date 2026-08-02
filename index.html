@@ -374,12 +374,17 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
 </head>
 <body>
 
+<body>
+
 <div class="app">
   <div id="mainToast" class="header-toast-badge"></div>
 
   <header>
-    <h1 onclick="openPaperLedger()"><span>📱 방송 현장 장부</span></h1>
-    <button class="btn-gas" onclick="sendToSheet()">☁️ 구글시트 전송</button>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <h1 onclick="openPaperLedger()"><span>📱 현장 장부</span></h1>
+      <button class="btn-chip" style="background:#FEF3C7; color:#92400E; border:1px solid #F59E0B; padding:4px 8px; font-weight:900;" onclick="unifyProductNames()">✨통일✨</button>
+    </div>
+    <button class="btn-gas" onclick="sendToSheet()">☁️ API 전송</button>
   </header>
 
   <div id="view-sales" style="display:flex; flex-direction:column; flex:1;">
@@ -2496,6 +2501,41 @@ async function sendToSheet() {
   } catch(e) { toast('⚠️ 네트워크 오류'); }
 }
 
+// 👇👇👇 여기에 ✨통일✨ 버튼 스크립트 추가 👇👇👇
+function unifyProductNames() {
+  saveState(); // 되돌리기(Undo)를 위해 현재 상태 저장
+  let nameMap = new Map();
+  let changedCount = 0;
+
+  sales.forEach(p => {
+    if (!p.name) return;
+    // 띄어쓰기를 모두 제거한 글자만 추출 (예: "가을 신상" -> "가을신상")
+    const noSpaceName = p.name.replace(/\s+/g, '');
+    if (noSpaceName === '') return;
+
+    if (nameMap.has(noSpaceName)) {
+      // 이미 같은 글자의 상품이 있다면, 최초 입력된 상품명(띄어쓰기 포함)으로 통일
+      const standardName = nameMap.get(noSpaceName);
+      if (p.name !== standardName) {
+        p.name = standardName;
+        changedCount++;
+      }
+    } else {
+      // 처음 등장한 글자 조합이면 기준 이름으로 저장
+      nameMap.set(noSpaceName, p.name);
+    }
+  });
+
+  if (changedCount > 0) {
+    saveLocalData();
+    renderSales();
+    toast(`✨ ${changedCount}건의 띄어쓰기가 기준에 맞게 통일되었습니다.`);
+  } else {
+    toast('✨ 띄어쓰기를 통일할 상품이 없습니다.');
+  }
+}
+// 👆👆👆 여기까지 👆👆👆
+
 function shareKakaoText() {
   const stats = getStats();
   if (stats.activeQty === 0) { toast('⚠️ 공유할 데이터 없음'); return; }
@@ -2610,9 +2650,27 @@ function exportExcel() {
 
   if (records.length === 0) { toast('⚠️ 내보낼 데이터 없음'); return; }
 
-  const data = records.map((s, i) => ({
-    'No': i + 1, '상품명': s.name, '옵션(색상/사이즈)': s.option, '고객명': s.nickname, '판매가': s.salePrice, '입금가(원가)': s.depositPrice, '메모': s.memo
-  }));
+  let totalSale = 0;
+  let totalDeposit = 0;
+
+  const data = records.map((s, i) => {
+    totalSale += s.salePrice;
+    totalDeposit += s.depositPrice;
+    return {
+      'No': i + 1, '상품명': s.name, '옵션(색상/사이즈)': s.option, '고객명': s.nickname, '판매가': s.salePrice, '입금가(원가)': s.depositPrice, '메모': s.memo
+    };
+  });
+
+  // 👇 엑셀 가장 아랫줄에 합계 데이터 추가
+  data.push({
+    'No': '합계',
+    '상품명': '',
+    '옵션(색상/사이즈)': '',
+    '고객명': '',
+    '판매가': totalSale,
+    '입금가(원가)': totalDeposit,
+    '메모': ''
+  });
 
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
