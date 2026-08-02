@@ -3383,6 +3383,17 @@ window.onload = () => {
   if (savedZoom) applyZoom(Number(savedZoom));
   else applyZoom(100);
 };
+
+/* 👇👇👇 여기서부터 복사해서 붙여넣으세요 👇👇👇 */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => console.log('Service Worker 등록 성공:', reg.scope))
+      .catch((err) => console.error('Service Worker 등록 실패:', err));
+  });
+}
+/* 👆👆👆 여기까지 복사해서 붙여넣으세요 👆👆👆 */
+
 </script>
 </body>
 </html>
