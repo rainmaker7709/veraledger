@@ -94,6 +94,19 @@
   .row-card.mode-cross .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #93C5FD; }
   .row-card.mode-cross .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #E0F2FE; border-bottom: 1px solid #93C5FD; }
 
+/* 기타 카드 (눈이 편안한 연한 샌드 브라운 톤) */
+  .row-card.mode-etc { border-color: #BCAAA4; }
+  .row-card.mode-etc .card-band { border-left: 4px solid #8D6E63; background: #EFEBE9; display: flex; flex-direction: column; }
+  .row-card.mode-etc .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #BCAAA4; }
+  .row-card.mode-etc .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #D7CCC8; border-bottom: 1px solid #BCAAA4; }
+  .row-card.mode-etc .prod-num-badge { background: #8D6E63; }
+
+  /* 기타 카드 비율 조절 (고객명, 색상, 사이즈 각 5% 축소, 수량 15% 할당) */
+  .row-card.mode-etc .inp-nick { flex: 0 1 35% !important; min-width: 35px; }
+  .row-card.mode-etc .inp-color { width: 42px !important; }
+  .row-card.mode-etc .inp-size { width: 42px !important; }
+  .inp-qty { width: 46px; text-align: center; font-size: 12px; font-weight: 800; color: #5D4037; border: 1.5px solid #8D6E63; background: #FFF8E1; cursor: pointer; flex-shrink: 0; }
+
   /* 확대된 상품 번호 원형 배지 */
   .prod-num-badge {
     width: 22px; height: 22px; border-radius: 50%; border: none;
@@ -442,6 +455,7 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
       <button class="btn-chip" style="background:#8B5CF6; color:#fff; padding:8px;" onclick="document.getElementById('mobile-json-import').click()">📥 PC JSON 불러오기</button>
       <button class="btn-chip" style="background:#10B981; color:#fff; padding:8px;" onclick="exportWarehouseExcel()">📦 창고 정산용 엑셀</button>
       <button class="btn-chip" style="background:#27AE60; color:#fff; padding:8px;" onclick="exportExcel()">📊 엑셀 내보내기</button>
+      <button class="btn-chip" style="background:#8D6E63; color:#fff; padding:8px;" onclick="exportEtcExcel()">🤎 기타 엑셀 내보내기</button>
     </div>
     <input type="file" id="mobile-json-import" accept=".json" style="display:none;" onchange="importJsonFile(event)">
 
@@ -956,7 +970,7 @@ function createEmptyProduct() {
 function createEmptyBuyer() {
   return { 
     id: uid(), nickname: '', memo: '', isCanceled: false,
-    opt: 'full', c1: '', s1: '', c2: '', s2: '', m1: '', m2: '',
+    opt: 'full', c1: '', s1: '', c2: '', s2: '', m1: '', m2: '', qty: 1,
     chkYt: false, chkTt: false, chkFs: false, chkKp: false 
   };
 }
@@ -1267,6 +1281,30 @@ function selectSize(prodId, buyerId, val, targetFieldOrMatrixIdx) {
   hideDropdown();
 }
 
+function handleQtyFocus(inputEl, prodId, buyerId) {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl; autoCenterInput(inputEl);
+  const dropdown = document.getElementById('acDropdown');
+  let items = '';
+  for (let i = 1; i <= 20; i++) {
+    items += `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectQty('${prodId}', '${buyerId}', ${i})">🔢 ${i}개</div>`;
+  }
+  dropdown.innerHTML = items;
+  positionDropdown(inputEl);
+}
+
+function selectQty(prodId, buyerId, val) {
+  clearLastInputEvent(); saveState();
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) {
+    const buyer = prod.buyers.find(b => b.id === buyerId);
+    if (buyer) buyer.qty = Number(val) || 1;
+  }
+  hideDropdown();
+  pendingVisibilitySelector = '[data-buyer-id="' + buyerId + '"]';
+  renderSales();
+}
+
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#acDropdown') && !e.target.classList.contains('inp') && !e.target.classList.contains('matrix-hdr-inp') && !e.target.classList.contains('matrix-nick-inp')) {
     hideDropdown();
@@ -1362,6 +1400,7 @@ function renderSales() {
           <button class="prod-num-badge" onclick="openPaperLedger('${p.id}')" title="이 상품만 장부 보기">${pIdx + 1}</button>
           <select class="select-mode" onchange="updateProductData('${p.id}', 'mode', this.value)">
             <option value="normal" ${p.mode==='normal'?'selected':''}>📦일반</option>
+            <option value="etc" ${p.mode==='etc'?'selected':''}>🤎기타</option>
             <option value="set" ${p.mode==='set'?'selected':''}>👕세트</option>
             <option value="cross" ${p.mode==='cross'?'selected':''}>👟1+1</option>
           </select>
@@ -1426,7 +1465,12 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
   const memoBtn = `<button class="btn-mini ${memoBtnClass}" onclick="openMemoModal('${p.id}', '${b.id}')">${memoIcon}</button>`;
   const cancelBtn = `<button class="btn-mini btn-cancel ${b.isCanceled ? 'is-canceled' : ''}" onclick="toggleCancel('${p.id}', '${b.id}')">${b.isCanceled ? '🔴 취소' : '취소'}</button>`;
 
-  if (p.mode === 'normal') {
+  if (p.mode === 'normal' || p.mode === 'etc') {
+    const isEtc = (p.mode === 'etc');
+    const tailItem = isEtc 
+      ? `<input type="text" inputmode="numeric" class="inp inp-qty" value="${b.qty || 1}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">`
+      : cancelBtn;
+
     return `
       <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="background:#fff; border:none; border-bottom:1px dashed #E5E8EB; flex-direction:row; align-items:center; gap:3px;">
         ${safeDelNumBtn}
@@ -1434,7 +1478,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
         ${memoBtn}
         <input type="text" class="inp inp-color" value="${displayC1}" placeholder="색상" onfocus="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" oninput="handleColorFocus(this, '${p.id}', '${b.id}', 'c1')" onchange="updateBuyerData('${p.id}', '${b.id}', 'c1', this.value)">
         <input type="text" class="inp inp-size" value="${b.s1}" placeholder="사이즈" onfocus="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" oninput="handleSizeFocus(this, '${p.id}', '${b.id}', 's1')" onchange="updateBuyerData('${p.id}', '${b.id}', 's1', this.value)">
-        ${cancelBtn}
+        ${tailItem}
       </div>
     `;
   }
@@ -1567,11 +1611,13 @@ function getStats() {
       const hasNick = (b.nickname || '').trim() !== '';
       if (!hasNick) return; 
 
-      activeQty++;
+      const bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+      activeQty += bQty;
 
-      if (p.mode === 'normal') {
-        singleCnt++; physicalQty++;
-        totalSale += Number(p.salePrice)||0; totalDeposit += Number(p.depositPrice)||0;
+      if (p.mode === 'normal' || p.mode === 'etc') {
+        singleCnt += bQty; physicalQty += bQty;
+        totalSale += (Number(p.salePrice)||0) * bQty; 
+        totalDeposit += (Number(p.depositPrice)||0) * bQty;
       } else if (p.mode === 'set') {
         if (b.opt === 'full') {
           setCnt++; physicalQty += 2;
@@ -1605,12 +1651,14 @@ function getFlattenedSales() {
     p.buyers.forEach(b => {
       let sp = 0, dp = 0;
       let colorStr = '', sizeStr = '';
+      const bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
       
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
-      if (p.mode === 'normal') {
-        sp = Number(p.salePrice) || 0; dp = Number(p.depositPrice) || 0;
+      if (p.mode === 'normal' || p.mode === 'etc') {
+        sp = (Number(p.salePrice) || 0) * bQty; 
+        dp = (Number(p.depositPrice) || 0) * bQty;
         colorStr = c1; sizeStr = b.s1;
       } else if (p.mode === 'set') {
         if (b.opt === 'full') { sp = (Number(p.topSale)||0) + (Number(p.botSale)||0); dp = (Number(p.topDep)||0) + (Number(p.botDep)||0); colorStr = `상:${c1}/하:${c2}`; sizeStr = `상:${b.s1}/하:${b.s2}`; }
@@ -1623,8 +1671,8 @@ function getFlattenedSales() {
       }
 
       flat.push({
-        prodId: p.id, buyerId: b.id, name: p.name, salePrice: sp, depositPrice: dp,
-        nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled,
+        prodId: p.id, buyerId: b.id, name: p.name, unitSalePrice: Number(p.salePrice) || 0, unitDepositPrice: Number(p.depositPrice) || 0,
+        qty: bQty, salePrice: sp, depositPrice: dp, nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled,
         chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs, chkKp: b.chkKp
       });
     });
@@ -2775,6 +2823,88 @@ function exportWarehouseExcel() {
   const today = new Date().toISOString().slice(2, 10).replace(/-/g, '');
   XLSX.writeFile(wb, `창고정산용_${today}.xlsx`);
   toast('📦 창고 정산용 엑셀 다운로드 완료!');
+}
+
+function exportEtcExcel() {
+  let records = [];
+
+  function getExcelMemo(b) {
+    let tags = [];
+    if (b.chkYt) tags.push('[유튜브]');
+    if (b.chkTt) tags.push('[틱톡]');
+    if (b.chkFs) tags.push('[무배]');
+    if (b.chkKp) tags.push('[킵]');
+    let result = tags.length > 0 ? tags.join(' ') + ' ' + (b.memo || '') : (b.memo || '');
+    return result.trim();
+  }
+
+  sales.forEach(p => {
+    p.buyers.forEach(b => {
+      if (b.isCanceled || !(b.nickname || '').trim()) return;
+
+      let mergedMemo = getExcelMemo(b);
+      let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
+      let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
+      let qty = Number(b.qty) || 1;
+
+      if (p.mode === 'normal' || p.mode === 'etc') {
+        let uSale = Number(p.salePrice) || 0;
+        let uDep = Number(p.depositPrice) || 0;
+        records.push({
+          name: p.name || '', option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
+          nickname: b.nickname || '', unitSalePrice: uSale, qty: qty, salePrice: uSale * qty,
+          unitDepositPrice: uDep, depositPrice: uDep * qty, memo: mergedMemo
+        });
+      } else if (p.mode === 'set') {
+        if (b.opt === 'full' || b.opt === 'top') {
+          let uSale = Number(p.topSale) || 0; let uDep = Number(p.topDep) || 0;
+          records.push({ name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
+        }
+        if (b.opt === 'full' || b.opt === 'bottom') {
+          let uSale = Number(p.botSale) || 0; let uDep = Number(p.botDep) || 0;
+          records.push({ name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
+        }
+      } else if (p.mode === 'cross') {
+        if (b.opt === 'full' || b.opt === 'single') {
+          const m1Name = b.m1 ? ` ${b.m1}` : '';
+          let uSale = b.opt === 'single' ? (Number(p.salePrice) / 2) || 0 : Number(p.salePrice) || 0;
+          let uDep = b.opt === 'single' ? (Number(p.depositPrice) / 2) || 0 : Number(p.depositPrice) || 0;
+          records.push({ name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
+        }
+        if (b.opt === 'full') {
+          const m2Name = b.m2 ? ` ${b.m2}` : '';
+          records.push({ name: `${p.name}${m2Name}`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: 0, qty: 1, salePrice: 0, unitDepositPrice: 0, depositPrice: 0, memo: mergedMemo });
+        }
+      }
+    });
+  });
+
+  if (records.length === 0) { toast('⚠️ 내보낼 데이터가 없습니다.'); return; }
+
+  let totalQty = 0, totalSale = 0, totalDeposit = 0;
+
+  const data = records.map((s, i) => {
+    totalQty += s.qty;
+    totalSale += s.salePrice;
+    totalDeposit += s.depositPrice;
+    return {
+      'No': i + 1, '상품명': s.name, '옵션/색상': s.option, '고객명': s.nickname,
+      '개당판매가': s.unitSalePrice, '수량': s.qty, '판매가': s.salePrice,
+      '개당입금가': s.unitDepositPrice, '입금가': s.depositPrice, '메모': s.memo
+    };
+  });
+
+  data.push({
+    'No': '합계', '상품명': '', '옵션/색상': '', '고객명': '',
+    '개당판매가': '', '수량': totalQty, '판매가': totalSale,
+    '개당입금가': '', '입금가': totalDeposit, '메모': ''
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "기타정산대장");
+  XLSX.writeFile(wb, `기타장부_${new Date().toISOString().slice(2,10)}.xlsx`);
+  toast('🤎 기타 엑셀 내보내기 완료!');
 }
 
 function clearAllMobileData() {
