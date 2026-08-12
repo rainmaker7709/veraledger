@@ -101,11 +101,11 @@
   .row-card.mode-etc .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #D7CCC8; border-bottom: 1px solid #BCAAA4; }
   .row-card.mode-etc .prod-num-badge { background: #8D6E63; }
 
-  /* 기타 카드 비율 조절 (고객명, 색상, 사이즈 각 5% 축소, 수량 15% 할당) */
-  .row-card.mode-etc .inp-nick { flex: 0 1 35% !important; min-width: 35px; }
+  /* 기타 카드 비율 조절 (취소 버튼 공간 확보 위해 고객명/수량 레이어 축소) */
+  .row-card.mode-etc .inp-nick { flex: 0 1 25% !important; min-width: 35px; }
   .row-card.mode-etc .inp-color { width: 42px !important; }
   .row-card.mode-etc .inp-size { width: 42px !important; }
-  .inp-qty { width: 46px; text-align: center; font-size: 12px; font-weight: 800; color: #5D4037; border: 1.5px solid #8D6E63; background: #FFF8E1; cursor: pointer; flex-shrink: 0; }
+  .inp-qty { width: 38px; text-align: center; font-size: 12px; font-weight: 800; color: #5D4037; border: 1.5px solid #8D6E63; background: #FFF8E1; cursor: pointer; flex-shrink: 0; padding: 4px 2px; }
 
   /* 확대된 상품 번호 원형 배지 */
   .prod-num-badge {
@@ -1468,7 +1468,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
   if (p.mode === 'normal' || p.mode === 'etc') {
     const isEtc = (p.mode === 'etc');
     const tailItem = isEtc 
-      ? `<input type="text" inputmode="numeric" class="inp inp-qty" value="${b.qty || 1}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">`
+      ? `<input type="text" inputmode="numeric" class="inp inp-qty" value="${b.qty || 1}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">${cancelBtn}`
       : cancelBtn;
 
     return `
@@ -1650,6 +1650,7 @@ function getFlattenedSales() {
   sales.forEach(p => {
     p.buyers.forEach(b => {
       let sp = 0, dp = 0;
+      let unitSp = 0, unitDp = 0;
       let colorStr = '', sizeStr = '';
       const bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
       
@@ -1657,21 +1658,26 @@ function getFlattenedSales() {
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
       if (p.mode === 'normal' || p.mode === 'etc') {
-        sp = (Number(p.salePrice) || 0) * bQty; 
-        dp = (Number(p.depositPrice) || 0) * bQty;
+        unitSp = Number(p.salePrice) || 0;
+        unitDp = Number(p.depositPrice) || 0;
+        sp = unitSp * bQty; 
+        dp = unitDp * bQty;
         colorStr = c1; sizeStr = b.s1;
       } else if (p.mode === 'set') {
         if (b.opt === 'full') { sp = (Number(p.topSale)||0) + (Number(p.botSale)||0); dp = (Number(p.topDep)||0) + (Number(p.botDep)||0); colorStr = `상:${c1}/하:${c2}`; sizeStr = `상:${b.s1}/하:${b.s2}`; }
         else if (b.opt === 'top') { sp = Number(p.topSale)||0; dp = Number(p.topDep)||0; colorStr = `상:${c1}`; sizeStr = `상:${b.s1}`; }
         else if (b.opt === 'bottom') { sp = Number(p.botSale)||0; dp = Number(p.botDep)||0; colorStr = `하:${c2}`; sizeStr = `하:${b.s2}`; }
+        unitSp = sp; unitDp = dp;
       } else if (p.mode === 'cross') {
         sp = Number(p.salePrice) || 0; dp = Number(p.depositPrice) || 0;
         if (b.opt === 'single') { sp = sp / 2; dp = dp / 2; colorStr = `[${b.m1}] ${c1}`; sizeStr = b.s1; }
         else { colorStr = `1:[${b.m1}]${c1} / 2:[${b.m2}]${c2}`; sizeStr = `1:${b.s1} / 2:${b.s2}`; }
+        unitSp = sp; unitDp = dp;
       }
 
       flat.push({
-        prodId: p.id, buyerId: b.id, name: p.name, unitSalePrice: Number(p.salePrice) || 0, unitDepositPrice: Number(p.depositPrice) || 0,
+        prodId: p.id, buyerId: b.id, name: p.name, 
+        unitSalePrice: unitSp, unitDepositPrice: unitDp,
         qty: bQty, salePrice: sp, depositPrice: dp, nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled,
         chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs, chkKp: b.chkKp
       });
@@ -2234,7 +2240,7 @@ function renderSettlement() {
   if (settleGroupMode === 'deposit') {
     titleEl.textContent = '🏦 입금가 단가별 수량 집계';
     headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>입금 단가</th><th style="text-align:center;">수량</th><th style="text-align:right;">합계</th></tr>';
-    const map = {}; activeSales.forEach(s => { const p = s.depositPrice || 0; map[p] = (map[p] || 0) + 1; });
+    const map = {}; activeSales.forEach(s => { const p = s.unitDepositPrice || 0; map[p] = (map[p] || 0) + (s.qty || 1); });
     let entries = Object.entries(map);
     if (sq) {
       const cleanSq = sq.replace(/,/g, '');
@@ -2257,7 +2263,7 @@ function renderSettlement() {
   } else if (settleGroupMode === 'sale') {
     titleEl.textContent = '💰 판매가 단가별 수량 집계';
     headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>판매 단가</th><th style="text-align:center;">수량</th><th style="text-align:right;">합계</th></tr>';
-    const map = {}; activeSales.forEach(s => { const p = s.salePrice || 0; map[p] = (map[p] || 0) + 1; });
+    const map = {}; activeSales.forEach(s => { const p = s.unitSalePrice || 0; map[p] = (map[p] || 0) + (s.qty || 1); });
     let entries = Object.entries(map);
     if (sq) {
       const cleanSq = sq.replace(/,/g, '');
@@ -2280,7 +2286,7 @@ function renderSettlement() {
   } else if (settleGroupMode === 'customer') {
     titleEl.textContent = '👤 고객별 정산 집계';
     headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>고객명</th><th style="text-align:center;">수량</th><th style="text-align:right;">입금가</th><th style="text-align:right;">판매가</th></tr>';
-    const map = {}; activeSales.forEach(s => { const k = s.nickname || '미입력 고객'; if (!map[k]) map[k] = { qty: 0, deposit: 0, sale: 0 }; map[k].qty++; map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; });
+    const map = {}; activeSales.forEach(s => { const k = s.nickname || '미입력 고객'; if (!map[k]) map[k] = { qty: 0, deposit: 0, sale: 0 }; map[k].qty += (s.qty || 1); map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; });
     let entries = Object.entries(map);
     if (sq) {
       entries = entries.filter(([nick]) => nick.toLowerCase().includes(sq));
@@ -2304,7 +2310,7 @@ function renderSettlement() {
   } else if (settleGroupMode === 'product') {
     titleEl.textContent = '📦 상품별 판매 집계';
     headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>상품명</th><th style="text-align:center; white-space:nowrap;">수량</th><th style="text-align:right;">입금가</th><th style="text-align:right;">판매가</th></tr>';
-    const map = {}; activeSales.forEach(s => { const k = s.name || '미입력 상품'; if (!map[k]) map[k] = { qty: 0, deposit: 0, sale: 0 }; map[k].qty++; map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; });
+    const map = {}; activeSales.forEach(s => { const k = s.name || '미입력 상품'; if (!map[k]) map[k] = { qty: 0, deposit: 0, sale: 0 }; map[k].qty += (s.qty || 1); map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; });
     let entries = Object.entries(map);
     if (sq) {
       entries = entries.filter(([pName]) => pName.toLowerCase().includes(sq));
@@ -2316,12 +2322,23 @@ function renderSettlement() {
         const hl = settleHighlights[itemKey] || 'none';
         const trClass = hl === 'yellow' ? 'row-highlight-yellow' : (hl === 'red' ? 'row-highlight-red' : '');
         const btnClass = hl === 'yellow' ? 'bg-yellow' : (hl === 'red' ? 'bg-red' : '');
+        
+        // ✨ 개당 단가 계산 (총액 / 수량)
+        const unitDep = d.qty > 0 ? Math.floor(d.deposit / d.qty) : 0;
+        const unitSale = d.qty > 0 ? Math.floor(d.sale / d.qty) : 0;
+
         return `<tr class="${trClass}" onclick="openSettleGroupDetail('product', '${safePName}')">
           <td style="text-align:center; padding: 4px 2px;"><button class="settle-num-btn ${btnClass}" onclick="toggleSettleColor('${itemKey.replace(/'/g, "\\'")}', event)">${idx + 1}</button></td>
-          <td>${pName}</td>
-          <td style="text-align:center;">${d.qty}개</td>
-          <td style="text-align:right; color:var(--accent-deposit); font-weight:800;">${fmt(d.deposit)}원</td>
-          <td style="text-align:right; color:var(--purple); font-weight:800;">${fmt(d.sale)}원</td>
+          <td style="font-size:12px;">${pName}</td>
+          <td style="text-align:center; font-size:12px;">${d.qty}개</td>
+          <td style="text-align:right; font-weight:800; font-size:11.5px; line-height:1.3;">
+            <div style="color:var(--accent-deposit);">${fmt(unitDep)}</div>
+            <div style="color:#64748B; font-size:10.5px; font-weight:700;">(${fmt(d.deposit)})</div>
+          </td>
+          <td style="text-align:right; font-weight:800; font-size:11.5px; line-height:1.3;">
+            <div style="color:var(--purple);">${fmt(unitSale)}</div>
+            <div style="color:#64748B; font-size:10.5px; font-weight:700;">(${fmt(d.sale)})</div>
+          </td>
         </tr>`;
       }).join('') || '<tr><td colspan="5" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
   }
@@ -2330,8 +2347,8 @@ function renderSettlement() {
 function openSettleGroupDetail(mode, key) {
   const flat = getFlattenedSales();
   let matches = [];
-  if (mode === 'deposit') matches = flat.filter(s => !s.isCanceled && s.depositPrice === Number(key) && (s.nickname || '').trim() !== '');
-  else if (mode === 'sale') matches = flat.filter(s => !s.isCanceled && s.salePrice === Number(key) && (s.nickname || '').trim() !== '');
+  if (mode === 'deposit') matches = flat.filter(s => !s.isCanceled && s.unitDepositPrice === Number(key) && (s.nickname || '').trim() !== '');
+  else if (mode === 'sale') matches = flat.filter(s => !s.isCanceled && s.unitSalePrice === Number(key) && (s.nickname || '').trim() !== '');
   else if (mode === 'customer') matches = flat.filter(s => !s.isCanceled && (s.nickname || '미입력 고객') === key && (s.nickname || '').trim() !== '');
   else if (mode === 'product') matches = flat.filter(s => !s.isCanceled && (s.name || '미입력 상품') === key && (s.nickname || '').trim() !== '');
 
@@ -2345,7 +2362,7 @@ function openSettleGroupDetail(mode, key) {
         <span>${idx + 1}. 👤 ${m.nickname || '(무명)'}</span>
         <span style="color:var(--purple); font-size:13px;">${m.salePrice ? fmt(m.salePrice) + '원' : '-'}</span>
       </div>
-      <div style="color:#334155; font-weight:700;">📦 ${m.name || '상품명 미입력'} <span style="color:#475569; font-weight:600;">(${[m.color, m.size].filter(Boolean).join('/') || '옵션없음'})</span></div>
+      <div style="color:#334155; font-weight:700;">📦 ${m.name || '상품명 미입력'} <span style="color:#475569; font-weight:600;">(${[m.color, m.size].filter(Boolean).join('/') || '옵션없음'}) - ${m.qty || 1}개${m.qty > 1 ? ` (개당 ${fmt(m.unitSalePrice)}원)` : ''}</span></div>
       ${m.memo ? `<div style="color:#B45309; font-size:11.5px; font-weight:700; background:#FEF3C7; padding:3px 6px; border-radius:4px;">📝 메모: ${m.memo}</div>` : ''}
     </div>
   `).join('');
@@ -2399,7 +2416,7 @@ function openPaperLedger(targetProdId = null) {
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
       let optTxt = '';
       
-      if (p.mode === 'normal') {
+      if (p.mode === 'normal' || p.mode === 'etc') {
         optTxt = `${c1 || '-'}, ${b.s1 || '-'}`;
       } else if (p.mode === 'set') {
         if (b.opt === 'full') {
@@ -2437,13 +2454,18 @@ function openPaperLedger(targetProdId = null) {
 
       const numMark = circledNumbers[bIdx] || `(${bIdx+1})`;
       
-      textForCopy += `  ${numMark} ${b.nickname}, ${optTxt}${memoText}\n`;
+      // 수량 계산 및 텍스트 추가 (2개 이상일 때만 수량 표시)
+      const bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+      const txtQty = bQty > 1 ? ` [${bQty}개]` : '';
+      const htmlQty = bQty > 1 ? ` <span style="color:#D97706; font-weight:900;">[${bQty}개]</span>` : '';
+      
+      textForCopy += `  ${numMark} ${b.nickname}, ${optTxt}${txtQty}${memoText}\n`;
 
       html += `
         <div class="paper-buyer-line">
           <span class="paper-buyer-num">${numMark}</span>
           <span class="paper-buyer-name">${b.nickname},</span>
-          <span class="paper-buyer-opt">${optTxt}</span>
+          <span class="paper-buyer-opt">${optTxt}${htmlQty}</span>
           ${memoHtml}
         </div>
       `;
@@ -2508,34 +2530,35 @@ async function sendToSheet() {
       if (b.isCanceled) return;
       if (!(b.nickname || '').trim()) return;
 
-      let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
-      let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
+          let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
+          let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
+          let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
 
-      if (p.mode === 'normal') {
-        records.push({
-          date: targetDate, name: p.name, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'),
-          nickname: b.nickname, price: p.salePrice || 0
-        });
-      } else if (p.mode === 'set') {
-        if (b.opt === 'full') {
-          records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0 });
-          records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0 });
-        } else if (b.opt === 'top') {
-          records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0 });
-        } else if (b.opt === 'bottom') {
-          records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0 });
-        }
-      } else if (p.mode === 'cross') {
-        if (b.opt === 'full') {
-          const m1Name = b.m1 ? ` ${b.m1}` : '';
-          const m2Name = b.m2 ? ` ${b.m2}` : '';
-          records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.salePrice || 0 });
-          records.push({ date: targetDate, name: `${p.name}${m2Name}`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: 0 });
-        } else if (b.opt === 'single') {
-          const m1Name = b.m1 ? ` ${b.m1}` : '';
-          records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: (p.salePrice / 2) || 0 });
-        }
-      }
+          if (p.mode === 'normal' || p.mode === 'etc') {
+            records.push({
+              date: targetDate, name: p.name, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'),
+              nickname: b.nickname, price: p.salePrice || 0, qty: bQty
+            });
+          } else if (p.mode === 'set') {
+            if (b.opt === 'full') {
+              records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0, qty: bQty });
+              records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0, qty: bQty });
+            } else if (b.opt === 'top') {
+              records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0, qty: bQty });
+            } else if (b.opt === 'bottom') {
+              records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0, qty: bQty });
+            }
+          } else if (p.mode === 'cross') {
+            if (b.opt === 'full') {
+              const m1Name = b.m1 ? ` ${b.m1}` : '';
+              const m2Name = b.m2 ? ` ${b.m2}` : '';
+              records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.salePrice || 0, qty: bQty });
+              records.push({ date: targetDate, name: `${p.name}${m2Name}`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: 0, qty: bQty });
+            } else if (b.opt === 'single') {
+              const m1Name = b.m1 ? ` ${b.m1}` : '';
+              records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: (p.salePrice / 2) || 0, qty: bQty });
+            }
+          }
     });
   });
 
@@ -2935,8 +2958,8 @@ function loadLocalData() {
         sales = raw.map(s => {
           let bArr = (s.buyers || []).map(b => ({
             id: b.id || uid(), nickname: b.nickname || '', memo: b.memo || '', isCanceled: !!b.isCanceled,
-            opt: b.opt || 'full', 
-            c1: b.c1 || b.color || '', s1: b.s1 || b.size || '', 
+            opt: b.opt || 'full', qty: Number(b.qty) || 1,
+            c1: b.c1 || b.color || '', s1: b.s1 || b.size || '',
             c2: b.c2 || '', s2: b.s2 || '', m1: b.m1 || '', m2: b.m2 || '',
             chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs, chkKp: !!b.chkKp
           }));
@@ -3181,8 +3204,9 @@ function renderDepositTab() {
       const nick = (b.nickname || '').trim();
       if(nick && !b.isCanceled) {
         let dp = 0;
-        if (p.mode === 'normal') {
-          dp = Number(p.depositPrice) || 0;
+        let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+        if (p.mode === 'normal' || p.mode === 'etc') {
+          dp = (Number(p.depositPrice) || 0) * bQty;
         } else if (p.mode === 'set') {
           if (b.opt === 'full') dp = (Number(p.topDep) || 0) + (Number(p.botDep) || 0);
           else if (b.opt === 'top') dp = Number(p.topDep) || 0;
@@ -3411,12 +3435,15 @@ function renderSmartCalcItems(buyerItems) {
   container.innerHTML = buyerItems.map((item) => {
     const isChecked = calcCheckedMap[item.buyerId] !== false;
     const optStr = [item.color, item.size].filter(Boolean).join('/') || '옵션없음';
+    const priceTxt = item.qty > 1 
+      ? `판매가: ${fmt(item.salePrice)}원 (개당 ${fmt(item.unitSalePrice)}원 × ${item.qty}개)`
+      : `판매가: ${fmt(item.salePrice)}원`;
     return `
       <div class="calc-item-row">
         <input type="checkbox" id="chk_calc_${item.buyerId}" ${isChecked ? 'checked' : ''} onchange="toggleSmartCalcItem('${item.buyerId}')">
         <label for="chk_calc_${item.buyerId}" style="flex:1; font-size:12.5px; font-weight:700; color:#1E293B; cursor:pointer;">
-          <div>📦 ${item.name || '상품명 미입력'} <span style="font-size:11px; color:#64748B;">(${optStr})</span></div>
-          <div style="font-size:12px; color:var(--purple); font-weight:800; margin-top:2px;">판매가: ${fmt(item.salePrice)}원</div>
+          <div>📦 ${item.name || '상품명 미입력'} <span style="font-size:11px; color:#64748B;">(${optStr}) - ${item.qty || 1}개</span></div>
+          <div style="font-size:12px; color:var(--purple); font-weight:800; margin-top:2px;">${priceTxt}</div>
         </label>
       </div>
     `;
