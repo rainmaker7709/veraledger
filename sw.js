@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mobile-ledger-v5.9';
+const CACHE_NAME = 'mobile-ledger-v6.7';
 // 깃허브에 확실히 존재하는 필수 파일만 남깁니다.
 const ASSETS_TO_CACHE = [
   './',

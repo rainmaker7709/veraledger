@@ -105,7 +105,7 @@
   .row-card.mode-etc .inp-nick { flex: 0 1 25% !important; min-width: 35px; }
   .row-card.mode-etc .inp-color { width: 42px !important; }
   .row-card.mode-etc .inp-size { width: 42px !important; }
-  .inp-qty { width: 38px; text-align: center; font-size: 12px; font-weight: 800; color: #5D4037; border: 1.5px solid #8D6E63; background: #FFF8E1; cursor: pointer; flex-shrink: 0; padding: 4px 2px; }
+  .inp-qty { width: 42px; text-align: center; font-size: 12px; font-weight: 800; color: #5D4037; border: 1.5px solid #8D6E63; background: #FFF8E1; cursor: pointer; flex-shrink: 0; padding: 4px 2px; }
 
   /* 확대된 상품 번호 원형 배지 */
   .prod-num-badge {
@@ -1466,12 +1466,13 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
   const cancelBtn = `<button class="btn-mini btn-cancel ${b.isCanceled ? 'is-canceled' : ''}" onclick="toggleCancel('${p.id}', '${b.id}')">${b.isCanceled ? '🔴 취소' : '취소'}</button>`;
 
   if (p.mode === 'normal' || p.mode === 'etc') {
-    const isEtc = (p.mode === 'etc');
-    const tailItem = isEtc 
-      ? `<input type="text" inputmode="numeric" class="inp inp-qty" value="${b.qty || 1}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">${cancelBtn}`
-      : cancelBtn;
+        const isEtc = (p.mode === 'etc');
+        const displayQty = (parseInt(b.qty) || 1) + '개';
+        const tailItem = isEtc 
+          ? `<input type="text" inputmode="numeric" class="inp inp-qty" value="${displayQty}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">${cancelBtn}`
+          : cancelBtn;
 
-    return `
+        return `
       <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="background:#fff; border:none; border-bottom:1px dashed #E5E8EB; flex-direction:row; align-items:center; gap:3px;">
         ${safeDelNumBtn}
         <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
@@ -1591,6 +1592,8 @@ function updateBuyerData(prodId, buyerId, field, val) {
     if (field === 'nickname') {
       buyer.nickname = val.trim();
       applyAutoRewardToBuyer(buyer);
+    } else if (field === 'qty') {
+      buyer.qty = parseInt(String(val).replace(/[^0-9]/g, '')) || 1;
     } else {
       buyer[field] = val.trim(); 
     }
