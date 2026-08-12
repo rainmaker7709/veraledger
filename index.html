@@ -2766,20 +2766,21 @@ function exportWarehouseExcel() {
   const aggMap = new Map();
 
   // 데이터를 집계해주는 내부 함수
-  function addRecord(name, color, size, price) {
-    const pName = name.trim();
-    const pColor = color || '';
-    const pSize = size || '';
-    // 상품명+색상+사이즈 를 조합해 고유 키(Key) 생성
-    const key = `${pName}|${pColor}|${pSize}`;
+    function addRecord(name, color, size, price, qty = 1) {
+      const pName = name.trim();
+      const pColor = color || '';
+      const pSize = size || '';
+      // 상품명+색상+사이즈 를 조합해 고유 키(Key) 생성
+      const key = `${pName}|${pColor}|${pSize}`;
 
-    if (!aggMap.has(key)) {
-      aggMap.set(key, { '상품명': pName, '색상': pColor, '사이즈': pSize, '수량': 0, '입금가': 0 });
+      if (!aggMap.has(key)) {
+        // G열(입금가총액)을 추가하고, 입금가(단가)는 합산하지 않고 보존
+        aggMap.set(key, { '상품명': pName, '색상': pColor, '사이즈': pSize, '수량': 0, '입금가': price, '입금가총액': 0 });
+      }
+      const row = aggMap.get(key);
+      row['수량'] += qty;                     // 실제 수량만큼 합산
+      row['입금가총액'] += (price * qty);       // 단가 * 수량 누적
     }
-    const row = aggMap.get(key);
-    row['수량'] += 1;            // 수량은 +1씩 합산
-    row['입금가'] += price;      // 입금가는 항목 단가만큼 계속 누적 합산
-  }
 
   // --- 2. 반복문을 돌며 개별 판매내역을 집계 함수(addRecord)로 전달 ---
   sales.forEach(p => {
@@ -2789,27 +2790,30 @@ function exportWarehouseExcel() {
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
-      if (p.mode === 'normal') {
-        addRecord(p.name || '', c1, b.s1 || '', Number(p.depositPrice) || 0);
-      } else if (p.mode === 'set') {
-        if (b.opt === 'full' || b.opt === 'top') {
-          addRecord(`${p.name} 상의`, c1, b.s1 || '', Number(p.topDep) || 0);
+        // 고객별 수량 (기타카드일 경우 입력된 수량, 나머지는 1)
+        let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+
+        if (p.mode === 'normal' || p.mode === 'etc') {
+          addRecord(p.name || '', c1, b.s1 || '', Number(p.depositPrice) || 0, bQty);
+        } else if (p.mode === 'set') {
+          if (b.opt === 'full' || b.opt === 'top') {
+            addRecord(`${p.name} 상의`, c1, b.s1 || '', Number(p.topDep) || 0, bQty);
+          }
+          if (b.opt === 'full' || b.opt === 'bottom') {
+            addRecord(`${p.name} 하의`, c2, b.s2 || '', Number(p.botDep) || 0, bQty);
+          }
+        } else if (p.mode === 'cross') {
+          if (b.opt === 'full' || b.opt === 'single') {
+            const m1Name = b.m1 ? ` ${b.m1}` : '';
+            addRecord(`${p.name}${m1Name}`, c1, b.s1 || '', b.opt === 'single' ? (Number(p.depositPrice) / 2) || 0 : Number(p.depositPrice) || 0, bQty);
+          }
+          if (b.opt === 'full') {
+            const m2Name = b.m2 ? ` ${b.m2}` : '';
+            addRecord(`${p.name}${m2Name}`, c2, b.s2 || '', 0, bQty);
+          }
         }
-        if (b.opt === 'full' || b.opt === 'bottom') {
-          addRecord(`${p.name} 하의`, c2, b.s2 || '', Number(p.botDep) || 0);
-        }
-      } else if (p.mode === 'cross') {
-        if (b.opt === 'full' || b.opt === 'single') {
-          const m1Name = b.m1 ? ` ${b.m1}` : '';
-          addRecord(`${p.name}${m1Name}`, c1, b.s1 || '', b.opt === 'single' ? (Number(p.depositPrice) / 2) || 0 : Number(p.depositPrice) || 0);
-        }
-        if (b.opt === 'full') {
-          const m2Name = b.m2 ? ` ${b.m2}` : '';
-          addRecord(`${p.name}${m2Name}`, c2, b.s2 || '', 0);
-        }
-      }
+      });
     });
-  });
 
   // --- 3. 집계된 결과를 엑셀 출력용 배열(records)로 변환 및 전체 합계 계산 ---
   let rowNum = 1;
@@ -2824,13 +2828,14 @@ function exportWarehouseExcel() {
       '색상': val['색상'],
       '사이즈': val['사이즈'],
       '수량': val['수량'],
-      '입금가': val['입금가']
+      '입금가': val['입금가'],
+      '입금가총액': val['입금가총액']
     });
     totalQty += val['수량'];
-    totalDeposit += val['입금가'];
+    totalDeposit += val['입금가총액']; // 합계용 입금가에는 총액을 더해줌
   });
 
-  // --- 4. 맨 아래 전체 수량과 입금가 '합계' 1줄 추가 ---
+  // --- 4. 맨 아래 전체 수량과 입금가총액 '합계' 1줄 추가 ---
   if (records.length > 0) {
     records.push({
       '넘버링': '합계',
@@ -2838,7 +2843,8 @@ function exportWarehouseExcel() {
       '색상': '',
       '사이즈': '',
       '수량': totalQty,
-      '입금가': totalDeposit
+      '입금가': '', // 단가 열의 합계 부분은 비워둠
+      '입금가총액': totalDeposit
     });
   }
 
