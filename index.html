@@ -559,7 +559,7 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
   </main>
 
 
-  <div class="ac-dropdown" id="acDropdown" onmousedown="event.preventDefault()"></div>
+  <div class="ac-dropdown" id="acDropdown" onmousedown="event.preventDefault()" onclick="event.stopPropagation()"></div>
 
   <div class="bottom-bar">
     <div class="sticky-summary" id="dash-summary">
@@ -1315,6 +1315,127 @@ function selectQty(prodId, buyerId, val) {
   renderSales();
 }
 
+// ===== 💰 가격 전용 자동완성 및 릴레이 시스템 (10만 원대 3단계 확장본) =====
+function handlePriceFocus(inputEl, prodId, field) {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl;
+  autoCenterInput(inputEl);
+  renderPriceStep1(inputEl, prodId, field);
+}
+
+// 1단계: 만원 단위 및 10만/20만대 베이스 선택
+function renderPriceStep1(inputEl, prodId, field) {
+  const targetEl = inputEl || lastFocusedInput;
+  const dropdown = document.getElementById('acDropdown');
+  
+  // 1천~9천원 단품
+  let items = `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectPriceStep1('${prodId}', '${field}', 0, event)">1천~9천</div>`;
+  
+  // 1만 ~ 9만 (기존처럼 2단계로 바로 넘어감)
+  for (let i = 1; i <= 9; i++) {
+    items += `<div class="ac-item" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectPriceStep1('${prodId}', '${field}', ${i * 10000}, event)">${i}만</div>`;
+  }
+  
+  // 10만대, 20만대 (고가 상품용 - 누르면 1.5단계로 넘어감)
+  items += `<div class="ac-item pre-tag" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderPriceStep_1_5(lastFocusedInput, '${prodId}', '${field}', 100000, event)">🧥 10만대</div>`;
+  items += `<div class="ac-item pre-tag" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderPriceStep_1_5(lastFocusedInput, '${prodId}', '${field}', 200000, event)">🧥 20만대</div>`;
+
+  dropdown.innerHTML = items;
+  positionDropdown(targetEl);
+}
+
+// 1.5단계: 10만대/20만대를 눌렀을 때 10만~19만 선택
+function renderPriceStep_1_5(inputEl, prodId, field, baseLarge, event) {
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+  const targetEl = inputEl || lastFocusedInput;
+  const dropdown = document.getElementById('acDropdown');
+  
+  // 뒤로 가기 (1단계로)
+  let items = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderPriceStep1(lastFocusedInput, '${prodId}', '${field}')">↩ 이전</div>`;
+  
+  // 예: baseLarge가 100000(10만)이면 -> 10만, 11만, 12만 ... 19만 생성
+  for (let i = 0; i <= 9; i++) {
+    const midAmount = baseLarge + (i * 10000);
+    items += `<div class="ac-item" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectPriceStep1('${prodId}', '${field}', ${midAmount}, event)">${fmt(midAmount / 10000)}만</div>`;
+  }
+
+  dropdown.innerHTML = items;
+  positionDropdown(targetEl);
+}
+
+// 1단계(또는 1.5단계) 선택 시 2단계(천원대)로 전환
+function selectPriceStep1(prodId, field, baseAmount, event) {
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+  const inputEl = document.querySelector(`.price-input-${prodId}-${field}`) || lastFocusedInput;
+  if (inputEl) {
+    lastFocusedInput = inputEl;
+    renderPriceStep2(inputEl, prodId, field, baseAmount);
+  }
+}
+
+// 2단계: 최종 천원 단위 선택 (+ 합산 가격 노출)
+function renderPriceStep2(inputEl, prodId, field, baseAmount) {
+  const targetEl = inputEl || lastFocusedInput;
+  const dropdown = document.getElementById('acDropdown');
+  
+  // 뒤로 가기 버튼 (10만 이상이면 1.5단계로, 10만 미만이면 1단계로 복귀)
+  let backAction = `renderPriceStep1(lastFocusedInput, '${prodId}', '${field}')`;
+  if (baseAmount >= 100000) {
+    const baseLarge = Math.floor(baseAmount / 100000) * 100000;
+    backAction = `renderPriceStep_1_5(lastFocusedInput, '${prodId}', '${field}', ${baseLarge})`;
+  }
+
+  let items = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); ${backAction}">↩ 이전</div>`;
+
+  // 딱 떨어지는 금액일 때 (예: 120,000원, 30,000원)
+  if (baseAmount > 0) {
+    items += `<div class="ac-item" style="background:#E8F3FF; color:var(--primary);" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectPriceFinal('${prodId}', '${field}', ${baseAmount}, event)">딱 ${fmt(baseAmount)}원</div>`;
+  }
+
+  // 천원 단위 조합 (예: 120000 + 3000 = 123,000)
+  for (let i = 1; i <= 9; i++) {
+    const finalAmount = baseAmount + (i * 1000);
+    items += `<div class="ac-item" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectPriceFinal('${prodId}', '${field}', ${finalAmount}, event)">${fmt(finalAmount)}</div>`;
+  }
+  
+  dropdown.innerHTML = items;
+  positionDropdown(targetEl);
+}
+
+// 최종 가격 입력 및 다음 입력창 자동 포커스(릴레이)
+function selectPriceFinal(prodId, field, finalAmount, event) {
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+  clearLastInputEvent();
+  saveState();
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) {
+    prod[field] = finalAmount;
+  }
+  pendingVisibilitySelector = '#card-' + prodId;
+  renderSales(); // 화면에 가격 반영
+
+  // 릴레이 로직 (판매가 -> 입금가 자동 이동)
+  setTimeout(() => {
+    const nextMap = {
+      'salePrice': 'depositPrice', // 단가: 판매가 -> 입금가
+      'topSale': 'topDep',         // 세트: 상의판매 -> 상의입금
+      'topDep': 'botSale',         // 세트: 상의입금 -> 하의판매
+      'botSale': 'botDep'          // 세트: 하의판매 -> 하의입금
+    };
+    
+    const nextField = nextMap[field];
+    if (nextField) {
+      const nextInput = document.querySelector(`.price-input-${prodId}-${nextField}`);
+      if (nextInput) {
+        nextInput.focus(); // 다음 입력창으로 점프
+      }
+    } else {
+      hideDropdown(); // 릴레이 끝났을 때만 닫기
+    }
+  }, 100); 
+}
+// =========================================================
+
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#acDropdown') && !e.target.classList.contains('inp') && !e.target.classList.contains('matrix-hdr-inp') && !e.target.classList.contains('matrix-nick-inp')) {
     hideDropdown();
@@ -1386,19 +1507,19 @@ function renderSales() {
     if (p.mode === 'set') {
       priceHtml = `
         <span style="font-size:11px; color:#475569; font-weight:800;">상💰</span>
-        <input type="text" inputmode="numeric" class="inp inp-num" style="width:55px; color:#DB2777;" value="${p.topSale ? fmt(p.topSale) : ''}" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'topSale', this.value)">
+        <input type="text" inputmode="numeric" class="inp inp-num price-input-${p.id}-topSale" style="width:55px; color:#DB2777;" value="${p.topSale ? fmt(p.topSale) : ''}" onfocus="handlePriceFocus(this, '${p.id}', 'topSale')" onclick="handlePriceFocus(this, '${p.id}', 'topSale')" onchange="updateProductData('${p.id}', 'topSale', this.value)">
         <span style="font-size:11px; color:#475569; font-weight:800;">🏦</span>
-        <input type="text" inputmode="numeric" class="inp inp-num" style="width:55px; color:var(--accent-deposit);" value="${p.topDep ? fmt(p.topDep) : ''}" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'topDep', this.value)">
+        <input type="text" inputmode="numeric" class="inp inp-num price-input-${p.id}-topDep" style="width:55px; color:var(--accent-deposit);" value="${p.topDep ? fmt(p.topDep) : ''}" onfocus="handlePriceFocus(this, '${p.id}', 'topDep')" onclick="handlePriceFocus(this, '${p.id}', 'topDep')" onchange="updateProductData('${p.id}', 'topDep', this.value)">
         <span style="font-size:11px; font-weight:800; color:#94A3B8; margin:0 1px;">/ 하💰</span>
-        <input type="text" inputmode="numeric" class="inp inp-num" style="width:55px; color:#DB2777;" value="${p.botSale ? fmt(p.botSale) : ''}" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'botSale', this.value)">
+        <input type="text" inputmode="numeric" class="inp inp-num price-input-${p.id}-botSale" style="width:55px; color:#DB2777;" value="${p.botSale ? fmt(p.botSale) : ''}" onfocus="handlePriceFocus(this, '${p.id}', 'botSale')" onclick="handlePriceFocus(this, '${p.id}', 'botSale')" onchange="updateProductData('${p.id}', 'botSale', this.value)">
         <span style="font-size:11px; color:#475569; font-weight:800;">🏦</span>
-        <input type="text" inputmode="numeric" class="inp inp-num" style="width:55px; color:var(--accent-deposit);" value="${p.botDep ? fmt(p.botDep) : ''}" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'botDep', this.value)">
+        <input type="text" inputmode="numeric" class="inp inp-num price-input-${p.id}-botDep" style="width:55px; color:var(--accent-deposit);" value="${p.botDep ? fmt(p.botDep) : ''}" onfocus="handlePriceFocus(this, '${p.id}', 'botDep')" onclick="handlePriceFocus(this, '${p.id}', 'botDep')" onchange="updateProductData('${p.id}', 'botDep', this.value)">
       `;
     } else {
       priceHtml = `
         <span style="font-size:11px; font-weight:800; color:var(--ink-sub);">단가</span>
-        <input type="text" inputmode="numeric" class="inp inp-num" style="width:70px; color:${p.mode === 'cross' ? '#2563EB' : 'var(--purple)'};" value="${p.salePrice ? fmt(p.salePrice) : ''}" placeholder="💰 판매가" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'salePrice', this.value)">
-        <input type="text" inputmode="numeric" class="inp inp-num" style="width:70px; color:var(--accent-deposit);" value="${p.depositPrice ? fmt(p.depositPrice) : ''}" placeholder="🏦 입금가" onfocus="handleInputFocus(this)" onchange="updateProductData('${p.id}', 'depositPrice', this.value)">
+        <input type="text" inputmode="numeric" class="inp inp-num price-input-${p.id}-salePrice" style="width:70px; color:${p.mode === 'cross' ? '#2563EB' : 'var(--purple)'};" value="${p.salePrice ? fmt(p.salePrice) : ''}" placeholder="💰 판매가" onfocus="handlePriceFocus(this, '${p.id}', 'salePrice')" onclick="handlePriceFocus(this, '${p.id}', 'salePrice')" onchange="updateProductData('${p.id}', 'salePrice', this.value)">
+        <input type="text" inputmode="numeric" class="inp inp-num price-input-${p.id}-depositPrice" style="width:70px; color:var(--accent-deposit);" value="${p.depositPrice ? fmt(p.depositPrice) : ''}" placeholder="🏦 입금가" onfocus="handlePriceFocus(this, '${p.id}', 'depositPrice')" onclick="handlePriceFocus(this, '${p.id}', 'depositPrice')" onchange="updateProductData('${p.id}', 'depositPrice', this.value)">
       `;
     }
 
