@@ -211,7 +211,8 @@
   .tab-btn { flex: 1; padding: 10px 0; border: none; background: #fff; font-size: 13px; font-weight: 800; color: var(--ink-sub); cursor: pointer; }
   .tab-btn.active { color: var(--primary); border-top: 2.5px solid var(--primary); background: #F9FAFB; }
 
-  body.ac-open .bottom-bar, body.ac-open .fab { display: none !important; }
+  body.ac-open .bottom-bar, body.ac-open .fab,
+body.keyboard-open .bottom-bar, body.keyboard-open .fab { display: none !important; }
 
   #view-settle { display: none; padding: 10px 10px 120px 10px; flex-direction: column; gap: 10px; }
   .settle-card { background: #fff; border-radius: var(--radius); padding: 12px; border: 1.5px solid var(--line); box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
@@ -836,6 +837,8 @@ function adjustScrollPosition(targetEl) {
 
 function handleInputFocus(el) {
   if (!el) return;
+  document.body.classList.add('keyboard-open'); // 👈 [추가] 키보드 입력 시작 시 하단바 숨김
+  
   const card = el.closest('.row-card');
   if (card) card.classList.add('is-focused');
 
@@ -857,6 +860,12 @@ function handleInputFocus(el) {
   el.addEventListener('blur', () => { 
     el.dataset.focused = "false";
     setTimeout(() => {
+      // 👈 [추가] 포커스된 입력창이 완전히 사라지면 하단바 복원
+      const anyActiveInput = document.querySelector('input:focus, textarea:focus');
+      if (!anyActiveInput) {
+        document.body.classList.remove('keyboard-open');
+      }
+
       const hasActiveInput = card ? card.querySelector('input:focus') : null;
       if (!hasActiveInput && !document.body.classList.contains('ac-open')) {
         if (card) card.classList.remove('is-focused');
