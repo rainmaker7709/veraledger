@@ -2574,22 +2574,22 @@ async function sendToSheet() {
             });
           } else if (p.mode === 'set') {
             if (b.opt === 'full') {
-              records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0, qty: bQty });
-              records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0, qty: bQty });
+              records.push({ date: targetDate, name: `[세트] ${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0, qty: bQty });
+              records.push({ date: targetDate, name: `[세트] ${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0, qty: bQty });
             } else if (b.opt === 'top') {
-              records.push({ date: targetDate, name: `${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0, qty: bQty });
+              records.push({ date: targetDate, name: `[세트 상의만] ${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0, qty: bQty });
             } else if (b.opt === 'bottom') {
-              records.push({ date: targetDate, name: `${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0, qty: bQty });
+              records.push({ date: targetDate, name: `[세트 하의만] ${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0, qty: bQty });
             }
           } else if (p.mode === 'cross') {
             if (b.opt === 'full') {
               const m1Name = b.m1 ? ` ${b.m1}` : '';
               const m2Name = b.m2 ? ` ${b.m2}` : '';
-              records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.salePrice || 0, qty: bQty });
-              records.push({ date: targetDate, name: `${p.name}${m2Name}`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: 0, qty: bQty });
+              records.push({ date: targetDate, name: `[1+1] ${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.salePrice || 0, qty: bQty });
+              records.push({ date: targetDate, name: `[1+1] ${p.name}${m2Name}`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: 0, qty: bQty });
             } else if (b.opt === 'single') {
               const m1Name = b.m1 ? ` ${b.m1}` : '';
-              records.push({ date: targetDate, name: `${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: (p.salePrice / 2) || 0, qty: bQty });
+              records.push({ date: targetDate, name: `[1+1 중 1개만] ${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: (p.salePrice / 2) || 0, qty: bQty });
             }
           }
     });
