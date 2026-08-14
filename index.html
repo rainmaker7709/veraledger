@@ -1679,7 +1679,7 @@ function getFlattenedSales() {
       }
 
       flat.push({
-        prodId: p.id, buyerId: b.id, name: p.name, 
+        prodId: p.id, buyerId: b.id, name: p.name, mode: p.mode, opt: b.opt,
         unitSalePrice: unitSp, unitDepositPrice: unitDp,
         qty: bQty, salePrice: sp, depositPrice: dp, nickname: b.nickname, color: colorStr, size: sizeStr, memo: b.memo, isCanceled: b.isCanceled,
         chkYt: b.chkYt, chkTt: b.chkTt, chkFs: b.chkFs, chkKp: b.chkKp
@@ -2226,7 +2226,8 @@ function renderSettlement() {
   const margin = stats.totalSale - stats.totalDeposit;
   const marginPercent = stats.totalSale > 0 ? ((margin / stats.totalSale) * 100).toFixed(1) : '0';
 
-  document.getElementById('st-total-qty').innerHTML = `${stats.activeQty}건 / 실물 ${stats.physicalQty}개<br><span style="font-size:11.5px; color:#64748B; font-weight:700;">(단품 ${stats.singleCnt} / 세트 ${stats.setCnt} / 1+1 ${stats.crossCnt})</span>`;
+  const physicalText = (stats.activeQty !== stats.physicalQty) ? `<span style="color:var(--danger);">실물 ${stats.physicalQty}개</span>` : `실물 ${stats.physicalQty}개`;
+  document.getElementById('st-total-qty').innerHTML = `${stats.activeQty}건 / ${physicalText}<br><span style="font-size:11.5px; color:#64748B; font-weight:700;">(단품 ${stats.singleCnt} / 세트 ${stats.setCnt} / 1+1 ${stats.crossCnt})</span>`;
   document.getElementById('st-total-deposit').textContent = fmt(stats.totalDeposit) + '원';
   document.getElementById('st-total-sale').textContent = fmt(stats.totalSale) + '원';
   document.getElementById('st-margin').textContent = `${fmt(margin)}원 (${marginPercent}%)`;
@@ -2313,26 +2314,40 @@ function renderSettlement() {
   } else if (settleGroupMode === 'product') {
     titleEl.textContent = '📦 상품별 판매 집계';
     headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>상품명</th><th style="text-align:center; white-space:nowrap;">수량</th><th style="text-align:right;">입금가</th><th style="text-align:right;">판매가</th></tr>';
-    const map = {}; activeSales.forEach(s => { const k = s.name || '미입력 상품'; if (!map[k]) map[k] = { qty: 0, deposit: 0, sale: 0 }; map[k].qty += (s.qty || 1); map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; });
+    const map = {}; activeSales.forEach(s => { 
+      const pName = s.name || '미입력 상품';
+      const k = `${pName}|${s.mode}|${s.opt || 'full'}|${s.unitSalePrice}|${s.unitDepositPrice}`;
+      if (!map[k]) map[k] = { name: pName, mode: s.mode, opt: s.opt || 'full', qty: 0, deposit: 0, sale: 0 }; 
+      map[k].qty += (s.qty || 1); map[k].deposit += s.depositPrice; map[k].sale += s.salePrice; 
+    });
     let entries = Object.entries(map);
     if (sq) {
-      entries = entries.filter(([pName]) => pName.toLowerCase().includes(sq));
+      entries = entries.filter(([_, d]) => d.name.toLowerCase().includes(sq));
     }
     bodyEl.innerHTML = entries.sort((a, b) => b[1].qty - a[1].qty)
-      .map(([pName, d], idx) => {
-        const safePName = pName.replace(/'/g, "\\'");
-        const itemKey = `product_${pName}`;
+      .map(([compKey, d], idx) => {
+        const safeKey = compKey.replace(/'/g, "\\'");
+        const itemKey = `product_${compKey}`;
         const hl = settleHighlights[itemKey] || 'none';
         const trClass = hl === 'yellow' ? 'row-highlight-yellow' : (hl === 'red' ? 'row-highlight-red' : '');
         const btnClass = hl === 'yellow' ? 'bg-yellow' : (hl === 'red' ? 'bg-red' : '');
         
-        // ✨ 개당 단가 계산 (총액 / 수량)
         const unitDep = d.qty > 0 ? Math.floor(d.deposit / d.qty) : 0;
         const unitSale = d.qty > 0 ? Math.floor(d.sale / d.qty) : 0;
 
-        return `<tr class="${trClass}" onclick="openSettleGroupDetail('product', '${safePName}')">
+        let badgeHtml = '';
+        if (d.mode === 'set') {
+          badgeHtml = '<span class="badge set" style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #DB2777; margin-right:4px;">세트</span>';
+          if (d.opt === 'top') badgeHtml += '<span style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #BE185D; margin-right:4px;">상의만</span>';
+          else if (d.opt === 'bottom') badgeHtml += '<span style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #6B21A8; margin-right:4px;">하의만</span>';
+        } else if (d.mode === 'cross') {
+          badgeHtml = '<span class="badge cross" style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #2563EB; margin-right:4px;">1+1</span>';
+          if (d.opt === 'single') badgeHtml += '<span style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #0284C7; margin-right:4px;">단품</span>';
+        }
+
+        return `<tr class="${trClass}" onclick="openSettleGroupDetail('product', '${safeKey}')">
           <td style="text-align:center; padding: 4px 2px;"><button class="settle-num-btn ${btnClass}" onclick="toggleSettleColor('${itemKey.replace(/'/g, "\\'")}', event)">${idx + 1}</button></td>
-          <td style="font-size:12px;">${pName}</td>
+          <td style="font-size:12px;">${badgeHtml}${d.name}</td>
           <td style="text-align:center; font-size:12px;">${d.qty}개</td>
           <td style="text-align:right; font-weight:800; font-size:11.5px; line-height:1.3;">
             <div style="color:var(--accent-deposit);">${fmt(unitDep)}</div>
@@ -2350,25 +2365,39 @@ function renderSettlement() {
 function openSettleGroupDetail(mode, key) {
   const flat = getFlattenedSales();
   let matches = [];
+  let displayKey = key;
   if (mode === 'deposit') matches = flat.filter(s => !s.isCanceled && s.unitDepositPrice === Number(key) && (s.nickname || '').trim() !== '');
   else if (mode === 'sale') matches = flat.filter(s => !s.isCanceled && s.unitSalePrice === Number(key) && (s.nickname || '').trim() !== '');
   else if (mode === 'customer') matches = flat.filter(s => !s.isCanceled && (s.nickname || '미입력 고객') === key && (s.nickname || '').trim() !== '');
-  else if (mode === 'product') matches = flat.filter(s => !s.isCanceled && (s.name || '미입력 상품') === key && (s.nickname || '').trim() !== '');
+  else if (mode === 'product') {
+    matches = flat.filter(s => !s.isCanceled && `${s.name || '미입력 상품'}|${s.mode}|${s.opt || 'full'}|${s.unitSalePrice}|${s.unitDepositPrice}` === key && (s.nickname || '').trim() !== '');
+    displayKey = key.split('|')[0];
+  }
 
-  document.getElementById('settleDetailTitle').textContent = `🔍 [${key}] 세부 내역 (${matches.length}건)`;
+  document.getElementById('settleDetailTitle').textContent = `🔍 [${displayKey}] 세부 내역 (${matches.length}건)`;
   const contentEl = document.getElementById('settleDetailContent');
   
   if (matches.length === 0) contentEl.innerHTML = '<div style="text-align:center; color:#64748B; font-weight:700; padding:20px;">세부 내역이 없습니다.</div>';
-  else contentEl.innerHTML = matches.map((m, idx) => `
+  else contentEl.innerHTML = matches.map((m, idx) => {
+    let badgeHtml = '';
+    if (m.mode === 'set') {
+      badgeHtml = '<span class="badge set" style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #DB2777; margin-left:4px; vertical-align: middle;">세트</span>';
+      if (m.opt === 'top') badgeHtml += '<span style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #BE185D; margin-left:2px; vertical-align: middle;">상의만</span>';
+      else if (m.opt === 'bottom') badgeHtml += '<span style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #6B21A8; margin-left:2px; vertical-align: middle;">하의만</span>';
+    } else if (m.mode === 'cross') {
+      badgeHtml = '<span class="badge cross" style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #2563EB; margin-left:4px; vertical-align: middle;">1+1</span>';
+      if (m.opt === 'single') badgeHtml += '<span style="padding: 2px 4px; border-radius: 4px; font-size: 10px; font-weight: 800; color: #fff; background: #0284C7; margin-left:2px; vertical-align: middle;">단품</span>';
+    }
+    return `
     <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:6px; padding:10px; font-size:12.5px; display:flex; flex-direction:column; gap:4px;">
       <div style="display:flex; justify-content:space-between; font-weight:800; color:#0F172A;">
-        <span>${idx + 1}. 👤 ${m.nickname || '(무명)'}</span>
+        <span>${idx + 1}. 👤 ${m.nickname || '(무명)'}${badgeHtml}</span>
         <span style="color:var(--purple); font-size:13px;">${m.salePrice ? fmt(m.salePrice) + '원' : '-'}</span>
       </div>
       <div style="color:#334155; font-weight:700;">📦 ${m.name || '상품명 미입력'} <span style="color:#475569; font-weight:600;">(${[m.color, m.size].filter(Boolean).join('/') || '옵션없음'}) - ${m.qty || 1}개${m.qty > 1 ? ` (개당 ${fmt(m.unitSalePrice)}원)` : ''}</span></div>
       ${m.memo ? `<div style="color:#B45309; font-size:11.5px; font-weight:700; background:#FEF3C7; padding:3px 6px; border-radius:4px;">📝 메모: ${m.memo}</div>` : ''}
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
   
   document.getElementById('settleDetailModal').style.display = 'flex';
 }
@@ -2677,6 +2706,7 @@ function importJsonFile(e) {
 
 function exportExcel() {
   let records = [];
+  let groupCounter = 1;
 
   function getExcelMemo(b) {
     let tags = [];
@@ -2697,26 +2727,38 @@ function exportExcel() {
       let mergedMemo = getExcelMemo(b);
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
+      
+      let groupStr = '';
+      if (p.mode === 'set') {
+        groupStr = `세트(${String(groupCounter).padStart(3, '0')})`;
+        groupCounter++;
+      } else if (p.mode === 'cross') {
+        groupStr = `1+1(${String(groupCounter).padStart(3, '0')})`;
+        groupCounter++;
+      }
 
-      if (p.mode === 'normal') {
-        records.push({ name: p.name || '', option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
+      if (p.mode === 'normal' || p.mode === 'etc') {
+        let qty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+        for (let k = 0; k < qty; k++) {
+          records.push({ group: groupStr, name: p.name || '', option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
+        }
       } else if (p.mode === 'set') {
         if (b.opt === 'full') {
-          records.push({ name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
-          records.push({ name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
         } else if (b.opt === 'top') {
-          records.push({ name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.topSale) || 0, depositPrice: Number(p.topDep) || 0, memo: mergedMemo });
         } else if (b.opt === 'bottom') {
-          records.push({ name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.botSale) || 0, depositPrice: Number(p.botDep) || 0, memo: mergedMemo });
         }
       } else if (p.mode === 'cross') {
         if (b.opt === 'full') {
           const m1Name = b.m1 ? ` ${b.m1}` : ''; const m2Name = b.m2 ? ` ${b.m2}` : '';
-          records.push({ name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
-          records.push({ name: `${p.name}${m2Name}`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: 0, depositPrice: 0, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name}${m2Name}`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: 0, depositPrice: 0, memo: mergedMemo });
         } else if (b.opt === 'single') {
           const m1Name = b.m1 ? ` ${b.m1}` : '';
-          records.push({ name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: (Number(p.salePrice) / 2) || 0, depositPrice: (Number(p.depositPrice) / 2) || 0, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: (Number(p.salePrice) / 2) || 0, depositPrice: (Number(p.depositPrice) / 2) || 0, memo: mergedMemo });
         }
       }
     });
@@ -2731,13 +2773,13 @@ function exportExcel() {
     totalSale += s.salePrice;
     totalDeposit += s.depositPrice;
     return {
-      'No': i + 1, '상품명': s.name, '옵션(색상/사이즈)': s.option, '고객명': s.nickname, '판매가': s.salePrice, '입금가(원가)': s.depositPrice, '메모': s.memo
+      '구분': s.group, '상품명': s.name, '옵션(색상/사이즈)': s.option, '고객명': s.nickname, '판매가': s.salePrice, '입금가(원가)': s.depositPrice, '메모': s.memo
     };
   });
 
   // 👇 엑셀 가장 아랫줄에 합계 데이터 추가
   data.push({
-    'No': '합계',
+    '구분': '합계',
     '상품명': '',
     '옵션(색상/사이즈)': '',
     '고객명': '',
@@ -2762,68 +2804,65 @@ function exportWarehouseExcel() {
     return; 
   }
 
-  // --- 1. 동일 항목을 묶기 위한 객체(Map) 생성 ---
   const aggMap = new Map();
 
-  // 데이터를 집계해주는 내부 함수
-    function addRecord(name, color, size, price, qty = 1) {
-      const pName = name.trim();
-      const pColor = color || '';
-      const pSize = size || '';
-      // 상품명+색상+사이즈 를 조합해 고유 키(Key) 생성
-      const key = `${pName}|${pColor}|${pSize}`;
+  function addRecord(name, color, size, price, qty = 1, type = '', parentPrice = '') {
+    const pName = name.trim();
+    const pColor = color || '';
+    const pSize = size || '';
+    const cardPrice = parentPrice !== '' ? parentPrice : price;
+    const key = `${type}|${pName}|${pColor}|${pSize}|${price}|${cardPrice}`;
 
-      if (!aggMap.has(key)) {
-        // G열(입금가총액)을 추가하고, 입금가(단가)는 합산하지 않고 보존
-        aggMap.set(key, { '상품명': pName, '색상': pColor, '사이즈': pSize, '수량': 0, '입금가': price, '입금가총액': 0 });
-      }
-      const row = aggMap.get(key);
-      row['수량'] += qty;                     // 실제 수량만큼 합산
-      row['입금가총액'] += (price * qty);       // 단가 * 수량 누적
+    if (!aggMap.has(key)) {
+      aggMap.set(key, { '구분': type, '상품명': pName, '색상': pColor, '사이즈': pSize, '수량': 0, '입금가': price, '입금가총액': 0 });
     }
+    const row = aggMap.get(key);
+    row['수량'] += qty;
+    row['입금가총액'] += (price * qty);
+  }
 
-  // --- 2. 반복문을 돌며 개별 판매내역을 집계 함수(addRecord)로 전달 ---
   sales.forEach(p => {
     p.buyers.forEach(b => {
       if (b.isCanceled || !(b.nickname || '').trim()) return;
 
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
+      let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+      let baseDep = Number(p.depositPrice) || 0;
 
-        // 고객별 수량 (기타카드일 경우 입력된 수량, 나머지는 1)
-        let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
-
-        if (p.mode === 'normal' || p.mode === 'etc') {
-          addRecord(p.name || '', c1, b.s1 || '', Number(p.depositPrice) || 0, bQty);
-        } else if (p.mode === 'set') {
-          if (b.opt === 'full' || b.opt === 'top') {
-            addRecord(`${p.name} 상의`, c1, b.s1 || '', Number(p.topDep) || 0, bQty);
-          }
-          if (b.opt === 'full' || b.opt === 'bottom') {
-            addRecord(`${p.name} 하의`, c2, b.s2 || '', Number(p.botDep) || 0, bQty);
-          }
-        } else if (p.mode === 'cross') {
-          if (b.opt === 'full' || b.opt === 'single') {
-            const m1Name = b.m1 ? ` ${b.m1}` : '';
-            addRecord(`${p.name}${m1Name}`, c1, b.s1 || '', b.opt === 'single' ? (Number(p.depositPrice) / 2) || 0 : Number(p.depositPrice) || 0, bQty);
-          }
-          if (b.opt === 'full') {
-            const m2Name = b.m2 ? ` ${b.m2}` : '';
-            addRecord(`${p.name}${m2Name}`, c2, b.s2 || '', 0, bQty);
-          }
+      if (p.mode === 'normal' || p.mode === 'etc') {
+        addRecord(p.name || '', c1, b.s1 || '', baseDep, bQty, '', baseDep);
+      } else if (p.mode === 'set') {
+        let topDep = Number(p.topDep) || 0;
+        let botDep = Number(p.botDep) || 0;
+        if (b.opt === 'full' || b.opt === 'top') {
+          addRecord(`${p.name} 상의`, c1, b.s1 || '', topDep, bQty, '세트', topDep);
         }
-      });
+        if (b.opt === 'full' || b.opt === 'bottom') {
+          addRecord(`${p.name} 하의`, c2, b.s2 || '', botDep, bQty, '세트', botDep);
+        }
+      } else if (p.mode === 'cross') {
+        // ✨ 1+1 카드의 입금가를 1번/2번 상품에 50%씩(반반) 균등 배정
+        let halfDep = baseDep / 2;
+        if (b.opt === 'full' || b.opt === 'single') {
+          const m1Name = b.m1 ? ` ${b.m1}` : '';
+          addRecord(`${p.name}${m1Name}`, c1, b.s1 || '', halfDep, bQty, '1+1', baseDep);
+        }
+        if (b.opt === 'full') {
+          const m2Name = b.m2 ? ` ${b.m2}` : '';
+          addRecord(`${p.name}${m2Name}`, c2, b.s2 || '', halfDep, bQty, '1+1', baseDep);
+        }
+      }
     });
+  });
 
-  // --- 3. 집계된 결과를 엑셀 출력용 배열(records)로 변환 및 전체 합계 계산 ---
-  let rowNum = 1;
   let records = [];
   let totalQty = 0;
   let totalDeposit = 0;
 
   aggMap.forEach((val) => {
     records.push({
-      '넘버링': rowNum++,
+      '구분': val['구분'],
       '상품명': val['상품명'],
       '색상': val['색상'],
       '사이즈': val['사이즈'],
@@ -2832,18 +2871,17 @@ function exportWarehouseExcel() {
       '입금가총액': val['입금가총액']
     });
     totalQty += val['수량'];
-    totalDeposit += val['입금가총액']; // 합계용 입금가에는 총액을 더해줌
+    totalDeposit += val['입금가총액'];
   });
 
-  // --- 4. 맨 아래 전체 수량과 입금가총액 '합계' 1줄 추가 ---
   if (records.length > 0) {
     records.push({
-      '넘버링': '합계',
+      '구분': '합계',
       '상품명': '',
       '색상': '',
       '사이즈': '',
       '수량': totalQty,
-      '입금가': '', // 단가 열의 합계 부분은 비워둠
+      '입금가': '',
       '입금가총액': totalDeposit
     });
   }
@@ -2859,6 +2897,7 @@ function exportWarehouseExcel() {
 
 function exportEtcExcel() {
   let records = [];
+  let groupCounter = 1;
 
   function getExcelMemo(b) {
     let tags = [];
@@ -2879,33 +2918,42 @@ function exportEtcExcel() {
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
       let qty = Number(b.qty) || 1;
 
+      let groupStr = '';
+      if (p.mode === 'set') {
+        groupStr = `세트(${String(groupCounter).padStart(3, '0')})`;
+        groupCounter++;
+      } else if (p.mode === 'cross') {
+        groupStr = `1+1(${String(groupCounter).padStart(3, '0')})`;
+        groupCounter++;
+      }
+
       if (p.mode === 'normal' || p.mode === 'etc') {
         let uSale = Number(p.salePrice) || 0;
         let uDep = Number(p.depositPrice) || 0;
         records.push({
-          name: p.name || '', option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
+          group: groupStr, name: p.name || '', option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
           nickname: b.nickname || '', unitSalePrice: uSale, qty: qty, salePrice: uSale * qty,
           unitDepositPrice: uDep, depositPrice: uDep * qty, memo: mergedMemo
         });
       } else if (p.mode === 'set') {
         if (b.opt === 'full' || b.opt === 'top') {
           let uSale = Number(p.topSale) || 0; let uDep = Number(p.topDep) || 0;
-          records.push({ name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
         }
         if (b.opt === 'full' || b.opt === 'bottom') {
           let uSale = Number(p.botSale) || 0; let uDep = Number(p.botDep) || 0;
-          records.push({ name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
         }
       } else if (p.mode === 'cross') {
         if (b.opt === 'full' || b.opt === 'single') {
           const m1Name = b.m1 ? ` ${b.m1}` : '';
           let uSale = b.opt === 'single' ? (Number(p.salePrice) / 2) || 0 : Number(p.salePrice) || 0;
           let uDep = b.opt === 'single' ? (Number(p.depositPrice) / 2) || 0 : Number(p.depositPrice) || 0;
-          records.push({ name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
         }
         if (b.opt === 'full') {
           const m2Name = b.m2 ? ` ${b.m2}` : '';
-          records.push({ name: `${p.name}${m2Name}`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: 0, qty: 1, salePrice: 0, unitDepositPrice: 0, depositPrice: 0, memo: mergedMemo });
+          records.push({ group: groupStr, name: `${p.name}${m2Name}`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: 0, qty: 1, salePrice: 0, unitDepositPrice: 0, depositPrice: 0, memo: mergedMemo });
         }
       }
     });
@@ -2920,14 +2968,14 @@ function exportEtcExcel() {
     totalSale += s.salePrice;
     totalDeposit += s.depositPrice;
     return {
-      'No': i + 1, '상품명': s.name, '옵션/색상': s.option, '고객명': s.nickname,
+      '구분': s.group, '상품명': s.name, '옵션/색상': s.option, '고객명': s.nickname,
       '개당판매가': s.unitSalePrice, '수량': s.qty, '판매가': s.salePrice,
       '개당입금가': s.unitDepositPrice, '입금가': s.depositPrice, '메모': s.memo
     };
   });
 
   data.push({
-    'No': '합계', '상품명': '', '옵션/색상': '', '고객명': '',
+    '구분': '합계', '상품명': '', '옵션/색상': '', '고객명': '',
     '개당판매가': '', '수량': totalQty, '판매가': totalSale,
     '개당입금가': '', '입금가': totalDeposit, '메모': ''
   });
