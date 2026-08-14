@@ -450,13 +450,13 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
       </div>
     </div>
 
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-      <button class="btn-chip" style="background:#2F80ED; color:#fff; padding:8px;" onclick="exportJsonForPC()">📁 PC용 JSON 공유</button>
-      <button class="btn-chip" style="background:#8B5CF6; color:#fff; padding:8px;" onclick="document.getElementById('mobile-json-import').click()">📥 PC JSON 불러오기</button>
-      <button class="btn-chip" style="background:#10B981; color:#fff; padding:8px;" onclick="exportWarehouseExcel()">📦 창고 정산용 엑셀</button>
-      <button class="btn-chip" style="background:#27AE60; color:#fff; padding:8px;" onclick="exportExcel()">📊 엑셀 내보내기</button>
-      <button class="btn-chip" style="background:#8D6E63; color:#fff; padding:8px;" onclick="exportEtcExcel()">🤎 기타 엑셀 내보내기</button>
-      <input type="text" id="warehouseNameInput" class="inp" style="text-align:center; font-weight:800;" placeholder="🏭 창고명 입력" onfocus="handleInputFocus(this)" oninput="saveWarehouseName()">
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; width:100%;">
+      <button class="btn-chip" style="background:#2F80ED; color:#fff; padding:8px; width:100%;" onclick="exportJsonForPC()">📁 PC용 JSON 공유</button>
+      <button class="btn-chip" style="background:#8B5CF6; color:#fff; padding:8px; width:100%;" onclick="document.getElementById('mobile-json-import').click()">📥 PC JSON 불러오기</button>
+      <button class="btn-chip" style="background:#10B981; color:#fff; padding:8px; width:100%;" onclick="exportWarehouseExcel()">📦 창고 정산용 엑셀</button>
+      <button class="btn-chip" style="background:#27AE60; color:#fff; padding:8px; width:100%;" onclick="exportExcel()">📊 엑셀 내보내기</button>
+      <button class="btn-chip" style="background:#8D6E63; color:#fff; padding:8px; width:100%;" onclick="exportEtcExcel()">🤎 기타 엑셀 내보내기</button>
+      <input type="text" id="warehouseNameInput" class="inp" style="width:100%; min-width:0; height:100%; padding:8px; text-align:center; font-weight:800; border-radius:6px;" placeholder="🏭 창고명 입력" onfocus="handleInputFocus(this)" oninput="saveWarehouseName()">
     </div>
     <input type="file" id="mobile-json-import" accept=".json" style="display:none;" onchange="importJsonFile(event)">
 
