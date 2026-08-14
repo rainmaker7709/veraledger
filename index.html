@@ -456,6 +456,7 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
       <button class="btn-chip" style="background:#10B981; color:#fff; padding:8px;" onclick="exportWarehouseExcel()">📦 창고 정산용 엑셀</button>
       <button class="btn-chip" style="background:#27AE60; color:#fff; padding:8px;" onclick="exportExcel()">📊 엑셀 내보내기</button>
       <button class="btn-chip" style="background:#8D6E63; color:#fff; padding:8px;" onclick="exportEtcExcel()">🤎 기타 엑셀 내보내기</button>
+      <input type="text" id="warehouseNameInput" class="inp" style="text-align:center; font-weight:800;" placeholder="🏭 창고명 입력" onfocus="handleInputFocus(this)" oninput="saveWarehouseName()">
     </div>
     <input type="file" id="mobile-json-import" accept=".json" style="display:none;" onchange="importJsonFile(event)">
 
@@ -2665,7 +2666,11 @@ function exportJsonForPC() {
 
   const payload = { __type: 'live_ledger_share', version: 1, exportedAt: new Date().toISOString(), ledgerDate: today, ledgerSession: '', products: [], sales: pcSales };
   const jsonStr = JSON.stringify(payload, null, 2);
-  const fileName = `모바일장부_${today}.json`;
+  
+  const whName = (document.getElementById('warehouseNameInput')?.value || '').trim();
+  const whPrefix = whName ? `${whName}_` : '';
+  const fileName = `${today}_${whPrefix}모바일장부.json`;
+
   const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
 
   const url = URL.createObjectURL(blob);
@@ -2791,7 +2796,12 @@ function exportExcel() {
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "정산대장");
-  XLSX.writeFile(wb, `모바일장부_${new Date().toISOString().slice(2,10)}.xlsx`);
+
+  const today = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
+  const whName = (document.getElementById('warehouseNameInput')?.value || '').trim();
+  const whPrefix = whName ? `${whName}_` : '';
+  XLSX.writeFile(wb, `${today}_${whPrefix}엑셀장부.xlsx`);
+
   toast('📊 엑셀 다운로드 완료!');
 }
 
@@ -2983,7 +2993,12 @@ function exportEtcExcel() {
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "기타정산대장");
-  XLSX.writeFile(wb, `기타장부_${new Date().toISOString().slice(2,10)}.xlsx`);
+
+  const today = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
+  const whName = (document.getElementById('warehouseNameInput')?.value || '').trim();
+  const whPrefix = whName ? `${whName}_` : '';
+  XLSX.writeFile(wb, `${today}_${whPrefix}기타엑셀장부.xlsx`);
+
   toast('🤎 기타 엑셀 내보내기 완료!');
 }
 
@@ -3004,6 +3019,13 @@ function clearAllMobileData() {
 function saveLocalData() { 
   localStorage.setItem('m_live_ledger_v5.6', JSON.stringify(sales));
   localStorage.setItem('m_live_pre_tags', JSON.stringify(preTags));
+}
+
+function saveWarehouseName() {
+  const whInput = document.getElementById('warehouseNameInput');
+  if (whInput) {
+    localStorage.setItem('m_live_warehouse_name', whInput.value);
+  }
 }
 
 function loadLocalData() {
@@ -3035,6 +3057,14 @@ function loadLocalData() {
 
   const ptData = localStorage.getItem('m_live_pre_tags');
   if (ptData) { try { preTags = JSON.parse(ptData); } catch(e){} }
+
+// 👇👇👇 새로 추가할 부분 👇👇👇
+  const savedWhName = localStorage.getItem('m_live_warehouse_name');
+  const whInput = document.getElementById('warehouseNameInput');
+  if (savedWhName && whInput) {
+    whInput.value = savedWhName;
+  }
+  // 👆👆👆 여기까지 👆👆👆
   
   renderSales();
 }
