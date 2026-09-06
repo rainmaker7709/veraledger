@@ -2563,18 +2563,17 @@ function openPaperLedger(targetProdId = null) {
       priceTxt = `${fmt(p.salePrice)}원, ${fmt(p.depositPrice)}원`;
     }
 
-    // 🍒 복사용 텍스트 타이틀 조합 (1+1, 세트 자동 추가)
+// ✅ 복사용 텍스트 타이틀 조합 (✅ 시작 + 1+1/세트 접두사)
     let typePrefix = '';
     if (p.mode === 'cross') typePrefix = '1+1 ';
     else if (p.mode === 'set') typePrefix = '세트 ';
 
     let cleanPName = (pName || '상품명 미입력').trim();
-    // 상품명에 이미 '1+1'이나 '세트'를 직접 적어두셨다면 중복 방지
     if (typePrefix && cleanPName.startsWith(typePrefix.trim())) {
       typePrefix = '';
     }
 
-    let prodCopyTitle = `🍒${typePrefix}${cleanPName} 구매고객`.replace(/\s+/g, ' ').trim();
+    let prodCopyTitle = `✅${typePrefix}${cleanPName} 구매고객`.replace(/\s+/g, ' ').trim();
     let buyerCopyList = [];
 
     html += `<div class="paper-group">`;
@@ -2592,25 +2591,39 @@ function openPaperLedger(targetProdId = null) {
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
       let optTxt = '';
-      let copyOptTxt = ''; // 복사용 텍스트 (세트/1+1 괄호 분리 적용)
+      let buyerCopyStr = ''; // 고객명 우선 + 괄호 옵션 복사 포맷
       
-      if (p.mode === 'normal' || p.mode === 'etc') {
+      if (p.mode === 'normal') {
         optTxt = `${c1 || '-'}, ${b.s1 || '-'}`;
-        copyOptTxt = [c1, b.s1].filter(Boolean).join(' ');
+        const optPart = [c1, b.s1].filter(Boolean).join(' ').trim();
+        buyerCopyStr = optPart ? `${b.nickname} (${optPart})` : b.nickname;
+
+      } else if (p.mode === 'etc') {
+        optTxt = `${c1 || '-'}, ${b.s1 || '-'}`;
+        const bQty = (b.qty && Number(b.qty) > 1) ? Number(b.qty) : 1;
+        const optPart = [c1, b.s1].filter(Boolean).join(' ').trim();
+        
+        let insideBracket = optPart;
+        if (bQty > 1) {
+          insideBracket = optPart ? `${optPart}×${bQty}개` : `×${bQty}개`;
+        }
+        buyerCopyStr = insideBracket ? `${b.nickname} (${insideBracket})` : b.nickname;
+
       } else if (p.mode === 'set') {
         const topTxt = ['상', c1, b.s1].filter(Boolean).join(' ').trim();
         const botTxt = ['하', c2, b.s2].filter(Boolean).join(' ').trim();
 
         if (b.opt === 'full') {
           optTxt = `상(${c1 || '-'} ${b.s1 || '-'}) / 하(${c2 || '-'} ${b.s2 || '-'})`;
-          copyOptTxt = `(${topTxt}) (${botTxt})`;
+          buyerCopyStr = `${b.nickname} (${topTxt}) (${botTxt})`;
         } else if (b.opt === 'top') {
           optTxt = `상(${c1 || '-'} ${b.s1 || '-'})`;
-          copyOptTxt = `(${topTxt})`;
+          buyerCopyStr = `${b.nickname} (${topTxt})`;
         } else if (b.opt === 'bottom') {
           optTxt = `하(${c2 || '-'} ${b.s2 || '-'})`;
-          copyOptTxt = `(${botTxt})`;
+          buyerCopyStr = `${b.nickname} (${botTxt})`;
         }
+
       } else if (p.mode === 'cross') {
         const m1 = (b.m1 || '').trim();
         const m2 = (b.m2 || '').trim();
@@ -2621,11 +2634,11 @@ function openPaperLedger(targetProdId = null) {
           const dispM1 = m1 || '모델1';
           const dispM2 = m2 || '모델2';
           optTxt = `${dispM1}(${c1 || '-'}, ${b.s1 || '-'}) / ${dispM2}(${c2 || '-'}, ${b.s2 || '-'})`;
-          copyOptTxt = `(${part1}) (${part2})`;
+          buyerCopyStr = `${b.nickname} (${part1}) (${part2})`;
         } else if (b.opt === 'single') {
           const dispM1 = m1 || '모델1';
           optTxt = `${dispM1}(${c1 || '-'}, ${b.s1 || '-'})`;
-          copyOptTxt = `(${part1})`;
+          buyerCopyStr = `${b.nickname} (${part1})`;
         }
       }
 
@@ -2646,11 +2659,7 @@ function openPaperLedger(targetProdId = null) {
       const bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
       const htmlQty = bQty > 1 ? ` <span style="color:#D97706; font-weight:900;">[${bQty}개]</span>` : '';
       
-      // 🍒 복사용 문자열 조합 (수량 반영 및 다중 공백 정리)
-      let copyQtyTxt = bQty > 1 ? `${bQty}개` : '';
-      copyOptTxt = copyOptTxt.replace(/\s+/g, ' ').trim();
-      let buyerCopyStr = `${copyOptTxt} ${copyQtyTxt} ${b.nickname}`.replace(/\s+/g, ' ').trim();
-      buyerCopyList.push(buyerCopyStr);
+      buyerCopyList.push(buyerCopyStr.replace(/\s+/g, ' ').trim());
 
       html += `
         <div class="paper-buyer-line">
