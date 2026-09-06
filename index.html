@@ -299,10 +299,56 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
   .paper-prod-line .badge.cross { background: #2563EB; }
   .paper-prod-price { font-size: 13px; color: #475569; font-weight: 700; margin-left: 2px; }
 
-  /* ① 고객(자식) 줄 스타일 (들여쓰기 적용) */
-  .paper-buyer-line { font-size: 13.5px; font-weight: 600; color: #334155; margin-bottom: 5px; padding-left: 22px; position: relative; line-height: 1.4; word-break: keep-all; }
-  .paper-buyer-num { position: absolute; left: 4px; color: #94A3B8; font-size: 13px; font-weight: 800; top: 0px; }
-  .paper-buyer-name { color: #2563EB; font-weight: 800; margin-right: 4px; }
+  /* ① 고객(자식) 줄 스타일 (2줄 늘어남 방지 & [ 1 완 ] 캡슐 버튼 적용) */
+  .paper-buyer-line { 
+    font-size: 13px !important; 
+    font-weight: 600; 
+    color: #334155; 
+    margin-bottom: 6px; 
+    padding-left: 38px !important; /* [ 1 완 ] 버튼 폭에 맞춘 여백 */
+    position: relative; 
+    line-height: 22px !important;
+    white-space: nowrap !important; /* 2줄 줄바꿈 강제 방지 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 캡슐형 순번 + 완료 일체형 버튼 [ 1 완 ] */
+  .paper-buyer-done-btn {
+    position: absolute;
+    left: 2px;
+    top: 1px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    border: 1px solid #BFDBFE;
+    background: #EFF6FF;
+    color: #2563EB;
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5px;
+    cursor: pointer;
+    user-select: none;
+    box-sizing: border-box;
+    transition: transform 0.1s, background 0.15s;
+  }
+  .paper-buyer-done-btn:active {
+    transform: scale(0.9);
+    background: #DBEAFE;
+  }
+
+  /* 고객명 터치 시 시각적 링크 표시 */
+  .paper-buyer-name.touchable {
+    color: #2563EB !important;
+    font-weight: 800;
+    cursor: pointer;
+    text-decoration: underline;
+    margin-right: 4px;
+  }
   .paper-buyer-opt { color: #111827; }
   .paper-buyer-memo { color: #D97706; background: #FEF3C7; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 800; margin-left: 6px; display: inline-block; vertical-align: middle; }
 
@@ -607,8 +653,11 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
   <div class="modal-overlay" id="settleDetailModal">
     <div class="modal-box" style="width:360px; max-height:80vh;">
       <div class="modal-title">
-        <span id="settleDetailTitle">🔍 그룹 세부 구매 내역</span>
-        <button class="btn-mini del" onclick="closeSettleDetailModal()">✕</button>
+        <span id="settleDetailTitle" style="font-size:13px; font-weight:800; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🔍 그룹 세부 구매 내역</span>
+        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+          <button type="button" id="btn-copy-customer-settle" class="btn-mini" style="background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE; font-weight:800; padding:3px 7px; font-size:11px; display:none;" onclick="copyMobileCustomerHistory()">🍒 내역 복사</button>
+          <button class="btn-mini del" onclick="closeSettleDetailModal()">✕</button>
+        </div>
       </div>
       <div id="settleDetailContent" style="max-height:60vh; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-top:6px;"></div>
       <div class="modal-btns">
@@ -2493,6 +2542,8 @@ function renderSettlement() {
   }
 }
 
+let currentSettleCustomer = '';
+
 function openSettleGroupDetail(mode, key) {
   const flat = getFlattenedSales();
   let matches = [];
@@ -2503,6 +2554,16 @@ function openSettleGroupDetail(mode, key) {
   else if (mode === 'product') {
     matches = flat.filter(s => !s.isCanceled && `${s.name || '미입력 상품'}|${s.mode}|${s.opt || 'full'}|${s.unitSalePrice}|${s.unitDepositPrice}` === key && (s.nickname || '').trim() !== '');
     displayKey = key.split('|')[0];
+  }
+
+  // 💡 고객명 기준일 때만 [내역 복사] 버튼 표시
+  const copyBtn = document.getElementById('btn-copy-customer-settle');
+  if (mode === 'customer') {
+    currentSettleCustomer = displayKey;
+    if (copyBtn) copyBtn.style.display = 'inline-flex';
+  } else {
+    currentSettleCustomer = '';
+    if (copyBtn) copyBtn.style.display = 'none';
   }
 
   document.getElementById('settleDetailTitle').textContent = `🔍 [${displayKey}] 세부 내역 (${matches.length}건)`;
@@ -2533,7 +2594,116 @@ function openSettleGroupDetail(mode, key) {
   document.getElementById('settleDetailModal').style.display = 'flex';
 }
 
-function closeSettleDetailModal() { document.getElementById('settleDetailModal').style.display = 'none'; }
+function closeSettleDetailModal() { 
+  document.getElementById('settleDetailModal').style.display = 'none'; 
+  currentSettleCustomer = '';
+}
+
+// 👤 정산요약 모바일용 [고객별 내역] 복사 함수 (자동 순번 제거 및 📍 양식 적용)
+function copyMobileCustomerHistory(targetNick) {
+  const customerNick = (targetNick || currentSettleCustomer || '').trim();
+  if (!customerNick) {
+    toast('⚠️ 고객 정보가 없습니다.');
+    return;
+  }
+
+  const redHeart = '\u2764\uFE0F';
+  const checkMark = '\u2705';
+  let totalQty = 0;
+  let totalPrice = 0;
+  const itemsList = [];
+
+  sales.forEach((p) => {
+    // 💡 모바일에서는 상품명에 직접 번호(품번)를 기재하므로 카드 순번(1번 등)을 강제 결합하지 않고 입력된 상품명을 그대로 사용
+    let fullTitle = (p.name || '상품명 미입력').replace(/^\[?(1\+1|세트)(\s*단품)?\]?\s*/i, '').trim();
+
+    const validBuyers = (p.buyers || []).filter(b => !b.isCanceled && (b.nickname || '').trim() === customerNick);
+
+    validBuyers.forEach(b => {
+      let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : (b.c1 || '').trim();
+      let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : (b.c2 || '').trim();
+      let s1 = (b.s1 || '').trim();
+      let s2 = (b.s2 || '').trim();
+
+      if (p.mode === 'set') {
+        if (b.opt === 'full') {
+          const topP = Number(p.topSale) || 0;
+          const botP = Number(p.botSale) || 0;
+          const topOpt = ['상', c1, s1].filter(Boolean).join(' ').trim();
+          const botOpt = ['하', c2, s2].filter(Boolean).join(' ').trim();
+          const parts = `(${topOpt ? topOpt + '=' : ''}${fmt(topP)}원)(${botOpt ? botOpt + '=' : ''}${fmt(botP)}원)`;
+          totalPrice += (topP + botP);
+          totalQty += 1;
+          itemsList.push(`📍세트 ${fullTitle} ${parts}`);
+        } else if (b.opt === 'top') {
+          const topP = Number(p.topSale) || 0;
+          const topOpt = ['상', c1, s1].filter(Boolean).join(' ').trim();
+          totalPrice += topP;
+          totalQty += 1;
+          itemsList.push(`📍세트 단품 ${fullTitle} (${topOpt ? topOpt + '=' : ''}${fmt(topP)}원)`);
+        } else if (b.opt === 'bottom') {
+          const botP = Number(p.botSale) || 0;
+          const botOpt = ['하', c2, s2].filter(Boolean).join(' ').trim();
+          totalPrice += botP;
+          totalQty += 1;
+          itemsList.push(`📍세트 단품 ${fullTitle} (${botOpt ? botOpt + '=' : ''}${fmt(botP)}원)`);
+        }
+      } else if (p.mode === 'cross') {
+        if (b.opt === 'full') {
+          const groupTotal = Number(p.salePrice) || 0;
+          const m1 = (b.m1 || '').trim();
+          const m2 = (b.m2 || '').trim();
+          const opt1 = [m1, c1, s1].filter(Boolean).join(' ').trim();
+          const opt2 = [m2, c2, s2].filter(Boolean).join(' ').trim();
+          const parts = `${opt1 ? `(${opt1})` : ''}${opt2 ? `(${opt2})` : ''}`;
+          totalPrice += groupTotal;
+          totalQty += 1;
+          itemsList.push(`📍1+1 ${fullTitle} ${parts}=${fmt(groupTotal)}원`);
+        } else if (b.opt === 'single') {
+          const singlePrice = (Number(p.salePrice) || 0) / 2;
+          const m1 = (b.m1 || '').trim();
+          const opt1 = [m1, c1, s1].filter(Boolean).join(' ').trim();
+          totalPrice += singlePrice;
+          totalQty += 1;
+          itemsList.push(`📍1+1 단품 ${fullTitle} (${opt1})=${fmt(singlePrice)}원`);
+        }
+      } else {
+        // normal or etc
+        const q = (p.mode === 'etc' && b.qty) ? (Number(b.qty) || 1) : 1;
+        const itemPrice = (Number(p.salePrice) || 0) * q;
+        totalPrice += itemPrice;
+        totalQty += q;
+        let opt = [c1, s1].filter(Boolean).join(' ').trim();
+        if (q > 1) {
+          opt = opt ? `${opt}×${q}개` : `×${q}개`;
+        }
+        const optStr = opt ? ` (${opt})` : '';
+        itemsList.push(`📍${fullTitle}${optStr}=${fmt(itemPrice)}원`);
+      }
+    });
+  });
+
+  if (itemsList.length === 0) {
+    toast('⚠️ 복사할 유효 구매 내역이 없습니다.');
+    return;
+  }
+
+  const header = `${checkMark}${redHeart}${customerNick}님 구매내역 수량${totalQty}개, 총금액 ${fmt(totalPrice)}원${checkMark}`;
+  const thanksMsg = ` [구매완료 감사합니다${redHeart}]`;
+  const resultText = `${header} ${itemsList.join(' ')}${thanksMsg}`;
+
+  navigator.clipboard.writeText(resultText).then(() => {
+    toast(`📋 [${customerNick}]님 구매내역 복사 완료!`);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = resultText;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(`📋 [${customerNick}]님 구매내역 복사 완료!`);
+  });
+}
 
 function openPaperLedger(targetProdId = null) {
   const container = document.getElementById('paperLedgerContent');
@@ -2542,56 +2712,63 @@ function openPaperLedger(targetProdId = null) {
   let displayProdIndex = 1;
   const redHeart = '\u2764\uFE0F'; // ❤️ 깨짐 방지 강제 컬러 하트
 
-  sales.forEach((p) => {
+  sales.forEach((p, pIdx) => {
     if (targetProdId && p.id !== targetProdId) return;
 
     const validBuyers = p.buyers.filter(b => !b.isCanceled && (b.nickname || '').trim() !== '');
     if (validBuyers.length === 0) return;
 
-    let badgeHtml = ''; let typeTxt = ''; let priceTxt = '';
+    let badgeHtml = ''; let priceTxt = '';
     let pName = p.name || '상품명 미입력';
 
     if (p.mode === 'normal') {
       badgeHtml = ''; 
-      typeTxt = ``;
       priceTxt = `${fmt(p.salePrice)}원, ${fmt(p.depositPrice)}원`;
     } else if (p.mode === 'set') {
-      badgeHtml = `<span class="badge set">세트</span>`; typeTxt = `세트, `;
+      badgeHtml = `<span class="badge set">세트</span>`; 
       priceTxt = `상(${fmt(p.topSale)}원, ${fmt(p.topDep)}원) / 하(${fmt(p.botSale)}원, ${fmt(p.botDep)}원)`;
     } else if (p.mode === 'cross') {
-      badgeHtml = `<span class="badge cross">1+1</span>`; typeTxt = `1+1, `;
+      badgeHtml = `<span class="badge cross">1+1</span>`; 
       priceTxt = `${fmt(p.salePrice)}원, ${fmt(p.depositPrice)}원`;
     }
 
-// ✅ 복사용 텍스트 타이틀 조합 (✅ 시작 + 1+1/세트 접두사)
+    // 💡 1+1 및 세트 단품 여부 분석
     let typePrefix = '';
-    if (p.mode === 'cross') typePrefix = '1+1 ';
-    else if (p.mode === 'set') typePrefix = '세트 ';
+    let hasFullGroup = false;
 
-    let cleanPName = (pName || '상품명 미입력').trim();
+    if (p.mode === 'cross') {
+      hasFullGroup = validBuyers.some(b => b.opt === 'full');
+      const hasSingle = validBuyers.some(b => b.opt === 'single');
+      typePrefix = (!hasFullGroup && hasSingle) ? '1+1 단품 ' : '1+1 ';
+    } else if (p.mode === 'set') {
+      hasFullGroup = validBuyers.some(b => b.opt === 'full');
+      const hasSingle = validBuyers.some(b => b.opt === 'top' || b.opt === 'bottom');
+      typePrefix = (!hasFullGroup && hasSingle) ? '세트 단품 ' : '세트 ';
+    }
+
+    let cleanPName = (pName || '상품명 미입력').replace(/^\[?(1\+1|세트)(\s*단품)?\]?\s*/i, '').trim();
     if (typePrefix && cleanPName.startsWith(typePrefix.trim())) {
       typePrefix = '';
     }
 
-    let prodCopyTitle = `✅${typePrefix}${cleanPName} 구매고객`.replace(/\s+/g, ' ').trim();
+    const prodCopyTitle = `✅${typePrefix}${cleanPName} 구매확정`.replace(/\s+/g, ' ').trim();
     let buyerCopyList = [];
 
     html += `<div class="paper-group">`;
+    // 💡 상품명 우측에 (총 N명) 표기 추가
     html += `
       <div class="paper-prod-line">
         <span>${displayProdIndex}.</span>
-        ${badgeHtml} <span>${pName}</span>
+        ${badgeHtml} <span>${pName}</span> <strong style="color:var(--primary); font-size:12.5px; margin-left:2px;">(총 ${validBuyers.length}명)</strong>
         <span class="paper-prod-price">, ${priceTxt}</span>
       </div>
     `;
 
-    const circledNumbers = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
-    
     validBuyers.forEach((b, bIdx) => {
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
       let optTxt = '';
-      let buyerCopyStr = ''; // 고객명 우선 + 괄호 옵션 복사 포맷
+      let buyerCopyStr = '';
       
       if (p.mode === 'normal') {
         optTxt = `${c1 || '-'}, ${b.s1 || '-'}`;
@@ -2602,7 +2779,6 @@ function openPaperLedger(targetProdId = null) {
         optTxt = `${c1 || '-'}, ${b.s1 || '-'}`;
         const bQty = (b.qty && Number(b.qty) > 1) ? Number(b.qty) : 1;
         const optPart = [c1, b.s1].filter(Boolean).join(' ').trim();
-        
         let insideBracket = optPart;
         if (bQty > 1) {
           insideBracket = optPart ? `${optPart}×${bQty}개` : `×${bQty}개`;
@@ -2612,16 +2788,18 @@ function openPaperLedger(targetProdId = null) {
       } else if (p.mode === 'set') {
         const topTxt = ['상', c1, b.s1].filter(Boolean).join(' ').trim();
         const botTxt = ['하', c2, b.s2].filter(Boolean).join(' ').trim();
+        const isSingleBuyer = (b.opt === 'top' || b.opt === 'bottom');
+        const singleNotice = (hasFullGroup && isSingleBuyer) ? '(단품) ' : '';
 
         if (b.opt === 'full') {
           optTxt = `상(${c1 || '-'} ${b.s1 || '-'}) / 하(${c2 || '-'} ${b.s2 || '-'})`;
           buyerCopyStr = `${b.nickname} (${topTxt}) (${botTxt})`;
         } else if (b.opt === 'top') {
           optTxt = `상(${c1 || '-'} ${b.s1 || '-'})`;
-          buyerCopyStr = `${b.nickname} (${topTxt})`;
+          buyerCopyStr = `${b.nickname} ${singleNotice}(${topTxt})`;
         } else if (b.opt === 'bottom') {
           optTxt = `하(${c2 || '-'} ${b.s2 || '-'})`;
-          buyerCopyStr = `${b.nickname} (${botTxt})`;
+          buyerCopyStr = `${b.nickname} ${singleNotice}(${botTxt})`;
         }
 
       } else if (p.mode === 'cross') {
@@ -2629,6 +2807,8 @@ function openPaperLedger(targetProdId = null) {
         const m2 = (b.m2 || '').trim();
         const part1 = [m1, c1, b.s1].filter(Boolean).join(' ').trim();
         const part2 = [m2, c2, b.s2].filter(Boolean).join(' ').trim();
+        const isSingleBuyer = (b.opt === 'single');
+        const singleNotice = (hasFullGroup && isSingleBuyer) ? '(단품) ' : '';
 
         if (b.opt === 'full') {
           const dispM1 = m1 || '모델1';
@@ -2638,7 +2818,7 @@ function openPaperLedger(targetProdId = null) {
         } else if (b.opt === 'single') {
           const dispM1 = m1 || '모델1';
           optTxt = `${dispM1}(${c1 || '-'}, ${b.s1 || '-'})`;
-          buyerCopyStr = `${b.nickname} (${part1})`;
+          buyerCopyStr = `${b.nickname} ${singleNotice}(${part1})`;
         }
       }
 
@@ -2654,17 +2834,18 @@ function openPaperLedger(targetProdId = null) {
         memoHtml = `<span class="paper-buyer-memo">메모: ${memoTags.join(', ')}</span>`;
       }
 
-      const numMark = circledNumbers[bIdx] || `(${bIdx+1})`;
-      
       const bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
       const htmlQty = bQty > 1 ? ` <span style="color:#D97706; font-weight:900;">[${bQty}개]</span>` : '';
       
       buyerCopyList.push(buyerCopyStr.replace(/\s+/g, ' ').trim());
 
+      // 💡 [ 1 완 ] 일체형 캡슐 버튼 및 터치 가능한 고객명 렌더링
       html += `
         <div class="paper-buyer-line">
-          <span class="paper-buyer-num">${numMark}</span>
-          <span class="paper-buyer-name">${b.nickname},</span>
+          <button type="button" class="paper-buyer-done-btn" onclick="copyBuyerCompleteMsg('${p.id}', '${b.id}')" title="${bIdx + 1}번 고객 구매완료 멘트 복사">
+            <span>${bIdx + 1}</span><span style="font-size:9.5px; opacity:0.85;">완</span>
+          </button>
+          <span class="paper-buyer-name touchable" onclick="copyBuyerCompleteMsg('${p.id}', '${b.id}')" title="터치 시 구매완료 멘트 복사">${b.nickname}</span>
           <span class="paper-buyer-opt">${optTxt}${htmlQty}</span>
           ${memoHtml}
         </div>
@@ -2673,8 +2854,10 @@ function openPaperLedger(targetProdId = null) {
 
     html += `</div>`;
     
-    // 🍒 해당 상품의 최종 복사 텍스트 누적
-    textForCopy += `${prodCopyTitle}${redHeart}${buyerCopyList.join(redHeart)}\n`;
+    // 🍒 상단 전체 복사 시 PC 규격 감사 꼬리말 결합
+    const thanksMsg = ` [구매완료 감사합니다${redHeart}]`;
+    const prodResultText = `${prodCopyTitle}${redHeart}${buyerCopyList.join(' ' + redHeart)}${thanksMsg}`;
+    textForCopy += (textForCopy ? '\n' : '') + prodResultText;
     
     displayProdIndex++;
   });
@@ -2685,8 +2868,6 @@ function openPaperLedger(targetProdId = null) {
 
   container.innerHTML = html;
   document.getElementById('paperLedgerModal').style.display = 'flex';
-  
-  // 마지막 줄바꿈 여백 제거 후 저장
   document.getElementById('paperLedgerModal').dataset.copyText = textForCopy.trim();
 }
 
@@ -2696,10 +2877,110 @@ function closePaperLedger() {
 
 function copyPaperLedger() {
   const txt = document.getElementById('paperLedgerModal').dataset.copyText;
-  if (!txt) { toast('복사할 내역이 없습니다.'); return; }
+  if (!txt) { toast('⚠️ 복사할 내역이 없습니다.'); return; }
   navigator.clipboard.writeText(txt).then(() => {
-    toast('📋 구매고객 목록이 복사되었습니다.');
+    toast('📋 구매확정 명단이 복사되었습니다.');
   }).catch(err => { toast('⚠️ 복사 실패'); });
+}
+
+// 📢 모바일 방송장부용 [완] 원클릭 구매완료 안내 멘트 복사 함수 (PC 규격 100% 일치)
+function copyBuyerCompleteMsg(prodId, buyerId) {
+  const p = sales.find(x => x.id === prodId);
+  if (!p) return;
+  const b = p.buyers.find(x => x.id === buyerId);
+  if (!b) return;
+
+  const nick = (b.nickname || '').trim();
+  if (!nick) {
+    toast('⚠️ 고객명이 입력되지 않은 항목입니다.');
+    return;
+  }
+
+  const redHeart = '\u2764\uFE0F';
+  const pIdx = sales.findIndex(x => x.id === prodId);
+  const cardNumStr = (pIdx !== -1) ? `${pIdx + 1}번` : '';
+
+  let rawName = (p.name || '').replace(/^\[?(1\+1|세트)(\s*단품)?\]?\s*/i, '').trim();
+  let fullProdName = rawName;
+
+  // 상품명에 품번이 없으면 카드의 순번(예: 1번)을 자동으로 결합
+  if (cardNumStr && !rawName.startsWith(cardNumStr) && !/^\d+번/.test(rawName)) {
+    fullProdName = `${cardNumStr} ${rawName}`.trim();
+  }
+
+  let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : (b.c1 || '').trim();
+  let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : (b.c2 || '').trim();
+  let s1 = (b.s1 || '').trim();
+  let s2 = (b.s2 || '').trim();
+
+  let prodContent = '';
+  let qtyStr = '';
+
+  if (p.mode === 'set') {
+    const isSingle = (b.opt === 'top' || b.opt === 'bottom');
+    const typePrefix = isSingle ? '세트 단품 ' : '세트 ';
+    let optionParts = [];
+
+    if (b.opt === 'full') {
+      const topOpt = ['상의', c1, s1].filter(Boolean).join(' ').trim();
+      const botOpt = ['하의', c2, s2].filter(Boolean).join(' ').trim();
+      if (topOpt) optionParts.push(`(${topOpt})`);
+      if (botOpt) optionParts.push(`(${botOpt})`);
+    } else if (b.opt === 'top') {
+      const topOpt = ['상의', c1, s1].filter(Boolean).join(' ').trim();
+      if (topOpt) optionParts.push(`(${topOpt})`);
+    } else if (b.opt === 'bottom') {
+      const botOpt = ['하의', c2, s2].filter(Boolean).join(' ').trim();
+      if (botOpt) optionParts.push(`(${botOpt})`);
+    }
+
+    const optStr = optionParts.join(', ');
+    prodContent = `${typePrefix}${fullProdName}${optStr ? ' ' + optStr : ''}`.trim();
+
+  } else if (p.mode === 'cross') {
+    const isSingle = (b.opt === 'single');
+    const typePrefix = isSingle ? '1+1 단품 ' : '1+1 ';
+    const m1 = (b.m1 || '').trim();
+    const m2 = (b.m2 || '').trim();
+    let optionParts = [];
+
+    const opt1 = [m1, c1, s1].filter(Boolean).join(' ').trim();
+    if (opt1) optionParts.push(`(${opt1})`);
+
+    if (b.opt === 'full') {
+      const opt2 = [m2, c2, s2].filter(Boolean).join(' ').trim();
+      if (opt2) optionParts.push(`(${opt2})`);
+    }
+
+    const optStr = optionParts.join(', ');
+    prodContent = `${typePrefix}${fullProdName}${optStr ? ' ' + optStr : ''}`.trim();
+
+  } else {
+    // 일반 및 기타
+    const opt = [c1, s1].filter(Boolean).join(' ').trim();
+    const optStr = opt ? ` (${opt})` : '';
+    prodContent = `${fullProdName}${optStr}`.trim();
+
+    const q = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+    if (q > 1) {
+      qtyStr = `×${q}개`;
+    }
+  }
+
+  // PC 버전 공식 출력 양식: ❤️ [고객명]님 [상품정보] 구매완료 감사합니다❤️
+  const msg = `${redHeart} [${nick}]님 [${prodContent}]${qtyStr} 구매완료 감사합니다${redHeart}`;
+
+  navigator.clipboard.writeText(msg).then(() => {
+    toast(`📋 [${nick}]님 구매완료 멘트 복사 완료!`);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = msg;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(`📋 [${nick}]님 구매완료 멘트 복사 완료!`);
+  });
 }
 
 async function sendToSheet() {
