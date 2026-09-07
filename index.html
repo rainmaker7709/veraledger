@@ -4695,18 +4695,18 @@ if ('serviceWorker' in navigator) {
     <div style="flex: 1; max-height: 52vh; overflow-y: auto; border: 1.5px solid var(--line); border-radius: 6px; background: #FAFBFB;">
       <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
         <colgroup>
-          <col style="width: 110px;">
-          <col style="width: 65px;">
-          <col style="width: 42px;">
-          <col style="width: auto;">
-          <col style="width: 32px;">
+          <col style="width: auto;"> <!-- 💡 고객명이 시원하게 넓어지도록 가변 할당 -->
+          <col style="width: 72px;"> <!-- 적립금 -->
+          <col style="width: 42px;"> <!-- 무배 -->
+          <col style="width: 60px;"> <!-- 내용 버튼 -->
+          <col style="width: 32px;"> <!-- 삭제 -->
         </colgroup>
         <thead style="position: sticky; top: 0; background: #E2E8F0; z-index: 5;">
           <tr>
             <th style="padding: 6px 4px; text-align: center; color: #334155; font-weight: 800;">고객명</th>
             <th style="padding: 6px 4px; text-align: center; color: #334155; font-weight: 800;">적립금</th>
             <th style="padding: 6px 2px; text-align: center; color: #334155; font-weight: 800;">무배</th>
-            <th style="padding: 6px 4px; text-align: center; color: #334155; font-weight: 800;">내용</th>
+            <th style="padding: 6px 2px; text-align: center; color: #334155; font-weight: 800;">내용</th>
             <th style="padding: 6px 2px; text-align: center; color: #334155; font-weight: 800;">✕</th>
           </tr>
         </thead>
@@ -4716,6 +4716,20 @@ if ('serviceWorker' in navigator) {
 
     <div class="modal-btns" style="margin-top: 8px;">
       <button type="button" class="btn-mini" style="background: var(--ink); color: #fff; width: 100%; padding: 8px; font-size: 12px; font-weight: 800;" onclick="closeRewardModal()">완료 (닫기)</button>
+    </div>
+  </div>
+</div>
+
+<!-- 📝 적립금&무배 전용 내용(메모) 상세 팝업 -->
+<div class="modal-overlay" id="rewardMemoModal" style="z-index: 350;" onclick="if(event.target === this) closeRewardMemoModal()">
+  <div class="modal-box" style="width: 320px; max-width: 90vw;">
+    <div class="modal-title">
+      <span id="rewardMemoTitle" style="font-size: 13.5px; font-weight: 800; color: #1E293B;">📝 내용(메모) 상세</span>
+      <button type="button" class="btn-mini del" onclick="closeRewardMemoModal()">✕</button>
+    </div>
+    <textarea id="rewardMemoTextarea" class="modal-textarea" style="height: 110px; font-size: 13px; line-height: 1.4;" placeholder="내용(메모)을 입력하세요..." oninput="autoSaveRewardMemo()"></textarea>
+    <div class="modal-btns">
+      <button type="button" class="btn-mini" style="background: var(--primary); color: #fff; width: 100%; padding: 8px; font-size: 12.5px; font-weight: 800;" onclick="closeRewardMemoModal()">확인 (완료)</button>
     </div>
   </div>
 </div>
@@ -4747,6 +4761,13 @@ function renderRewardTable() {
   }
 
   tbody.innerHTML = rewardTableData.map((row, idx) => {
+    // 💡 내용(메모) 유무에 따라 버튼 색상 및 텍스트 구분
+    const hasMemo = row.memo && row.memo.trim() !== '';
+    const memoBtnStyle = hasMemo 
+      ? 'background:#FEF3C7; color:#B45309; border:1.5px solid #F59E0B;' 
+      : 'background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1;';
+    const memoBtnText = hasMemo ? '📝 내용' : '+ 메모';
+
     return `
       <tr style="border-bottom: 1px solid var(--line); background: #fff;">
         <td style="padding: 3px;">
@@ -4758,8 +4779,8 @@ function renderRewardTable() {
         <td style="padding: 3px; text-align: center; vertical-align: middle;">
           <input type="checkbox" class="round-chk" ${row.freeShip ? 'checked' : ''} onchange="updateRewardRow(${idx}, 'freeShip', this.checked)">
         </td>
-        <td style="padding: 3px;">
-          <input type="text" class="inp" style="width: 100%; padding: 5px 4px; font-size: 11px;" value="${row.memo || ''}" oninput="updateRewardRow(${idx}, 'memo', this.value)" placeholder="내용">
+        <td style="padding: 3px; text-align: center;">
+          <button type="button" class="btn-mini" style="width: 100%; padding: 5px 0; font-weight: 800; font-size: 11px; border-radius: 4px; ${memoBtnStyle}" onclick="openRewardMemoDetail(${idx})">${memoBtnText}</button>
         </td>
         <td style="padding: 3px; text-align: center;">
           <button type="button" class="btn-mini del" style="padding: 3px 5px;" onclick="deleteRewardRow(${idx})">✕</button>
@@ -4767,6 +4788,48 @@ function renderRewardTable() {
       </tr>
     `;
   }).join('');
+}
+
+// 💡 내용(메모) 상세 팝업 제어 함수 3종 (여기 바로 추가됨)
+let currentRewardMemoIdx = null;
+
+function openRewardMemoDetail(idx) {
+  currentRewardMemoIdx = idx;
+  const row = rewardTableData[idx];
+  if (!row) return;
+
+  const titleEl = document.getElementById('rewardMemoTitle');
+  if (titleEl) {
+    titleEl.textContent = row.nickname ? `📝 [${row.nickname}] 내용` : '📝 내용(메모) 상세';
+  }
+  const textarea = document.getElementById('rewardMemoTextarea');
+  if (textarea) {
+    textarea.value = row.memo || '';
+  }
+  const modal = document.getElementById('rewardMemoModal');
+  if (modal) modal.style.display = 'flex';
+  setTimeout(() => { if (textarea) textarea.focus(); }, 100);
+}
+
+function autoSaveRewardMemo() {
+  if (currentRewardMemoIdx === null) return;
+  const textarea = document.getElementById('rewardMemoTextarea');
+  if (textarea && rewardTableData[currentRewardMemoIdx]) {
+    rewardTableData[currentRewardMemoIdx].memo = textarea.value;
+    saveLocalData();
+  }
+}
+
+function closeRewardMemoModal() {
+  autoSaveRewardMemo();
+  const modal = document.getElementById('rewardMemoModal');
+  if (modal) modal.style.display = 'none';
+  renderRewardTable(); // 버튼 상태 즉시 갱신
+  if (currentRewardMemoIdx !== null && rewardTableData[currentRewardMemoIdx]) {
+    const nick = rewardTableData[currentRewardMemoIdx].nickname;
+    if (nick) syncRewardToSalesCards(nick);
+  }
+  currentRewardMemoIdx = null;
 }
 
 function handleMobileRewardNickAc(inputEl, idx) {
