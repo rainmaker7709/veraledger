@@ -2984,31 +2984,153 @@ function copyBuyerCompleteMsg(prodId, buyerId) {
 }
 
 async function sendToSheet() {
-  const todayStr = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
-  let savedDate = localStorage.getItem('m_live_last_date');
-  const defaultDate = savedDate ? savedDate : todayStr;
+  // 1. PC 버전과 동일한 오늘 기본 날짜 (MM.DD요일) 생성
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const week = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  const todayStr = `${mm}.${dd}${week[now.getDay()]}`;
 
-  let targetDate = prompt("☁️ 전송할 날짜를 입력하세요 (형식: YY.MM.DD):\n💡 오늘 날짜로 리셋하려면 내용을 전부 지우고 '확인'을 누르세요.", defaultDate);
-  
-  if (targetDate === null) return; 
+  let savedDate = localStorage.getItem('m_live_last_date');
+  // 이전에 저장된 값 중 연도가 붙은 형식(26.09.08)은 자동으로 연도 제거
+  if (savedDate && /^\d{2}\.\d{2}\.\d{2}/.test(savedDate)) {
+    savedDate = savedDate.replace(/^\d{2}\./, '');
+  }
+  const defaultDate = savedDate || todayStr;
+
+  // 2. 날짜 입력 팝업 (빈칸 상태로 [확인] 시 튕기지 않고 오늘 날짜로 즉시 채택되어 다음 단계 진행)
+  let targetDate = prompt(
+    "☁️ 전송할 날짜와 회차를 입력하세요:\n(예: " + todayStr + " 1부)\n\n" +
+    "💡 내용을 모두 지우고 [확인]을 누르면 오늘 날짜(" + todayStr + ")로 즉시 자동 설정되어 다음 단계로 진행합니다.",
+    defaultDate
+  );
+
+  if (targetDate === null) return; // 취소 클릭 시 중단
 
   targetDate = targetDate.trim();
-
   if (targetDate === "") {
-    localStorage.removeItem('m_live_last_date');
-    alert("날짜가 오늘(" + todayStr + ")로 리셋되었습니다. 전송 버튼을 다시 눌러주세요.");
-    return;
+    targetDate = todayStr;
+    toast(`📅 오늘 날짜(${todayStr})로 자동 설정되었습니다.`);
   }
 
   localStorage.setItem('m_live_last_date', targetDate);
   lastTargetDate = targetDate;
 
-  const modeChoice = prompt("☁️ 구글시트로 데이터를 전송하는 방식을 선택하세요:\n\n1 : 해당 날짜 기준 데이터 [덮어쓰기]\n2 : 기존 데이터 아래에 [이어서 붙이기]\n3 : 전체 시트 초기화 후 [덮어씌우기]\n\n(취소: 중단)", "1");
-  if (!["1", "2", "3"].includes(modeChoice)) return;
+  // 3. PC 버전과 100% 동일한 4가지 옵션 메뉴
+  const modeChoice = prompt(
+    `☁️ 구글시트 전송 및 실시간 동기화 방식을 선택하세요:\n\n` +
+    `1 : [전송] 동일 날짜 덮어쓰기 (새 날짜/2부는 이어서 붙이기)\n` +
+    `2 : [전송] 날짜 상관없이 무조건 맨 아래에 [이어서 붙이기]\n` +
+    `3 : [전송] 출력결과 전체 초기화 후 [새로 덮어쓰기] (적립금 보존)\n` +
+    `4 : [가져오기] 서버에 올라온 최신 실시간 장부 [불러오기]\n\n` +
+    `(취소를 누르면 작업이 취소됩니다)`,
+    "1"
+  );
 
-  let mode = "overwrite";
-  if (modeChoice === "2") mode = "append";
-  if (modeChoice === "3") mode = "overwrite_all";
+  if (!["1", "2", "3", "4"].includes(modeChoice)) return;
+
+  // [옵션 4: 최신 실시간 장부 불러와서 모바일 카드로 재조립]
+  if (modeChoice === "4") {
+    toast(`📥 실시간 장부 데이터를 가져오는 중...`);
+    try {
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ fn: 'loadLiveSalesRecords', args: [targetDate] })
+      }).then(r => r.json());
+
+      if (res && res.success) {
+        if (!res.records || res.records.length === 0) {
+          toast(`⚠️ 불러올 실시간 장부 데이터가 없습니다.`);
+          return;
+        }
+
+        if (!confirm(`📥 서버에서 ${res.records.length}건의 판매 내역을 찾았습니다.\n현재 화면에 불러오시겠습니까? (기존 내용은 되돌리기가 가능합니다)`)) return;
+
+        saveState();
+        const groupMap = new Map();
+
+        res.records.forEach(s => {
+          let colorVal = s.color || '';
+          let sizeVal = s.size || '';
+          if (!colorVal && !sizeVal && s.colorSize) {
+            const parts = s.colorSize.split('/');
+            colorVal = parts[0] || '';
+            sizeVal = parts[1] || '';
+          }
+
+          let pName = (s.name || '').trim();
+          if (s.prodNum) {
+            let pn = String(s.prodNum).trim();
+            if (/^\d+$/.test(pn)) pn += '번';
+            if (!pName.includes(pn)) pName = (pn + ' ' + pName).trim();
+          }
+
+          const sPrice = (s.salePrice !== undefined && s.salePrice !== '') ? Number(s.salePrice) : (s.price !== undefined && s.price !== '' ? Number(s.price) : '');
+          const dPrice = (s.depositPrice !== undefined && s.depositPrice !== '') ? Number(s.depositPrice) : '';
+          const qtyVal = Number(s.qty) || 1;
+
+          // 상품명과 단가가 같은 고객들을 모바일 카드 1개로 자동 조립
+          const key = `${pName}_${sPrice}_${dPrice}`;
+          if (!groupMap.has(key)) {
+            groupMap.set(key, {
+              id: uid(),
+              mode: 'normal',
+              name: pName,
+              salePrice: sPrice,
+              depositPrice: dPrice,
+              topSale: '', topDep: '', botSale: '', botDep: '',
+              matrixColors: ['', ''],
+              matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
+              isMatrixCustomized: false,
+              isFolded: false,
+              buyers: []
+            });
+          }
+
+          let yt = false, tt = false, fs = false, kp = false;
+          if (s.tags) {
+            yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; kp = !!s.tags.kp;
+          }
+
+          const newBuyer = {
+            id: s.id || uid(),
+            nickname: s.nickname || '',
+            c1: colorVal,
+            s1: sizeVal,
+            c2: '', s2: '', m1: '', m2: '',
+            qty: qtyVal,
+            memo: s.memo || '',
+            isCanceled: !!s.isExcluded,
+            opt: 'full',
+            chkYt: yt, chkTt: tt, chkFs: fs, chkKp: kp
+          };
+          applyAutoRewardToBuyer(newBuyer);
+          groupMap.get(key).buyers.push(newBuyer);
+        });
+
+        const importedProducts = Array.from(groupMap.values());
+        importedProducts.forEach(p => {
+          if (p.buyers.length === 0) p.buyers.push(createEmptyBuyer());
+        });
+
+        sales = importedProducts.length > 0 ? importedProducts : [createEmptyProduct()];
+        saveLocalData();
+        renderSales();
+        toast(`✅ 실시간 장부(${res.records.length}건)를 모바일 카드로 반영했습니다!`);
+      } else {
+        toast('⚠️ 불러오기 실패: ' + (res && res.message ? res.message : '오류'));
+      }
+    } catch (e) {
+      toast('⚠️ 네트워크 오류: ' + e.message);
+    }
+    return;
+  }
+
+  // [옵션 1, 2, 3: 구글 시트 전송 및 실시간동기화 시트 저장]
+  let mode = "smart";
+  let modeText = "동일 날짜 덮어쓰기/이어붙이기";
+  if (modeChoice === "2") { mode = "append"; modeText = "맨 아래 이어붙이기"; }
+  if (modeChoice === "3") { mode = "overwrite_all"; modeText = "출력결과 표1 전체 덮어쓰기"; }
 
   let records = [];
   sales.forEach(p => {
@@ -3016,46 +3138,118 @@ async function sendToSheet() {
       if (b.isCanceled) return;
       if (!(b.nickname || '').trim()) return;
 
-          let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
-          let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
-          let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+      let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
+      let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
+      let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
 
-          if (p.mode === 'normal' || p.mode === 'etc') {
-            records.push({
-              date: targetDate, name: p.name, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'),
-              nickname: b.nickname, price: p.salePrice || 0, qty: bQty
-            });
-          } else if (p.mode === 'set') {
-            if (b.opt === 'full') {
-              records.push({ date: targetDate, name: `[세트] ${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0, qty: bQty });
-              records.push({ date: targetDate, name: `[세트] ${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0, qty: bQty });
-            } else if (b.opt === 'top') {
-              records.push({ date: targetDate, name: `[세트 상의만] ${p.name} 상의`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.topSale || 0, qty: bQty });
-            } else if (b.opt === 'bottom') {
-              records.push({ date: targetDate, name: `[세트 하의만] ${p.name} 하의`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.botSale || 0, qty: bQty });
-            }
-          } else if (p.mode === 'cross') {
-            if (b.opt === 'full') {
-              const m1Name = b.m1 ? ` ${b.m1}` : '';
-              const m2Name = b.m2 ? ` ${b.m2}` : '';
-              records.push({ date: targetDate, name: `[1+1] ${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: p.salePrice || 0, qty: bQty });
-              records.push({ date: targetDate, name: `[1+1] ${p.name}${m2Name}`, colorSize: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: 0, qty: bQty });
-            } else if (b.opt === 'single') {
-              const m1Name = b.m1 ? ` ${b.m1}` : '';
-              records.push({ date: targetDate, name: `[1+1 중 1개만] ${p.name}${m1Name}`, colorSize: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'), nickname: b.nickname, price: (p.salePrice / 2) || 0, qty: bQty });
-            }
-          }
+      if (p.mode === 'normal' || p.mode === 'etc') {
+        records.push({
+          id: b.id || uid(),
+          rowDate: targetDate, date: targetDate, prodNum: '',
+          name: p.name, color: c1, size: b.s1,
+          colorSize: [c1, b.s1].filter(Boolean).join('/'),
+          nickname: b.nickname, salePrice: p.salePrice || 0, price: p.salePrice || 0,
+          depositPrice: p.depositPrice || 0, qty: bQty, memo: b.memo || '',
+          tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
+        });
+      } else if (p.mode === 'set') {
+        const gId = 'GRP_' + b.id;
+        if (b.opt === 'full') {
+          records.push({
+            id: uid(), groupId: gId, groupType: '세트', groupRole: 'start',
+            rowDate: targetDate, date: targetDate, prodNum: '',
+            name: `[세트] ${p.name} 상의`, color: c1, size: b.s1,
+            colorSize: [c1, b.s1].filter(Boolean).join('/'),
+            nickname: b.nickname, salePrice: p.topSale || 0, price: p.topSale || 0,
+            depositPrice: p.topDep || 0, qty: bQty, memo: b.memo || '',
+            tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
+          });
+          records.push({
+            id: uid(), groupId: gId, groupType: '세트', groupRole: 'end',
+            rowDate: targetDate, date: targetDate, prodNum: '',
+            name: `[세트] ${p.name} 하의`, color: c2, size: b.s2,
+            colorSize: [c2, b.s2].filter(Boolean).join('/'),
+            nickname: b.nickname, salePrice: p.botSale || 0, price: p.botSale || 0,
+            depositPrice: p.botDep || 0, qty: bQty, memo: '',
+            tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
+          });
+        } else if (b.opt === 'top') {
+          records.push({
+            id: uid(),
+            rowDate: targetDate, date: targetDate, prodNum: '',
+            name: `[세트 상의만] ${p.name} 상의`, color: c1, size: b.s1,
+            colorSize: [c1, b.s1].filter(Boolean).join('/'),
+            nickname: b.nickname, salePrice: p.topSale || 0, price: p.topSale || 0,
+            depositPrice: p.topDep || 0, qty: bQty, memo: b.memo || '',
+            tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
+          });
+        } else if (b.opt === 'bottom') {
+          records.push({
+            id: uid(),
+            rowDate: targetDate, date: targetDate, prodNum: '',
+            name: `[세트 하의만] ${p.name} 하의`, color: c2, size: b.s2,
+            colorSize: [c2, b.s2].filter(Boolean).join('/'),
+            nickname: b.nickname, salePrice: p.botSale || 0, price: p.botSale || 0,
+            depositPrice: p.botDep || 0, qty: bQty, memo: b.memo || '',
+            tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
+          });
+        }
+      } else if (p.mode === 'cross') {
+        const gId = 'GRP_' + b.id;
+        if (b.opt === 'full') {
+          const m1Name = b.m1 ? ` ${b.m1}` : '';
+          const m2Name = b.m2 ? ` ${b.m2}` : '';
+          records.push({
+            id: uid(), groupId: gId, groupType: '1+1', groupRole: 'start',
+            rowDate: targetDate, date: targetDate, prodNum: '',
+            name: `[1+1] ${p.name}${m1Name}`, color: c1, size: b.s1,
+            colorSize: [c1, b.s1].filter(Boolean).join('/'),
+            nickname: b.nickname, salePrice: p.salePrice || 0, price: p.salePrice || 0,
+            depositPrice: p.depositPrice || 0, qty: bQty, memo: b.memo || '',
+            tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
+          });
+          records.push({
+            id: uid(), groupId: gId, groupType: '1+1', groupRole: 'end',
+            rowDate: targetDate, date: targetDate, prodNum: '',
+            name: `[1+1] ${p.name}${m2Name}`, color: c2, size: b.s2,
+            colorSize: [c2, b.s2].filter(Boolean).join('/'),
+            nickname: b.nickname, salePrice: 0, price: 0,
+            depositPrice: 0, qty: bQty, memo: '',
+            tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
+          });
+        } else if (b.opt === 'single') {
+          const m1Name = b.m1 ? ` ${b.m1}` : '';
+          records.push({
+            id: uid(),
+            rowDate: targetDate, date: targetDate, prodNum: '',
+            name: `[1+1 중 1개만] ${p.name}${m1Name}`, color: c1, size: b.s1,
+            colorSize: [c1, b.s1].filter(Boolean).join('/'),
+            nickname: b.nickname, salePrice: (p.salePrice / 2) || 0, price: (p.salePrice / 2) || 0,
+            depositPrice: (p.depositPrice / 2) || 0, qty: bQty, memo: b.memo || '',
+            tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
+          });
+        }
+      }
     });
   });
 
   if (records.length === 0) { toast('⚠️ 전송할 내역 없음'); return; }
 
-  toast('☁️ 시트 전송 중...');
+  toast(`☁️ 구글시트로 데이터(${records.length}건, ${modeText}) 전송 중...`);
   try {
-    const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ fn: 'appendSalesRecords', args: [records, mode] }) }).then(r => r.json());
-    if (res && res.success) toast(`✅ 구글시트 전송 완료! (${records.length}건)`);
-    else toast('⚠️ 전송 실패');
-  } catch(e) { toast('⚠️ 네트워크 오류'); }
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ fn: 'syncLiveSalesRecords', args: [records, mode, targetDate] })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      toast(`✅ 구글시트 전송 및 실시간 동기화 완료! (${modeText})`);
+    } else {
+      toast('⚠️ 전송 실패: ' + (res && res.message ? res.message : '오류'));
+    }
+  } catch(e) {
+    toast('⚠️ 네트워크 오류: ' + e.message);
+  }
 }
 
 // 👇👇👇 여기에 ✨통일✨ 버튼 스크립트 추가 👇👇👇
