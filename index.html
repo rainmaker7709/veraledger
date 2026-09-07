@@ -3072,7 +3072,7 @@ function resetSyncDateToToday() {
   toast(`📅 오늘 날짜(${todayStr})로 변경되었습니다.`);
 }
 
-// 4. 터치 버튼 4종 실행 엔진 (확인 안전창 + 2개 이상 주문 기타카드 자동조립)
+// 4. 터치 버튼 4종 실행 엔진 (1+1 및 세트 카드 자동 조립 & PC 완벽 호환 보존)
 async function executeSyncAction(modeChoice) {
   const dateVal = (document.getElementById('syncDateInput')?.value || '').trim();
   const sessionVal = (document.getElementById('syncSessionInput')?.value || '').trim();
@@ -3083,15 +3083,13 @@ async function executeSyncAction(modeChoice) {
     return;
   }
 
-  // 날짜와 회차 결합 (예: "09.08화요일 1부")
   const targetDate = [dateVal, sessionVal].filter(Boolean).join(' ');
 
-  // 상태 기억
   localStorage.setItem('m_live_sync_date', dateVal);
   localStorage.setItem('m_live_sync_session', sessionVal);
   lastTargetDate = targetDate;
 
-  // [옵션 4: 최신 장부 불러오기]
+  // [옵션 4: 최신 장부 불러오기 - 1+1 및 세트 전용 카드로 지능형 자동 조립]
   if (modeChoice === "4") {
     if (!confirm(`📥 [옵션 4: 실시간 장부 불러오기]\n\n날짜/회차: [${targetDate}]\n\n서버에 올라온 최신 데이터를 모바일 카드로 가져오시겠습니까?\n(기존 화면 내용은 되돌리기가 가능합니다)`)) return;
 
@@ -3111,9 +3109,158 @@ async function executeSyncAction(modeChoice) {
         }
 
         saveState();
-        const groupMap = new Map();
+
+        // 1. 그룹 묶음(1+1, 세트)과 단품 분리
+        const groupClusters = new Map();
+        const singleItems = [];
 
         res.records.forEach(s => {
+          if (s.groupId && (s.groupType === '1+1' || s.groupType === '세트')) {
+            if (!groupClusters.has(s.groupId)) groupClusters.set(s.groupId, []);
+            groupClusters.get(s.groupId).push(s);
+          } else {
+            singleItems.push(s);
+          }
+        });
+
+        const groupMap = new Map();
+
+        // 2. 1+1 및 세트 그룹을 모바일 전용 카드로 자동 조립
+        groupClusters.forEach((cluster, gId) => {
+          const startItem = cluster.find(it => it.groupRole === 'start') || cluster[0];
+          const endItem = cluster.find(it => it !== startItem) || null;
+          const gType = startItem.groupType || (endItem ? endItem.groupType : '1+1');
+
+          if (gType === '1+1') {
+            // 🎁 1+1 (mode: 'cross') 카드 조립
+            let cleanName = (startItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
+            let m1 = '', m2 = '';
+            if (endItem) {
+              let endClean = (endItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
+              if (endClean !== cleanName) {
+                m1 = cleanName;
+                m2 = endClean;
+                cleanName = '1+1 상품';
+              }
+            }
+            cleanName = cleanName || '1+1 상품';
+
+            const sPrice = (Number(startItem.salePrice) || 0) + (endItem ? (Number(endItem.salePrice) || 0) : 0);
+            const dPrice = (Number(startItem.depositPrice) || 0) + (endItem ? (Number(endItem.depositPrice) || 0) : 0);
+
+            const cardKey = `cross_${cleanName}_${sPrice}_${dPrice}`;
+            if (!groupMap.has(cardKey)) {
+              groupMap.set(cardKey, {
+                id: uid(),
+                mode: 'cross',
+                name: cleanName,
+                salePrice: sPrice,
+                depositPrice: dPrice,
+                topSale: '', topDep: '', botSale: '', botDep: '',
+                matrixColors: ['', ''],
+                matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
+                isMatrixCustomized: false,
+                isFolded: false,
+                buyers: []
+              });
+            }
+
+            let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
+            let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
+            let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
+            let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
+            let bQty = Number(startItem.qty) || 1;
+
+            const newBuyer = {
+              id: startItem.id || uid(),
+              id2: endItem ? (endItem.id || uid()) : uid(),
+              groupId: gId,
+              groupType: '1+1',
+              prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
+              nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
+              m1: m1, c1: c1, s1: s1,
+              m2: m2, c2: c2, s2: s2,
+              qty: bQty,
+              memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
+              isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
+              opt: endItem ? 'full' : 'single',
+              chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
+              chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
+              chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
+              chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
+            };
+            applyAutoRewardToBuyer(newBuyer);
+            groupMap.get(cardKey).buyers.push(newBuyer);
+
+          } else if (gType === '세트') {
+            // 📦 세트 (mode: 'set') 카드 조립
+            let cleanName = (startItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
+            if (!cleanName && endItem) {
+              cleanName = (endItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
+            }
+            cleanName = cleanName || '세트 상품';
+
+            const topSale = Number(startItem.salePrice) || 0;
+            const topDep = Number(startItem.depositPrice) || 0;
+            const botSale = endItem ? (Number(endItem.salePrice) || 0) : 0;
+            const botDep = endItem ? (Number(endItem.depositPrice) || 0) : 0;
+
+            const cardKey = `set_${cleanName}_${topSale}_${botSale}`;
+            if (!groupMap.has(cardKey)) {
+              groupMap.set(cardKey, {
+                id: uid(),
+                mode: 'set',
+                name: cleanName,
+                salePrice: '',
+                depositPrice: '',
+                topSale: topSale,
+                topDep: topDep,
+                botSale: botSale,
+                botDep: botDep,
+                matrixColors: ['', ''],
+                matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
+                isMatrixCustomized: false,
+                isFolded: false,
+                buyers: []
+              });
+            }
+
+            let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
+            let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
+            let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
+            let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
+            let bQty = Number(startItem.qty) || 1;
+
+            let opt = 'full';
+            if (!endItem) {
+              opt = (startItem.groupRole === 'end' || (startItem.name && startItem.name.includes('하의'))) ? 'bottom' : 'top';
+            }
+
+            const newBuyer = {
+              id: startItem.id || uid(),
+              id2: endItem ? (endItem.id || uid()) : uid(),
+              groupId: gId,
+              groupType: '세트',
+              prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
+              nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
+              c1: c1, s1: s1,
+              c2: c2, s2: s2,
+              qty: bQty,
+              memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
+              isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
+              opt: opt,
+              chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
+              chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
+              chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
+              chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
+            };
+            applyAutoRewardToBuyer(newBuyer);
+            groupMap.get(cardKey).buyers.push(newBuyer);
+          }
+        });
+
+        // 3. 단품 (일반 및 수량 2개 이상 기타카드) 처리
+        singleItems.forEach(s => {
           let colorVal = s.color || '';
           let sizeVal = s.size || '';
           if (!colorVal && !sizeVal && s.colorSize) {
@@ -3133,11 +3280,13 @@ async function executeSyncAction(modeChoice) {
           const dPrice = (s.depositPrice !== undefined && s.depositPrice !== '') ? Number(s.depositPrice) : '';
           const qtyVal = Number(s.qty) || 1;
 
-          const key = `${pName}_${sPrice}_${dPrice}`;
+          const cardMode = (qtyVal > 1) ? 'etc' : 'normal';
+          const key = `${cardMode}_${pName}_${sPrice}_${dPrice}`;
+
           if (!groupMap.has(key)) {
             groupMap.set(key, {
               id: uid(),
-              mode: 'normal',
+              mode: cardMode,
               name: pName,
               salePrice: sPrice,
               depositPrice: dPrice,
@@ -3150,18 +3299,9 @@ async function executeSyncAction(modeChoice) {
             });
           }
 
-          let yt = false, tt = false, fs = false, kp = false;
-          if (s.tags) {
-            yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; kp = !!s.tags.kp;
-          }
-
           const newBuyer = {
             id: s.id || uid(),
-            prodNum: s.prodNum || '',       // 👈 추가: PC 품번 보존
-            groupId: s.groupId || '',       // 👈 추가: 1+1/세트 그룹 고유 ID 보존
-            groupType: s.groupType || '',   // 👈 추가: 그룹 종류 ('1+1' 또는 '세트') 보존
-            groupRole: s.groupRole || '',   // 👈 추가: 짝꿍 역할 ('start' 상의/1번, 'end' 하의/2번) 보존
-            groupSeq: s.groupSeq || '',     // 👈 추가: 그룹 순번 보존
+            prodNum: s.prodNum || '',
             nickname: s.nickname || '',
             c1: colorVal,
             s1: sizeVal,
@@ -3170,15 +3310,12 @@ async function executeSyncAction(modeChoice) {
             memo: s.memo || '',
             isCanceled: !!s.isExcluded,
             opt: 'full',
-            chkYt: yt, chkTt: tt, chkFs: fs, chkKp: kp
+            chkYt: !!(s.tags && s.tags.yt),
+            chkTt: !!(s.tags && s.tags.tt),
+            chkFs: !!(s.tags && s.tags.fs),
+            chkKp: !!(s.tags && s.tags.kp)
           };
           applyAutoRewardToBuyer(newBuyer);
-
-          // 💡 수량이 2개 이상인 주문이 하나라도 있으면 카드를 '기타 카드(etc)'로 자동 조립
-          if (qtyVal > 1) {
-            groupMap.get(key).mode = 'etc';
-          }
-
           groupMap.get(key).buyers.push(newBuyer);
         });
 
@@ -3200,7 +3337,7 @@ async function executeSyncAction(modeChoice) {
     return;
   }
 
-  // [옵션 1, 2, 3: 구글 시트 전송 시 오작동 방지 확인창]
+  // [옵션 1, 2, 3: 구글 시트 전송 시 확인창]
   let mode = "smart";
   let modeText = "동일 날짜 덮어쓰기/이어붙이기";
   let confirmMsg = `☁️ [옵션 1: 스마트 전송 확인]\n\n날짜/회차: [${targetDate}]\n\n기존 시트에 동일 날짜/회차가 있으면 해당 구간만 덮어쓰고, 없으면 이어붙입니다.\n\n전송하시겠습니까?`;
@@ -3219,6 +3356,7 @@ async function executeSyncAction(modeChoice) {
 
   closeApiSyncModal();
 
+  // [구글 시트 전송용 데이터 조립 - 1+1과 세트의 인식표를 PC 규격으로 완벽 유지]
   let records = [];
   sales.forEach(p => {
     p.buyers.forEach(b => {
@@ -3232,12 +3370,10 @@ async function executeSyncAction(modeChoice) {
       if (p.mode === 'normal' || p.mode === 'etc') {
         records.push({
           id: b.id || uid(),
-          groupId: b.groupId || '',       // 👈 PC 1+1/세트 그룹 고유 ID 보존 전송
-          groupType: b.groupType || '',   // 👈 그룹 종류 ('1+1' 또는 '세트') 보존 전송
-          groupRole: b.groupRole || '',   // 👈 짝꿍 역할 ('start' 또는 'end') 보존 전송
-          groupSeq: b.groupSeq || '',     // 👈 그룹 순번 보존 전송
-          rowDate: targetDate, date: targetDate, 
-          prodNum: b.prodNum || '',       // 👈 PC 품번 보존 전송
+          groupId: b.groupId || '',
+          groupType: b.groupType || '',
+          groupRole: b.groupRole || '',
+          rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
           name: p.name, color: c1, size: b.s1,
           colorSize: [c1, b.s1].filter(Boolean).join('/'),
           nickname: b.nickname, salePrice: p.salePrice || 0, price: p.salePrice || 0,
@@ -3245,21 +3381,23 @@ async function executeSyncAction(modeChoice) {
           tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
         });
       } else if (p.mode === 'set') {
-        const gId = 'GRP_' + b.id;
+        const gId = b.groupId || ('GRP_' + (b.id || uid()));
+        let basePName = p.name.replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
+
         if (b.opt === 'full') {
           records.push({
-            id: uid(), groupId: gId, groupType: '세트', groupRole: 'start',
-            rowDate: targetDate, date: targetDate, prodNum: '',
-            name: `[세트] ${p.name} 상의`, color: c1, size: b.s1,
+            id: b.id || uid(), groupId: gId, groupType: '세트', groupRole: 'start',
+            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            name: `[세트] ${basePName} 상의`, color: c1, size: b.s1,
             colorSize: [c1, b.s1].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.topSale || 0, price: p.topSale || 0,
             depositPrice: p.topDep || 0, qty: bQty, memo: b.memo || '',
             tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
           });
           records.push({
-            id: uid(), groupId: gId, groupType: '세트', groupRole: 'end',
-            rowDate: targetDate, date: targetDate, prodNum: '',
-            name: `[세트] ${p.name} 하의`, color: c2, size: b.s2,
+            id: b.id2 || uid(), groupId: gId, groupType: '세트', groupRole: 'end',
+            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            name: `[세트] ${basePName} 하의`, color: c2, size: b.s2,
             colorSize: [c2, b.s2].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.botSale || 0, price: p.botSale || 0,
             depositPrice: p.botDep || 0, qty: bQty, memo: '',
@@ -3267,9 +3405,9 @@ async function executeSyncAction(modeChoice) {
           });
         } else if (b.opt === 'top') {
           records.push({
-            id: uid(),
-            rowDate: targetDate, date: targetDate, prodNum: '',
-            name: `[세트 상의만] ${p.name} 상의`, color: c1, size: b.s1,
+            id: b.id || uid(), groupId: gId, groupType: '세트', groupRole: 'start',
+            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            name: `[세트 상의만] ${basePName} 상의`, color: c1, size: b.s1,
             colorSize: [c1, b.s1].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.topSale || 0, price: p.topSale || 0,
             depositPrice: p.topDep || 0, qty: bQty, memo: b.memo || '',
@@ -3277,9 +3415,9 @@ async function executeSyncAction(modeChoice) {
           });
         } else if (b.opt === 'bottom') {
           records.push({
-            id: uid(),
-            rowDate: targetDate, date: targetDate, prodNum: '',
-            name: `[세트 하의만] ${p.name} 하의`, color: c2, size: b.s2,
+            id: b.id || uid(), groupId: gId, groupType: '세트', groupRole: 'end',
+            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            name: `[세트 하의만] ${basePName} 하의`, color: c2, size: b.s2,
             colorSize: [c2, b.s2].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.botSale || 0, price: p.botSale || 0,
             depositPrice: p.botDep || 0, qty: bQty, memo: b.memo || '',
@@ -3287,34 +3425,35 @@ async function executeSyncAction(modeChoice) {
           });
         }
       } else if (p.mode === 'cross') {
-        const gId = 'GRP_' + b.id;
+        const gId = b.groupId || ('GRP_' + (b.id || uid()));
+        let basePName = p.name.replace(/^\[?(1\+1)\]?\s*/i, '').trim();
+        const m1Name = b.m1 ? ` ${b.m1}` : '';
+        const m2Name = b.m2 ? ` ${b.m2}` : '';
+
         if (b.opt === 'full') {
-          const m1Name = b.m1 ? ` ${b.m1}` : '';
-          const m2Name = b.m2 ? ` ${b.m2}` : '';
           records.push({
-            id: uid(), groupId: gId, groupType: '1+1', groupRole: 'start',
-            rowDate: targetDate, date: targetDate, prodNum: '',
-            name: `[1+1] ${p.name}${m1Name}`, color: c1, size: b.s1,
+            id: b.id || uid(), groupId: gId, groupType: '1+1', groupRole: 'start',
+            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            name: `[1+1] ${basePName}${m1Name}`.trim(), color: c1, size: b.s1,
             colorSize: [c1, b.s1].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.salePrice || 0, price: p.salePrice || 0,
             depositPrice: p.depositPrice || 0, qty: bQty, memo: b.memo || '',
             tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
           });
           records.push({
-            id: uid(), groupId: gId, groupType: '1+1', groupRole: 'end',
-            rowDate: targetDate, date: targetDate, prodNum: '',
-            name: `[1+1] ${p.name}${m2Name}`, color: c2, size: b.s2,
+            id: b.id2 || uid(), groupId: gId, groupType: '1+1', groupRole: 'end',
+            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            name: `[1+1] ${basePName}${m2Name}`.trim(), color: c2, size: b.s2,
             colorSize: [c2, b.s2].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: 0, price: 0,
             depositPrice: 0, qty: bQty, memo: '',
             tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
           });
         } else if (b.opt === 'single') {
-          const m1Name = b.m1 ? ` ${b.m1}` : '';
           records.push({
-            id: uid(),
-            rowDate: targetDate, date: targetDate, prodNum: '',
-            name: `[1+1 중 1개만] ${p.name}${m1Name}`, color: c1, size: b.s1,
+            id: b.id || uid(), groupId: gId, groupType: '1+1', groupRole: 'start',
+            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            name: `[1+1 중 1개만] ${basePName}${m1Name}`.trim(), color: c1, size: b.s1,
             colorSize: [c1, b.s1].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: (p.salePrice / 2) || 0, price: (p.salePrice / 2) || 0,
             depositPrice: (p.depositPrice / 2) || 0, qty: bQty, memo: b.memo || '',
