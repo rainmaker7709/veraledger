@@ -3157,6 +3157,11 @@ async function executeSyncAction(modeChoice) {
 
           const newBuyer = {
             id: s.id || uid(),
+            prodNum: s.prodNum || '',       // 👈 추가: PC 품번 보존
+            groupId: s.groupId || '',       // 👈 추가: 1+1/세트 그룹 고유 ID 보존
+            groupType: s.groupType || '',   // 👈 추가: 그룹 종류 ('1+1' 또는 '세트') 보존
+            groupRole: s.groupRole || '',   // 👈 추가: 짝꿍 역할 ('start' 상의/1번, 'end' 하의/2번) 보존
+            groupSeq: s.groupSeq || '',     // 👈 추가: 그룹 순번 보존
             nickname: s.nickname || '',
             c1: colorVal,
             s1: sizeVal,
@@ -3227,7 +3232,12 @@ async function executeSyncAction(modeChoice) {
       if (p.mode === 'normal' || p.mode === 'etc') {
         records.push({
           id: b.id || uid(),
-          rowDate: targetDate, date: targetDate, prodNum: '',
+          groupId: b.groupId || '',       // 👈 PC 1+1/세트 그룹 고유 ID 보존 전송
+          groupType: b.groupType || '',   // 👈 그룹 종류 ('1+1' 또는 '세트') 보존 전송
+          groupRole: b.groupRole || '',   // 👈 짝꿍 역할 ('start' 또는 'end') 보존 전송
+          groupSeq: b.groupSeq || '',     // 👈 그룹 순번 보존 전송
+          rowDate: targetDate, date: targetDate, 
+          prodNum: b.prodNum || '',       // 👈 PC 품번 보존 전송
           name: p.name, color: c1, size: b.s1,
           colorSize: [c1, b.s1].filter(Boolean).join('/'),
           nickname: b.nickname, salePrice: p.salePrice || 0, price: p.salePrice || 0,
