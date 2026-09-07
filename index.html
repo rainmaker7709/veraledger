@@ -154,6 +154,31 @@
   .btn-mini.memo-btn { background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; }
   .btn-mini.memo-btn.has-memo { background: #F59E0B; color: #FFFFFF; font-weight: 800; }
   .btn-mini.memo-btn.has-memo-mint { background: #14B8A6; color: #FFFFFF; font-weight: 800; border: 1px solid #0D9488; }
+
+  /* 💡 메모 팝업 PC 규격 원형 점등 버튼 */
+  .status-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50% !important;
+    border: 2px solid #CBD5E1 !important; background: #FFFFFF !important;
+    color: #64748B !important; font-size: 13px; font-weight: 900;
+    cursor: pointer; user-select: none; flex-shrink: 0; box-sizing: border-box;
+    transition: all 0.15s ease-in-out; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .status-badge.yt.on { background: #DC2626 !important; border-color: #DC2626 !important; color: #FFFFFF !important; }
+  .status-badge.tt.on { background: #111111 !important; border-color: #111111 !important; color: #FFFFFF !important; }
+  .status-badge.fs.on { background: #2563EB !important; border-color: #2563EB !important; color: #FFFFFF !important; }
+  .status-badge.kp.on { background: #EA580C !important; border-color: #C2410C !important; color: #FFFFFF !important; }
+  .status-badge.nw.on { background: #FFE033 !important; border-color: #E6C800 !important; color: #111111 !important; }
+
+  /* 💡 모달 원형 체크박스 */
+  .round-chk {
+    appearance: none; -webkit-appearance: none; width: 22px; height: 22px;
+    border: 2px solid #CBD5E1; border-radius: 50%; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #fff; transition: 0.15s; margin: 0; outline: none;
+  }
+  .round-chk:checked { background: #3182F6; border-color: #3182F6; }
+  .round-chk:checked::after { content: '✓'; color: white; font-weight: 900; font-size: 13px; }
   
   .btn-mini.btn-cancel { background: #E5E8EB; color: #475569; }
   .btn-mini.btn-cancel.is-canceled { background: var(--danger) !important; color: #FFFFFF !important; font-weight: 800; }
@@ -434,8 +459,6 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
 </head>
 <body>
 
-<body>
-
 <div class="app">
   <div id="mainToast" class="header-toast-badge"></div>
 
@@ -443,6 +466,7 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
     <div style="display:flex; gap:6px; align-items:center;">
       <h1 onclick="openPaperLedger()"><span>📱 현장 장부</span></h1>
       <button class="btn-chip" style="background:#FEF3C7; color:#92400E; border:1px solid #F59E0B; padding:4px 8px; font-weight:900;" onclick="unifyProductNames()">✨통일✨</button>
+      <button class="btn-chip" style="background:#EFF6FF; color:#2563EB; border:1.5px solid #BFDBFE; padding:4px 8px; font-size:14px; font-weight:900;" onclick="openRewardModal()" title="적립금&무배 관리">🎁</button>
     </div>
     <button class="btn-gas" onclick="sendToSheet()">☁️ API 전송</button>
   </header>
@@ -633,11 +657,13 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
         <button class="btn-mini del" onclick="closeMemoModal()">✕</button>
       </div>
       
-      <div style="display:flex; gap:12px; margin-bottom:4px; padding:8px; background:#F1F5F9; border-radius:6px; flex-wrap: wrap;">
-        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbYt" onchange="autoSaveMemo()"> [유튜브]</label>
-        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbTt" onchange="autoSaveMemo()"> [틱톡]</label>
-        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbFs" onchange="autoSaveMemo()"> [무배]</label>
-        <label style="font-size:12.5px; font-weight:800; cursor:pointer; color:#334155;"><input type="checkbox" id="memoCbKp" onchange="autoSaveMemo()"> [킵]</label>
+      <!-- 💡 원형 점등 버튼 5종 (유, 틱, 무, 킵, 신) -->
+      <div style="display:flex; justify-content:space-around; align-items:center; margin-bottom:8px; padding:10px; background:#F8FAFC; border-radius:8px; border:1.5px solid var(--line);">
+        <span id="pop-badge-yt" class="status-badge yt" onclick="toggleMobileMemoTag('chkYt')">유</span>
+        <span id="pop-badge-tt" class="status-badge tt" onclick="toggleMobileMemoTag('chkTt')">틱</span>
+        <span id="pop-badge-fs" class="status-badge fs" onclick="toggleMobileMemoTag('chkFs')">무</span>
+        <span id="pop-badge-kp" class="status-badge kp" onclick="toggleMobileMemoTag('chkKp')">킵</span>
+        <span id="pop-badge-nw" class="status-badge nw" onclick="toggleMobileMemoTag('chkNw')">신</span>
       </div>
 
       <div id="rewardAlert" style="display:none; color:#059669; font-size:12px; font-weight:900; background:#ECFDF5; padding:6px; border-radius:4px; border:1px solid #34D399; margin-bottom:4px; text-align:center;">
@@ -1079,9 +1105,11 @@ function createEmptyBuyer() {
   return { 
     id: uid(), nickname: '', memo: '', isCanceled: false,
     opt: 'full', c1: '', s1: '', c2: '', s2: '', m1: '', m2: '', qty: 1,
-    chkYt: false, chkTt: false, chkFs: false, chkKp: false 
+    chkYt: false, chkTt: false, chkFs: false, chkKp: false, chkNw: false 
   };
 }
+
+let rewardTableData = []; // 💡 모바일 적립금&무배 전용 저장소
 
 function autoCenterInput(inputEl) {
   if (!inputEl || inputEl.dataset.centered === "true") return;
@@ -1113,8 +1141,27 @@ function applyAutoRewardToBuyer(buyer) {
 
   if (!buyer.nickname) return;
   
-  let normName = buyer.nickname.replace(/\s+/g, '').toLowerCase();
-  let match = buyer.nickname.match(/\(([^)]+)\)/);
+  const nick = buyer.nickname.trim();
+
+  // 💡 1순위: 모달창 데이터 우선 매칭 (실시간 즉시 연동)
+  const localMatch = rewardTableData.find(r => (r.nickname || '').trim() === nick);
+  if (localMatch) {
+    let additions = [];
+    if (localMatch.reward > 0) additions.push(`(적립금 ${fmt(localMatch.reward)}원)`);
+    if (localMatch.freeShip) {
+      buyer.chkFs = true; // 👈 불만 켜주고 텍스트 추가는 뺌
+    }
+    if (additions.length > 0) {
+      let autoText = additions.join(' ');
+      buyer.memo = (buyer.memo ? buyer.memo + ' ' + autoText : autoText).trim();
+      toast('💰 적립금/무배 자동연동');
+    }
+    return;
+  }
+
+  // 💡 2순위: 구글 시트 캐시 데이터 매칭
+  let normName = nick.replace(/\s+/g, '').toLowerCase();
+  let match = nick.match(/\(([^)]+)\)/);
   let pureNick = match ? match[1].replace(/\s+/g, '').toLowerCase() : normName;
 
   let info = autoRewardInfo[pureNick] || autoRewardInfo[normName];
@@ -1122,10 +1169,8 @@ function applyAutoRewardToBuyer(buyer) {
     let additions = [];
     if (info.reward > 0) additions.push(`(적립금 ${fmt(info.reward)}원)`);
     if (info.freeShip) {
-      additions.push(`(무배)`);
-      buyer.chkFs = true;
+      buyer.chkFs = true; // 👈 불만 켜주고 텍스트 추가는 뺌
     }
-    
     if (additions.length > 0) {
       let autoText = additions.join(' ');
       if (!buyer.memo) buyer.memo = '';
@@ -1681,7 +1726,7 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
   const bBorder = p.mode === 'set' ? '#F472B6' : (p.mode === 'cross' ? '#60A5FA' : '#C084FC');
   const nickColor = p.mode === 'set' ? '#DB2777' : (p.mode === 'cross' ? '#2563EB' : '#111827');
 
-  const hasMintCb = b.chkYt || b.chkTt || b.chkFs || b.chkKp;
+  const hasMintCb = b.chkYt || b.chkTt || b.chkFs || b.chkKp || b.chkNw;
   const hasTextMemo = b.memo && b.memo.trim() !== '';
   let memoBtnClass = 'memo-btn';
   
@@ -1974,12 +2019,18 @@ function openMemoModal(prodId, buyerId) {
   const prod = sales.find(p => p.id === prodId); 
   const buyer = prod ? prod.buyers.find(b => b.id === buyerId) : null; 
   
-  if(buyer) {
+  if (buyer) {
     document.getElementById('memoInput').value = buyer.memo || ''; 
-    document.getElementById('memoCbYt').checked = !!buyer.chkYt;
-    document.getElementById('memoCbTt').checked = !!buyer.chkTt;
-    document.getElementById('memoCbFs').checked = !!buyer.chkFs;
-    document.getElementById('memoCbKp').checked = !!buyer.chkKp;
+
+    // 💡 원형 점등 버튼 상태 업데이트 (유, 틱, 무, 킵, 신)
+    const tagMap = { yt: 'chkYt', tt: 'chkTt', fs: 'chkFs', kp: 'chkKp', nw: 'chkNw' };
+    ['yt', 'tt', 'fs', 'kp', 'nw'].forEach(tag => {
+      const el = document.getElementById(`pop-badge-${tag}`);
+      if (el) {
+        if (buyer[tagMap[tag]]) el.classList.add('on');
+        else el.classList.remove('on');
+      }
+    });
 
     const alertEl = document.getElementById('rewardAlert');
     let normName = buyer.nickname ? buyer.nickname.replace(/\s+/g, '').toLowerCase() : '';
@@ -2000,6 +2051,26 @@ function openMemoModal(prodId, buyerId) {
   document.getElementById('memoModal').style.display = 'flex'; 
 }
 
+// 💡 모바일 메모 원형 버튼 토글 함수
+function toggleMobileMemoTag(prop) {
+  if (!currentMemoTarget) return;
+  const prod = sales.find(p => p.id === currentMemoTarget.prodId);
+  if (!prod) return;
+  const buyer = prod.buyers.find(b => b.id === currentMemoTarget.buyerId);
+  if (!buyer) return;
+
+  saveState();
+  buyer[prop] = !buyer[prop];
+
+  const tagMap = { chkYt: 'yt', chkTt: 'tt', chkFs: 'fs', chkKp: 'kp', chkNw: 'nw' };
+  const el = document.getElementById(`pop-badge-${tagMap[prop]}`);
+  if (el) {
+    if (buyer[prop]) el.classList.add('on');
+    else el.classList.remove('on');
+  }
+  saveLocalData();
+}
+
 function autoSaveMemo() {
   if (!currentMemoTarget) return;
   const prod = sales.find(p => p.id === currentMemoTarget.prodId);
@@ -2007,10 +2078,6 @@ function autoSaveMemo() {
     const buyer = prod.buyers.find(b => b.id === currentMemoTarget.buyerId);
     if (buyer) {
       buyer.memo = document.getElementById('memoInput').value;
-      buyer.chkYt = document.getElementById('memoCbYt').checked;
-      buyer.chkTt = document.getElementById('memoCbTt').checked;
-      buyer.chkFs = document.getElementById('memoCbFs').checked;
-      buyer.chkKp = document.getElementById('memoCbKp').checked;
       saveLocalData();
     }
   }
@@ -2876,6 +2943,7 @@ function openPaperLedger(targetProdId = null) {
       if (b.chkTt) memoTags.push('틱톡');
       if (b.chkFs) memoTags.push('무배');
       if (b.chkKp) memoTags.push('킵');
+      if (b.chkNw) memoTags.push('신규'); // 👈 [신규] 태그 추가
       if (b.memo) memoTags.push(b.memo);
 
       let memoHtml = '';
@@ -3476,6 +3544,9 @@ async function executeSyncAction(modeChoice) {
       body: JSON.stringify({ fn: 'syncLiveSalesRecords', args: [records, mode, targetDate] })
     }).then(r => r.json());
 
+    // 💡 [추가] 모바일 적립금&무배 모달(표2) 데이터도 동시에 시트로 업로드
+    await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ fn: 'syncRewardTable2', args: [rewardTableData] }) });
+
     if (res && res.success) {
       toast(`✅ 구글시트 전송 및 실시간 동기화 완료! (${modeText})`);
     } else {
@@ -3600,8 +3671,11 @@ function exportExcel() {
     if (b.chkTt) tags.push('[틱톡]');
     if (b.chkFs) tags.push('[무배]');
     if (b.chkKp) tags.push('[킵]');
+    if (b.chkNw) tags.push('[신규]');
     
-    let result = tags.length > 0 ? tags.join(' ') + ' ' + (b.memo || '') : (b.memo || '');
+    // 💡 메모 텍스트 안에 이미 들어가 있는 (무배) 글자를 지워서 이중 중복 방지
+    let cleanMemo = (b.memo || '').replace(/\(?무배\)?/g, '').replace(/\s{2,}/g, ' ').trim();
+    let result = tags.length > 0 ? tags.join(' ') + ' ' + cleanMemo : cleanMemo;
     return result.trim();
   }
 
@@ -3796,7 +3870,11 @@ function exportEtcExcel() {
     if (b.chkTt) tags.push('[틱톡]');
     if (b.chkFs) tags.push('[무배]');
     if (b.chkKp) tags.push('[킵]');
-    let result = tags.length > 0 ? tags.join(' ') + ' ' + (b.memo || '') : (b.memo || '');
+    if (b.chkNw) tags.push('[신규]');
+    
+    // 💡 메모 텍스트 안에 이미 들어가 있는 (무배) 글자를 지워서 이중 중복 방지
+    let cleanMemo = (b.memo || '').replace(/\(?무배\)?/g, '').replace(/\s{2,}/g, ' ').trim();
+    let result = tags.length > 0 ? tags.join(' ') + ' ' + cleanMemo : cleanMemo;
     return result.trim();
   }
 
@@ -3900,6 +3978,7 @@ function clearAllMobileData() {
 function saveLocalData() { 
   localStorage.setItem('m_live_ledger_v5.6', JSON.stringify(sales));
   localStorage.setItem('m_live_pre_tags', JSON.stringify(preTags));
+  localStorage.setItem('m_live_reward_table', JSON.stringify(rewardTableData)); // 💡 모달 데이터 영구 보존
 }
 
 function saveWarehouseName() {
@@ -3921,7 +4000,7 @@ function loadLocalData() {
             opt: b.opt || 'full', qty: Number(b.qty) || 1,
             c1: b.c1 || b.color || '', s1: b.s1 || b.size || '',
             c2: b.c2 || '', s2: b.s2 || '', m1: b.m1 || '', m2: b.m2 || '',
-            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs, chkKp: !!b.chkKp
+            chkYt: !!b.chkYt, chkTt: !!b.chkTt, chkFs: !!b.chkFs, chkKp: !!b.chkKp, chkNw: !!b.chkNw
           }));
           return {
             id: s.id || uid(), mode: s.mode || 'normal', name: s.name || '',
@@ -3946,7 +4025,10 @@ function loadLocalData() {
     whInput.value = savedWhName;
   }
   // 👆👆👆 여기까지 👆👆👆
-  
+  const savedRewards = localStorage.getItem('m_live_reward_table');
+  if (savedRewards) {
+    try { rewardTableData = JSON.parse(savedRewards); } catch(e){}
+  }
   renderSales();
 }
 
@@ -4587,7 +4669,281 @@ if ('serviceWorker' in navigator) {
   });
 }
 /* 👆👆👆 여기까지 복사해서 붙여넣으세요 👆👆👆 */
+</script>
 
+<!-- 🎁 모바일 전용 적립금&무배 모달창 -->
+<div class="modal-overlay" id="rewardModal" onclick="if(event.target === this) closeRewardModal()">
+  <div class="modal-box" style="width: 420px; max-width: 95vw; max-height: 85vh; padding: 12px; display: flex; flex-direction: column;">
+    <div class="modal-title">
+      <span style="font-size: 14px; font-weight: 900; color: #1E293B;">🎁 적립금 & 무배 관리</span>
+      <div style="display: flex; gap: 4px; align-items: center;">
+        <button type="button" class="btn-mini" onclick="addRewardRow(true)" style="background: var(--primary-bg); color: var(--primary); font-weight: 800; padding: 3px 8px;">+ 추가</button>
+        <button type="button" class="btn-mini del" onclick="closeRewardModal()">✕</button>
+      </div>
+    </div>
+    
+    <!-- 업로드 / 가져오기 선택 바 -->
+    <div style="background: #F8FAFC; border: 1.5px solid #CBD5E1; padding: 6px 8px; border-radius: 8px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; gap: 4px;">
+      <span style="font-size: 11px; color: var(--ink-sub); font-weight: 800;">☁️ 시트 표2 동기화</span>
+      <div style="display: flex; gap: 4px;">
+        <button type="button" class="btn-mini" onclick="syncRewardToSheet()" style="background: var(--primary); color: #fff; font-weight: 800; padding: 5px 8px;">업로드 📤</button>
+        <button type="button" class="btn-mini" onclick="loadRewardFromSheet()" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-weight: 800; padding: 5px 8px;">가져오기 📥</button>
+      </div>
+    </div>
+
+    <!-- 모바일 테이블 영역 -->
+    <div style="flex: 1; max-height: 52vh; overflow-y: auto; border: 1.5px solid var(--line); border-radius: 6px; background: #FAFBFB;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+        <colgroup>
+          <col style="width: 110px;">
+          <col style="width: 65px;">
+          <col style="width: 42px;">
+          <col style="width: auto;">
+          <col style="width: 32px;">
+        </colgroup>
+        <thead style="position: sticky; top: 0; background: #E2E8F0; z-index: 5;">
+          <tr>
+            <th style="padding: 6px 4px; text-align: center; color: #334155; font-weight: 800;">고객명</th>
+            <th style="padding: 6px 4px; text-align: center; color: #334155; font-weight: 800;">적립금</th>
+            <th style="padding: 6px 2px; text-align: center; color: #334155; font-weight: 800;">무배</th>
+            <th style="padding: 6px 4px; text-align: center; color: #334155; font-weight: 800;">내용</th>
+            <th style="padding: 6px 2px; text-align: center; color: #334155; font-weight: 800;">✕</th>
+          </tr>
+        </thead>
+        <tbody id="rewardTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="modal-btns" style="margin-top: 8px;">
+      <button type="button" class="btn-mini" style="background: var(--ink); color: #fff; width: 100%; padding: 8px; font-size: 12px; font-weight: 800;" onclick="closeRewardModal()">완료 (닫기)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// -----------------------------------------------------
+// 🎁 모바일 적립금 & 무배 모달 제어 함수
+// -----------------------------------------------------
+function openRewardModal() {
+  const modal = document.getElementById('rewardModal');
+  if (modal) {
+    renderRewardTable();
+    modal.style.display = 'flex';
+  }
+}
+
+function closeRewardModal() {
+  const modal = document.getElementById('rewardModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function renderRewardTable() {
+  const tbody = document.getElementById('rewardTableBody');
+  if (!tbody) return;
+
+  if (rewardTableData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 25px; color: #94A3B8; font-weight: 700;">등록된 고객이 없습니다.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rewardTableData.map((row, idx) => {
+    return `
+      <tr style="border-bottom: 1px solid var(--line); background: #fff;">
+        <td style="padding: 3px;">
+          <input type="text" class="inp" data-reward-idx="${idx}" style="width: 100%; padding: 5px 4px; font-weight: 800; font-size: 12px;" value="${row.nickname || ''}" oninput="updateRewardRow(${idx}, 'nickname', this.value); handleMobileRewardNickAc(this, ${idx})" onblur="updateRewardRow(${idx}, 'nickname', this.value)" onkeydown="handleRewardKeydown(event, ${idx})" placeholder="고객명">
+        </td>
+        <td style="padding: 3px;">
+          <input type="text" inputmode="numeric" class="inp inp-num" style="width: 100%; padding: 5px 3px; font-weight: 800; font-size: 11px; color: var(--purple);" value="${row.reward ? fmt(row.reward) : ''}" oninput="updateRewardRow(${idx}, 'reward', this.value)" placeholder="0">
+        </td>
+        <td style="padding: 3px; text-align: center; vertical-align: middle;">
+          <input type="checkbox" class="round-chk" ${row.freeShip ? 'checked' : ''} onchange="updateRewardRow(${idx}, 'freeShip', this.checked)">
+        </td>
+        <td style="padding: 3px;">
+          <input type="text" class="inp" style="width: 100%; padding: 5px 4px; font-size: 11px;" value="${row.memo || ''}" oninput="updateRewardRow(${idx}, 'memo', this.value)" placeholder="내용">
+        </td>
+        <td style="padding: 3px; text-align: center;">
+          <button type="button" class="btn-mini del" style="padding: 3px 5px;" onclick="deleteRewardRow(${idx})">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function handleMobileRewardNickAc(inputEl, idx) {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl;
+  const q = (inputEl.value || '').trim().toLowerCase();
+  const dropdown = document.getElementById('acDropdown');
+
+  const nicknames = getAutoNicknames();
+  let matches = !q ? nicknames.slice(0, 10) : nicknames.filter(n => n.toLowerCase().includes(q)).slice(0, 10);
+  if (matches.length === 0) { hideDropdown(); return; }
+
+  dropdown.innerHTML = matches.map(m => `
+    <div class="ac-item" onmousedown="event.preventDefault()" onclick="selectMobileRewardNick(${idx}, '${m.replace(/'/g, "\\'")}')">👤 ${m}</div>
+  `).join('');
+  positionDropdown(inputEl);
+}
+
+function selectMobileRewardNick(idx, val) {
+  clearLastInputEvent();
+  const match = val.match(/\(([^)]+)\)/);
+  const cleanName = match ? match[1] : val;
+
+  if (rewardTableData[idx]) {
+    rewardTableData[idx].nickname = cleanName;
+    saveLocalData();
+    renderRewardTable();
+    syncRewardToSalesCards(cleanName);
+  }
+  hideDropdown();
+}
+
+function handleRewardKeydown(e, idx) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const input = e.target;
+    let finalVal = (input.value || '').trim();
+
+    if (finalVal !== '') {
+      const nicknames = getAutoNicknames();
+      const match = nicknames.find(v => v.toLowerCase().startsWith(finalVal.toLowerCase()));
+      if (match && match.length >= finalVal.length) {
+        const pMatch = match.match(/\(([^)]+)\)/);
+        finalVal = pMatch ? pMatch[1] : match;
+        input.value = finalVal;
+      }
+    }
+
+    if (rewardTableData[idx]) {
+      rewardTableData[idx].nickname = finalVal;
+      saveLocalData();
+      if (finalVal) syncRewardToSalesCards(finalVal);
+    }
+
+    const nextIdx = idx + 1;
+    if (nextIdx < rewardTableData.length) {
+      focusRewardInput(nextIdx);
+    } else if (finalVal !== '') {
+      addRewardRow(true);
+    }
+  }
+}
+
+function focusRewardInput(idx) {
+  const tbody = document.getElementById('rewardTableBody');
+  if (!tbody) return;
+  const inp = tbody.querySelector(`input[data-reward-idx="${idx}"]`);
+  if (inp) {
+    inp.focus();
+    inp.select();
+  }
+}
+
+function addRewardRow(focusNew = false) {
+  rewardTableData.push({ nickname: '', reward: 0, freeShip: false, memo: '' });
+  saveLocalData();
+  renderRewardTable();
+  if (focusNew) {
+    setTimeout(() => { focusRewardInput(rewardTableData.length - 1); }, 40);
+  }
+}
+
+function deleteRewardRow(idx) {
+  const target = rewardTableData[idx];
+  if (target && target.nickname && target.nickname.trim() !== '') {
+    if (!confirm(`⚠️ [${target.nickname}] 고객님의 적립금/무배 내역을 삭제하시겠습니까?`)) return;
+  }
+  rewardTableData.splice(idx, 1);
+  saveLocalData();
+  renderRewardTable();
+}
+
+function updateRewardRow(idx, field, value) {
+  const target = rewardTableData[idx];
+  if (target) {
+    if (field === 'reward') {
+      let cleanVal = String(value).replace(/,/g, '').trim();
+      target[field] = isNaN(Number(cleanVal)) ? 0 : Number(cleanVal);
+    } else {
+      target[field] = value;
+    }
+    saveLocalData();
+
+    if (target.nickname && target.nickname.trim() !== '') {
+      syncRewardToSalesCards(target.nickname.trim());
+    }
+  }
+}
+
+// 💡 모달 변경 시 판매대장 카드들에 실시간 동기화
+function syncRewardToSalesCards(targetNick) {
+  sales.forEach(p => {
+    p.buyers.forEach(b => {
+      if ((b.nickname || '').trim() === targetNick) {
+        applyAutoRewardToBuyer(b);
+      }
+    });
+  });
+  renderSales();
+}
+
+async function syncRewardToSheet() {
+  if (rewardTableData.length === 0) {
+    if (!confirm('모달 데이터가 비어 있습니다. 시트의 표2 기록을 모두 비우시겠습니까?')) return;
+  } else {
+    if (!confirm(`총 ${rewardTableData.length}건의 데이터를 구글 시트 표2(I~L열)에 업로드하시겠습니까?`)) return;
+  }
+
+  toast('📤 적립금 데이터를 시트로 업로드 중...');
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ fn: 'syncRewardTable2', args: [rewardTableData] })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      toast('✅ 시트 업로드가 완료되었습니다!');
+    } else {
+      toast('⚠️ 업로드 실패: ' + (res ? res.message : '오류'));
+    }
+  } catch (e) {
+    toast('⚠️ 네트워크 오류: ' + e.message);
+  }
+}
+
+async function loadRewardFromSheet() {
+  if (!confirm('시트 표2(I~L열)의 데이터를 가져오시겠습니까?\n(모달의 기존 내용은 시트 내용으로 변경됩니다)')) return;
+
+  toast('📥 시트에서 데이터를 가져오는 중...');
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ fn: 'loadRewardTable2', args: [] })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      rewardTableData = res.records || [];
+      saveLocalData();
+      renderRewardTable();
+      toast(`✅ 총 ${rewardTableData.length}건을 가져왔습니다.`);
+
+      // 장부 전체 카드 리프레시
+      sales.forEach(p => {
+        p.buyers.forEach(b => {
+          if ((b.nickname || '').trim()) applyAutoRewardToBuyer(b);
+        });
+      });
+      renderSales();
+    } else {
+      toast('⚠️ 가져오기 실패: ' + (res ? res.message : '오류'));
+    }
+  } catch (e) {
+    toast('⚠️ 네트워크 오류: ' + e.message);
+  }
+}
 </script>
 </body>
 </html>
