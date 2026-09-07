@@ -3105,6 +3105,12 @@ async function sendToSheet() {
             chkYt: yt, chkTt: tt, chkFs: fs, chkKp: kp
           };
           applyAutoRewardToBuyer(newBuyer);
+
+          // 💡 수량이 2개 이상인 주문이 하나라도 있으면 카드를 '기타 카드(etc)'로 자동 전환
+          if (qtyVal > 1) {
+            groupMap.get(key).mode = 'etc';
+          }
+
           groupMap.get(key).buyers.push(newBuyer);
         });
 
