@@ -1194,38 +1194,61 @@ function handleProdFocus(inputEl, prodId) {
   const dropdown = document.getElementById('acDropdown');
 
   const brands = getAutoBrands();
-  let matches = [];
+  let html = '';
+
   if (!q) {
-    matches = preTags.map(t => ({ text: t, isTag: true }));
-    if (matches.length === 0) {
-      matches = brands.slice(0, 12).map(b => ({ text: b, isTag: false }));
+    // 검색어가 없을 때: 초기 화면 스마트 분기
+    const numBtnHtml = `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep1('${prodId}')">🔢 품번</div>`;
+    
+    if (preTags.length > 0) {
+      // 태그가 있을 때: [품번] + [태그들] + [브랜드 통합버튼]
+      const tagsHtml = preTags.map(t => 
+        `<div class="ac-item pre-tag" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${t.replace(/'/g, "\'")}')">🏷️ ${t}</div>`
+      ).join('');
+      const brandBtnHtml = `<div class="ac-item" style="background:#E8F3FF; color:var(--primary); border-color:var(--primary);" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderBrandList('${prodId}', false)">📦 브랜드</div>`;
+      html = numBtnHtml + tagsHtml + brandBtnHtml;
+    } else {
+      // 태그가 없을 때: [품번] + 바로 [기존 브랜드 목록]
+      const brandsHtml = brands.slice(0, 12).map(b => 
+        `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${b.replace(/'/g, "\'")}')">📦 ${b}</div>`
+      ).join('');
+      html = numBtnHtml + brandsHtml;
     }
   } else {
-    matches = brands.filter(b => b.toLowerCase().includes(q)).slice(0, 12).map(b => ({ text: b, isTag: false }));
+    // 검색어가 있을 때: 기존처럼 검색 필터링
+    const matches = brands.filter(b => b.toLowerCase().includes(q)).slice(0, 12);
+    if (matches.length === 0) { hideDropdown(); return; }
+    html = matches.map(b => 
+      `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${b.replace(/'/g, "\'")}')">📦 ${b}</div>`
+    ).join('');
   }
 
-  if (matches.length === 0) { hideDropdown(); return; }
-
-  dropdown.innerHTML = matches.map(m => 
-    `<div class="ac-item ${m.isTag ? 'pre-tag' : ''}" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${m.text.replace(/'/g, "\'")}')">
-      ${m.isTag ? '🏷️ ' + m.text : '📦 ' + m.text}
-    </div>`
-  ).join('');
+  dropdown.innerHTML = html;
   positionDropdown(inputEl);
 }
 
 function selectProdName(prodId, val) {
   saveState();
   const prod = sales.find(p => p.id === prodId);
-  if (prod) { prod.name = val; }
+  let finalVal = val;
+  
+  // 💡 입력창 끝이 공백으로 끝난다면 (예: "25번 " 상태) 앞의 글자 유지하고 뒤에 브랜드 결합
+  if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
+    const currentVal = lastFocusedInput.value;
+    if (currentVal.endsWith(' ')) {
+      finalVal = currentVal + val;
+    }
+  }
+  
+  if (prod) { prod.name = finalVal; }
   hideDropdown();
   
   if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
-    lastFocusedInput.value = val;
+    lastFocusedInput.value = finalVal;
     lastFocusedInput.focus();
     setTimeout(() => {
       const len = lastFocusedInput.value.length;
-      lastFocusedInput.setSelectionRange(len, len);
+      lastFocusedInput.setSelectionRange(len, len); // 커서 맨 끝 유지
     }, 10);
   } else {
     pendingVisibilitySelector = '#card-' + prodId;
@@ -1233,6 +1256,86 @@ function selectProdName(prodId, val) {
   }
   
   saveLocalData();
+}
+
+// [추가] 통합 브랜드 목록 열기 (품번 선택 후 릴레이 또는 📦브랜드 버튼 클릭 시)
+function renderBrandList(prodId, isRelay = false) {
+  const dropdown = document.getElementById('acDropdown');
+  const brands = getAutoBrands();
+  
+  let html = '';
+  // 릴레이가 아닐 때만 이전으로 돌아가기 버튼 표시
+  if (!isRelay && preTags.length > 0) {
+    html += `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); handleProdFocus(lastFocusedInput, '${prodId}')">↩ 이전</div>`;
+  }
+  
+  html += brands.slice(0, 15).map(b => 
+    `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${b.replace(/'/g, "\'")}')">📦 ${b}</div>`
+  ).join('');
+  
+  if (!html) html = `<div class="ac-item" style="color:#94A3B8;">등록된 브랜드 없음</div>`;
+  
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+// [추가] 품번 1단계: 번호대 선택
+function renderProdNumStep1(prodId) {
+  const dropdown = document.getElementById('acDropdown');
+  
+  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); handleProdFocus(lastFocusedInput, '${prodId}')">↩ 돌아가기</div>`;
+  
+  html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep2('${prodId}', 0)">1~9번</div>`;
+  for (let i = 1; i <= 9; i++) {
+    html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep2('${prodId}', ${i * 10})">${i}0번대</div>`;
+  }
+  html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectProdNumFinal('${prodId}', 100, event)">100번</div>`;
+  
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+// [추가] 품번 2단계: 상세 번호 선택
+function renderProdNumStep2(prodId, baseTen) {
+  const dropdown = document.getElementById('acDropdown');
+  
+  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep1('${prodId}')">↩ 이전</div>`;
+  
+  let start = baseTen === 0 ? 1 : baseTen;
+  let end = baseTen === 0 ? 9 : baseTen + 9;
+  
+  for (let i = start; i <= end; i++) {
+    html += `<div class="ac-item custom-input" style="background:#E8F3FF; color:var(--primary); border-color:#BFDBFE;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectProdNumFinal('${prodId}', ${i}, event)">${i}번</div>`;
+  }
+  
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+// [추가] 품번 최종 선택 및 브랜드 릴레이
+function selectProdNumFinal(prodId, num, event) {
+  if(event) { event.preventDefault(); event.stopPropagation(); }
+  
+  const valToInject = num + '번 '; // 💡 공백을 줘서 브랜드와 자연스럽게 연결되도록 함
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) {
+    prod.name = valToInject;
+    saveState(); 
+    saveLocalData();
+  }
+  
+  if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
+    lastFocusedInput.value = valToInject;
+    // 커서 맨 끝 유지
+    lastFocusedInput.focus();
+    setTimeout(() => {
+      const len = lastFocusedInput.value.length;
+      lastFocusedInput.setSelectionRange(len, len);
+    }, 10);
+  }
+  
+  // 번호 입력 후 자동으로 브랜드 목록 띄우기 (릴레이 모드)
+  renderBrandList(prodId, true);
 }
 
 function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
