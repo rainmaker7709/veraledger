@@ -544,7 +544,11 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
 
     <div class="danger-zone">
       <span style="font-size:11px; color:var(--danger); font-weight:800;">⚠️ 데이터 전체 삭제 보호 구역</span>
-      <button class="btn-chip" style="background:var(--danger); color:#fff; padding:6px 14px; font-weight:bold;" onclick="clearAllMobileData()">🗑️ 장부 전체 데이터 초기화</button>
+      <!-- 좌우 1줄 배치 (모바일 장부 초기화 / 구글시트 초기화) -->
+      <div style="display: flex; gap: 6px; justify-content: center; width: 100%; margin-top: 4px;">
+        <button type="button" class="btn-chip" style="background: var(--danger); color: #fff; padding: 7px 12px; font-weight: 800;" onclick="clearAllMobileData()">모바일 장부 초기화</button>
+        <button type="button" class="btn-chip" style="background: #BAE6FD; color: #0369A1; border: 1.5px solid #7DD3FC; padding: 7px 12px; font-weight: 800;" onclick="clearGoogleSheetRecords()">구글시트 초기화</button>
+      </div>
     </div>
 
     <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:15px;">
@@ -4005,11 +4009,35 @@ function clearAllMobileData() {
   
   // 모든 탭 화면 즉시 갱신
   renderSales();
-  renderSettlement(); // 👈 정산요약 탭 화면 즉시 갱신 추가
-  if (typeof renderDepositTab === 'function') renderDepositTab(); // 👈 입금정산 탭 즉시 갱신 추가
+  renderSettlement();
+  if (typeof renderDepositTab === 'function') renderDepositTab();
   
-  toast('💥 전체 데이터 초기화 완료');
+  toast('💥 모바일 장부 초기화 완료');
 }
+
+// 💡 구글시트 데이터 안전 초기화 함수 (표1 및 실시간동기화 시트 비우기)
+async function clearGoogleSheetRecords() {
+  if (!confirm("🚨 [경고] 구글 시트의 메인 장부 데이터(표1)와 실시간 동기화 시트를 완전히 삭제하여 초기화하시겠습니까?\n\n※ 고객 적립금 및 무배 내역(표2)은 안전하게 유지됩니다.")) {
+    return;
+  }
+
+  toast('🧹 구글 시트 데이터를 초기화하는 중입니다...');
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ fn: 'clearLiveSalesRecords', args: [] })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      toast('✅ 구글 시트 초기화가 완료되었습니다!');
+    } else {
+      toast('⚠️ 초기화 실패: ' + (res && res.message ? res.message : '오류'));
+    }
+  } catch (e) {
+    toast('⚠️ 네트워크 오류: ' + e.message);
+  }
+}
+// 👆👆👆 여기까지 👆👆👆
 
 function saveLocalData() { 
   localStorage.setItem('m_live_ledger_v5.6', JSON.stringify(sales));
