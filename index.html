@@ -828,6 +828,34 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwLhT6zwSjVKGna_MugQwaeEC6gQjO8TBV10_xyrg-9Q64OYW1FDQsfO_yjRxVmBuzw/exec';
 
+// 🔒 판매자 보안키 조회 및 기기 내 1회 등록 엔진
+function getSellerSecretKey() {
+  let key = localStorage.getItem('vera_seller_secret_key');
+  if (!key) {
+    key = prompt('🔒 판매자 전용 보안키를 입력해주세요:\n(최초 1회만 등록하면 이 기기에 자동 저장됩니다)');
+    if (key) {
+      key = key.trim();
+      localStorage.setItem('vera_seller_secret_key', key);
+    }
+  }
+  return key || '';
+}
+
+// 🔒 백엔드 통신 시 기기에 저장된 판매자 보안키 자동 첨부 엔진
+(function setupSecureFetch() {
+  const _origFetch = window.fetch;
+  window.fetch = function(url, options) {
+    if (typeof url === 'string' && url.indexOf('script.google.com') !== -1 && options && options.body) {
+      try {
+        const payload = JSON.parse(options.body);
+        payload.secretKey = getSellerSecretKey();
+        options.body = JSON.stringify(payload);
+      } catch (e) {}
+    }
+    return _origFetch(url, options);
+  };
+})();
+
 let currentZoom = 100;
 function applyZoom(zoom) {
   currentZoom = Math.max(50, Math.min(200, zoom));
