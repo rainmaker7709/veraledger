@@ -1203,6 +1203,50 @@ function applyAutoRewardToBuyer(buyer) {
 // ===== 🌟 [선택 시 색상 점등 & 재터치 시 삭제 토글 엔진] 🌟 =====
 
 // 현재 단어가 상품명에 포함되어 있는지 확인하는 함수
+// ===== 🌟 [선택 시 색상 점등 & 재터치 시 삭제 토글 + 번호 0.4초 롱터치 보조넘버 엔진] 🌟 =====
+
+// 롱터치(길게 누르기) 제어 변수
+let blockNumClickUntil = 0;
+let numLongTimer = null;
+let isNumLongPressed = false;
+let numTouchStartX = 0, numTouchStartY = 0;
+
+function handleNumPressStart(e, prodId, num, mode, baseTen) {
+  isNumLongPressed = false;
+  const touch = e.touches ? e.touches[0] : e;
+  numTouchStartX = touch.clientX;
+  numTouchStartY = touch.clientY;
+
+  clearTimeout(numLongTimer);
+  numLongTimer = setTimeout(() => {
+    isNumLongPressed = true;
+    blockNumClickUntil = Date.now() + 500;
+    if (navigator.vibrate) { try { navigator.vibrate(40); } catch(err){} }
+    if (mode === 'relay') {
+      renderProdRelayStep1_Aux(prodId, num, baseTen);
+    } else {
+      renderFastNumAux(prodId, num, baseTen);
+    }
+  }, 400); // 0.4초 꾹 누르면 보조넘버 호출
+}
+
+function handleNumPressMove(e) {
+  if (!numLongTimer) return;
+  const touch = e.touches ? e.touches[0] : e;
+  if (Math.abs(touch.clientX - numTouchStartX) > 10 || Math.abs(touch.clientY - numTouchStartY) > 10) {
+    clearTimeout(numLongTimer);
+    numLongTimer = null;
+  }
+}
+
+function handleNumPressEnd() {
+  if (numLongTimer) {
+    clearTimeout(numLongTimer);
+    numLongTimer = null;
+  }
+}
+
+// 현재 단어가 상품명에 포함되어 있는지 확인 (색 점등 판별)
 function isTagSelected(prodId, text) {
   const prod = sales.find(p => p.id === prodId);
   const currentVal = (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) 
@@ -1214,7 +1258,7 @@ function isTagSelected(prodId, text) {
   return tokens.includes(cleanText);
 }
 
-// 칩 터치 시 토글 처리 (없으면 추가하고 색 점등, 있으면 제거하고 색 해제)
+// 칩 터치 시 토글 처리 (선택 시 추가 및 색 점등 / 재터치 시 제거 및 색 해제)
 function toggleTagInProdName(prodId, text) {
   saveState();
   const prod = sales.find(p => p.id === prodId);
@@ -1230,15 +1274,12 @@ function toggleTagInProdName(prodId, text) {
   const idx = tokens.indexOf(cleanText);
 
   if (idx !== -1) {
-    // 💡 이미 있으면 삭제 (토글 OFF)
-    tokens.splice(idx, 1);
+    tokens.splice(idx, 1); // 이미 있으면 삭제
   } else {
-    // 💡 없으면 추가 (토글 ON)
-    tokens.push(cleanText);
+    tokens.push(cleanText); // 없으면 추가
   }
 
   const finalVal = tokens.length > 0 ? tokens.join(' ') + ' ' : '';
-  
   if (prod) { prod.name = finalVal; }
   
   if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
@@ -1258,7 +1299,7 @@ function selectProdNameDirect(prodId, val) {
   const prod = sales.find(p => p.id === prodId);
   let currentVal = (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) ? lastFocusedInput.value : (prod ? prod.name : '');
   let finalVal = val;
-  if (/^\d+번\s*$/.test(currentVal)) {
+  if (/^\d+(-\d+)?번\s*$/.test(currentVal)) {
     finalVal = currentVal.trim() + ' ' + val;
   }
   if (prod) { prod.name = finalVal; }
@@ -1287,23 +1328,23 @@ function handleProdFocus(inputEl, prodId) {
   const hasPre = preTags.length > 0;
   const hasPat = patternTags.length > 0;
 
-  // [조건 4] 태그와 무늬 둘 다 없을 때: 기존 쾌속 모드 작동
+  // 태그와 무늬 둘 다 없을 때: 쾌속 모드
   if (!hasPre && !hasPat) {
     renderFastMode(prodId);
     return;
   }
 
-  // [조건 1, 2, 3] 태그나 무늬가 하나라도 있을 때: 스마트 릴레이 1단계(품번) 시작
+  // 태그나 무늬가 하나라도 있을 때: 스마트 릴레이 1단계(품번)
   renderProdRelayStep1_Num(prodId);
 }
 
-// ===== ⚡ [쾌속 모드: 태그/무늬 둘 다 없을 때] =====
+// ===== ⚡ [쾌속 모드] =====
 function renderFastMode(prodId) {
   const dropdown = document.getElementById('acDropdown');
   const brands = getAutoBrands();
   const q = lastFocusedInput ? lastFocusedInput.value.trim().toLowerCase() : '';
 
-  if (q && !/^\d+번\s*$/.test(q)) {
+  if (q && !/^\d+(-\d+)?번\s*$/.test(q)) {
     const matches = brands.filter(b => b.toLowerCase().includes(q)).slice(0, 15);
     if (matches.length === 0) { hideDropdown(); return; }
     dropdown.innerHTML = matches.map(b => 
@@ -1340,14 +1381,32 @@ function renderFastNumStep2(prodId, baseTen) {
   let start = baseTen === 0 ? 1 : baseTen;
   let end = baseTen === 0 ? 9 : baseTen + 9;
   for (let i = start; i <= end; i++) {
-    html += `<div class="ac-item custom-input" style="background:#E8F3FF; color:var(--primary); border-color:#BFDBFE;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectFastNumFinal('${prodId}', ${i})">${i}번</div>`;
+    html += `<div class="ac-item custom-input" style="background:#E8F3FF; color:var(--primary); border-color:#BFDBFE; user-select:none; -webkit-user-select:none;" 
+      onmousedown="handleNumPressStart(event, '${prodId}', ${i}, 'fast', ${baseTen})" 
+      ontouchstart="handleNumPressStart(event, '${prodId}', ${i}, 'fast', ${baseTen})" 
+      ontouchmove="handleNumPressMove(event)" 
+      ontouchend="handleNumPressEnd()" 
+      onmouseup="handleNumPressEnd()" 
+      onclick="event.stopPropagation(); if(Date.now() < blockNumClickUntil) return; selectFastNumFinal('${prodId}', ${i})">${i}번</div>`;
   }
   dropdown.innerHTML = html;
   positionDropdown(lastFocusedInput);
 }
 
-function selectFastNumFinal(prodId, num) {
-  const valToInject = num + '번 ';
+function renderFastNumAux(prodId, baseNum, baseTen) {
+  const dropdown = document.getElementById('acDropdown');
+  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderFastNumStep2('${prodId}', ${baseTen})">↩ 이전</div>`;
+  for (let s = 1; s <= 9; s++) {
+    const subTag = `${baseNum}-${s}번`;
+    html += `<div class="ac-item custom-input" style="background:#FEF3C7; color:#B45309; border-color:#FCD34D; font-weight:900;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); if(Date.now() < blockNumClickUntil) return; selectFastNumFinal('${prodId}', '${baseNum}-${s}')">${subTag}</div>`;
+  }
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+function selectFastNumFinal(prodId, numStr) {
+  const clean = String(numStr).replace(/번$/, '').trim();
+  const valToInject = clean + '번 ';
   const prod = sales.find(p => p.id === prodId);
   if (prod) { prod.name = valToInject; saveState(); saveLocalData(); }
   if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
@@ -1364,9 +1423,8 @@ function selectFastNumFinal(prodId, num) {
   positionDropdown(lastFocusedInput);
 }
 
-// ===== 🔄 [스마트 릴레이 모드: 태그 또는 무늬가 등록되어 있을 때] =====
+// ===== 🔄 [스마트 릴레이 모드] =====
 
-// 릴레이 1단계: 품번 선택
 function renderProdRelayStep1_Num(prodId) {
   const dropdown = document.getElementById('acDropdown');
   let html = `<div class="ac-item" style="background:var(--primary); color:#fff; font-weight:800;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); goRelayAfterStep1('${prodId}')">다음 ➔</div>`;
@@ -1387,14 +1445,32 @@ function renderProdRelayStep1_SubNum(prodId, baseTen) {
   let start = baseTen === 0 ? 1 : baseTen;
   let end = baseTen === 0 ? 9 : baseTen + 9;
   for (let i = start; i <= end; i++) {
-    html += `<div class="ac-item custom-input" style="background:#E8F3FF; color:var(--primary); border-color:#BFDBFE;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectRelayNumFinal('${prodId}', ${i})">${i}번</div>`;
+    html += `<div class="ac-item custom-input" style="background:#E8F3FF; color:var(--primary); border-color:#BFDBFE; user-select:none; -webkit-user-select:none;" 
+      onmousedown="handleNumPressStart(event, '${prodId}', ${i}, 'relay', ${baseTen})" 
+      ontouchstart="handleNumPressStart(event, '${prodId}', ${i}, 'relay', ${baseTen})" 
+      ontouchmove="handleNumPressMove(event)" 
+      ontouchend="handleNumPressEnd()" 
+      onmouseup="handleNumPressEnd()" 
+      onclick="event.stopPropagation(); if(Date.now() < blockNumClickUntil) return; selectRelayNumFinal('${prodId}', ${i})">${i}번</div>`;
   }
   dropdown.innerHTML = html;
   positionDropdown(lastFocusedInput);
 }
 
-function selectRelayNumFinal(prodId, num) {
-  const valToInject = num + '번 ';
+function renderProdRelayStep1_Aux(prodId, baseNum, baseTen) {
+  const dropdown = document.getElementById('acDropdown');
+  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdRelayStep1_SubNum('${prodId}', ${baseTen})">↩ 이전</div>`;
+  for (let s = 1; s <= 9; s++) {
+    const subTag = `${baseNum}-${s}번`;
+    html += `<div class="ac-item custom-input" style="background:#FEF3C7; color:#B45309; border-color:#FCD34D; font-weight:900;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); if(Date.now() < blockNumClickUntil) return; selectRelayNumFinal('${prodId}', '${baseNum}-${s}')">${subTag}</div>`;
+  }
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+function selectRelayNumFinal(prodId, numStr) {
+  const clean = String(numStr).replace(/번$/, '').trim();
+  const valToInject = clean + '번 ';
   const prod = sales.find(p => p.id === prodId);
   if (prod) { prod.name = valToInject; saveState(); saveLocalData(); }
   if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
@@ -1405,7 +1481,6 @@ function selectRelayNumFinal(prodId, num) {
   goRelayAfterStep1(prodId);
 }
 
-// 1단계(품번) 완료 후 스마트 분기 이동
 function goRelayAfterStep1(prodId) {
   if (preTags.length > 0) {
     renderProdRelayStep2_Tag(prodId);
@@ -1416,7 +1491,7 @@ function goRelayAfterStep1(prodId) {
   }
 }
 
-// 릴레이 2단계: 사전등록 태그 + 브랜드통합 (토글 선택 시 색상 점등)
+// 2단계: 태그 + 브랜드통합
 function renderProdRelayStep2_Tag(prodId) {
   const dropdown = document.getElementById('acDropdown');
   const nextTarget = (patternTags.length > 0) ? `renderProdRelayStep3_Pattern('${prodId}', false)` : `renderProdRelayStep4_Color('${prodId}')`;
@@ -1434,7 +1509,7 @@ function renderProdRelayStep2_Tag(prodId) {
   positionDropdown(lastFocusedInput);
 }
 
-// 릴레이 3단계: 무늬 태그 (토글 선택 시 보라색 점등)
+// 3단계: 무늬 태그
 function renderProdRelayStep3_Pattern(prodId, hasBrandIntegration = false) {
   const dropdown = document.getElementById('acDropdown');
   let html = `<div class="ac-item" style="background:var(--primary); color:#fff; font-weight:800;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdRelayStep4_Color('${prodId}')">다음 ➔</div>`;
@@ -1455,7 +1530,6 @@ function renderProdRelayStep3_Pattern(prodId, hasBrandIntegration = false) {
   positionDropdown(lastFocusedInput);
 }
 
-// 브랜드 서브 목록 (토글 선택 시 색상 점등)
 function renderRelayBrandSubList(prodId, returnStep) {
   const dropdown = document.getElementById('acDropdown');
   const brands = getAutoBrands();
@@ -1473,7 +1547,7 @@ function renderRelayBrandSubList(prodId, returnStep) {
   positionDropdown(lastFocusedInput);
 }
 
-// 릴레이 4단계: 색상 다중 선택 (토글 선택 시 테두리 점등 및 체크 표시)
+// 4단계: 색상 다중 선택
 function renderProdRelayStep4_Color(prodId) {
   const dropdown = document.getElementById('acDropdown');
   let html = `<div class="ac-item" style="background:#0F172A; color:#fff; font-weight:800;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); hideDropdown()">✅ 완성</div>`;
