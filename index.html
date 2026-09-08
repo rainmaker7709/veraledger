@@ -486,7 +486,13 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
 
   <main id="view-settle">
     <div class="settle-card">
-      <div style="font-weight:800; font-size:13px; color:#0F172A; margin-bottom:6px;">🏷️ 상품명 사전등록 태그</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <div style="font-weight:800; font-size:13px; color:#0F172A;">🏷️ 상품명/무늬 태그 관리</div>
+        <div style="display:flex; gap:4px;">
+          <button type="button" class="btn-mini" onclick="uploadTagsToSheet()" style="background: var(--primary); color: #fff; font-weight: 800; padding: 4px 8px;">업로드 📤</button>
+          <button type="button" class="btn-mini" onclick="loadTagsFromSheet()" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-weight: 800; padding: 4px 8px;">가져오기 📥</button>
+        </div>
+      </div>
       <div style="font-size:11px; color:#64748B; margin-bottom:8px;">등록된 태그는 상품명/모델명 입력 시 터치하면 가장 먼저 목록에 나타납니다.</div>
       <div style="display:flex; gap:6px; margin-bottom:8px;">
         <input type="text" id="preTagInput" class="inp" style="flex:1;" placeholder="새 태그 입력 (예: 가을신상)" onfocus="handleInputFocus(this)">
@@ -5418,6 +5424,59 @@ async function loadRewardFromSheet() {
       renderSales();
     } else {
       toast('⚠️ 가져오기 실패: ' + (res ? res.message : '오류'));
+    }
+  } catch (e) {
+    toast('⚠️ 네트워크 오류: ' + e.message);
+  }
+}
+
+// -----------------------------------------------------
+// 🏷️ 태그 전용 동기화 함수 (업로드/가져오기)
+// -----------------------------------------------------
+async function uploadTagsToSheet() {
+  if (!confirm('현재 기기에 등록된 태그(상품명/무늬)를 구글 시트에 업로드하시겠습니까?')) return;
+  
+  toast('📤 태그 데이터를 시트로 업로드 중...');
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        fn: 'saveTagsData', 
+        args: [{ preTags: preTags, patternTags: patternTags }] 
+      })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      toast('✅ 태그 업로드가 완료되었습니다!');
+    } else {
+      toast('⚠️ 업로드 실패: ' + (res.message || '오류'));
+    }
+  } catch (e) {
+    toast('⚠️ 네트워크 오류: ' + e.message);
+  }
+}
+
+async function loadTagsFromSheet() {
+  if (!confirm('구글 시트에서 최신 태그를 가져오시겠습니까?\n(기존에 등록된 태그와 병합됩니다)')) return;
+
+  toast('📥 시트에서 태그를 가져오는 중...');
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ fn: 'getTagsData', args: [] })
+    }).then(r => r.json());
+
+    if (res && res.success) {
+      preTags = Array.from(new Set([...(res.preTags || []), ...preTags]));
+      patternTags = Array.from(new Set([...(res.patternTags || []), ...patternTags]));
+      
+      saveLocalData();
+      renderPreTags();
+      renderPatternTags();
+      
+      toast(`✅ 태그 가져오기 완료!`);
+    } else {
+      toast('⚠️ 가져오기 실패: ' + (res.message || '오류'));
     }
   } catch (e) {
     toast('⚠️ 네트워크 오류: ' + e.message);
