@@ -504,6 +504,17 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
         </div>
         <div id="patternTagList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
       </div>
+
+      <!-- 💠 무늬 사전등록 태그 추가 영역 -->
+      <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--line);">
+        <div style="font-weight:800; font-size:13px; color:#0F172A; margin-bottom:4px;">💠 무늬 사전등록 태그</div>
+        <div style="font-size:11px; color:#64748B; margin-bottom:8px;">체크, 스트라이프 등 상품명 릴레이 시 사용할 무늬 태그를 등록합니다.</div>
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <input type="text" id="patternTagInput" class="inp" style="flex:1;" placeholder="새 무늬 입력 (예: 체크, 단가라)" onfocus="handleInputFocus(this)">
+          <button class="btn-chip" style="background:var(--purple); color:#fff; padding:6px 12px;" onclick="addPatternTag()">추가</button>
+        </div>
+        <div id="patternTagList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+      </div>
     </div>
 
     <div class="settle-card">
@@ -3582,14 +3593,22 @@ async function executeSyncAction(modeChoice) {
 
         const groupMap = new Map();
 
+        // 💡 PC에서 넘어온 품번(예: '25', '25-1')에 '번'을 붙여주는 헬퍼 함수
+        function formatProdNum(rawNum) {
+          if (!rawNum) return '';
+          let pn = String(rawNum).trim();
+          if (/^\d+(-\d+)?$/.test(pn)) pn += '번';
+          return pn;
+        }
+
         // 2. 1+1 및 세트 그룹을 모바일 전용 카드로 자동 조립
         groupClusters.forEach((cluster, gId) => {
           const startItem = cluster.find(it => it.groupRole === 'start') || cluster[0];
           const endItem = cluster.find(it => it !== startItem) || null;
           const gType = startItem.groupType || (endItem ? endItem.groupType : '1+1');
+          const pNumStr = formatProdNum(startItem.prodNum || (endItem ? endItem.prodNum : ''));
 
           if (gType === '1+1') {
-            // 🎁 1+1 (mode: 'cross') 카드 조립
             let cleanName = (startItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
             let m1 = '', m2 = '';
             if (endItem) {
@@ -3601,6 +3620,9 @@ async function executeSyncAction(modeChoice) {
               }
             }
             cleanName = cleanName || '1+1 상품';
+            if (pNumStr && !cleanName.includes(pNumStr)) {
+              cleanName = `${pNumStr} ${cleanName}`.trim();
+            }
 
             const sPrice = (Number(startItem.salePrice) || 0) + (endItem ? (Number(endItem.salePrice) || 0) : 0);
             const dPrice = (Number(startItem.depositPrice) || 0) + (endItem ? (Number(endItem.depositPrice) || 0) : 0);
@@ -3650,12 +3672,14 @@ async function executeSyncAction(modeChoice) {
             groupMap.get(cardKey).buyers.push(newBuyer);
 
           } else if (gType === '세트') {
-            // 📦 세트 (mode: 'set') 카드 조립
             let cleanName = (startItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
             if (!cleanName && endItem) {
               cleanName = (endItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
             }
             cleanName = cleanName || '세트 상품';
+            if (pNumStr && !cleanName.includes(pNumStr)) {
+              cleanName = `${pNumStr} ${cleanName}`.trim();
+            }
 
             const topSale = Number(startItem.salePrice) || 0;
             const topDep = Number(startItem.depositPrice) || 0;
@@ -3727,10 +3751,9 @@ async function executeSyncAction(modeChoice) {
           }
 
           let pName = (s.name || '').trim();
-          if (s.prodNum) {
-            let pn = String(s.prodNum).trim();
-            if (/^\d+$/.test(pn)) pn += '번';
-            if (!pName.includes(pn)) pName = (pn + ' ' + pName).trim();
+          const pNumStr = formatProdNum(s.prodNum);
+          if (pNumStr && !pName.includes(pNumStr)) {
+            pName = (pNumStr + ' ' + pName).trim();
           }
 
           const sPrice = (s.salePrice !== undefined && s.salePrice !== '') ? Number(s.salePrice) : (s.price !== undefined && s.price !== '' ? Number(s.price) : '');
@@ -3813,7 +3836,19 @@ async function executeSyncAction(modeChoice) {
 
   closeApiSyncModal();
 
-  // [구글 시트 전송용 데이터 조립 - 1+1과 세트의 인식표를 PC 규격으로 완벽 유지]
+  // 💡 상품명에서 품번(순수 숫자/보조넘버)과 상품명을 분리하는 헬퍼 함수
+  function splitProdNumAndName(rawName) {
+    let name = (rawName || '').trim();
+    let prodNum = '';
+    const numMatch = name.match(/^(\d+(?:-\d+)?)\s*번\s*(.*)$/);
+    if (numMatch) {
+      prodNum = numMatch[1]; // B형: '번'을 뗀 순수 번호 (예: '23', '25-1')
+      name = numMatch[2].trim();
+    }
+    return { prodNum: prodNum, name: name };
+  }
+
+  // [구글 시트 전송용 데이터 조립 - B형 품번 자동 분리 적용]
   let records = [];
   sales.forEach(p => {
     p.buyers.forEach(b => {
@@ -3825,13 +3860,16 @@ async function executeSyncAction(modeChoice) {
       let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
 
       if (p.mode === 'normal' || p.mode === 'etc') {
+        const parsed = splitProdNumAndName(p.name);
         records.push({
           id: b.id || uid(),
           groupId: b.groupId || '',
           groupType: b.groupType || '',
           groupRole: b.groupRole || '',
-          rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
-          name: p.name, color: c1, size: b.s1,
+          rowDate: targetDate, date: targetDate, 
+          prodNum: parsed.prodNum || b.prodNum || '',
+          name: parsed.name, 
+          color: c1, size: b.s1,
           colorSize: [c1, b.s1].filter(Boolean).join('/'),
           nickname: b.nickname, salePrice: p.salePrice || 0, price: p.salePrice || 0,
           depositPrice: p.depositPrice || 0, qty: bQty, memo: b.memo || '',
@@ -3839,13 +3877,17 @@ async function executeSyncAction(modeChoice) {
         });
       } else if (p.mode === 'set') {
         const gId = b.groupId || ('GRP_' + (b.id || uid()));
-        let basePName = p.name.replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
+        let baseRaw = p.name.replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
+        const parsed = splitProdNumAndName(baseRaw);
+        let basePName = parsed.name;
+        let finalProdNum = parsed.prodNum || b.prodNum || '';
 
         if (b.opt === 'full') {
           records.push({
             id: b.id || uid(), groupId: gId, groupType: '세트', groupRole: 'start',
-            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
-            name: `[세트] ${basePName} 상의`, color: c1, size: b.s1,
+            rowDate: targetDate, date: targetDate, 
+            prodNum: finalProdNum,
+            name: `[세트] ${basePName} 상의`.trim(), color: c1, size: b.s1,
             colorSize: [c1, b.s1].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.topSale || 0, price: p.topSale || 0,
             depositPrice: p.topDep || 0, qty: bQty, memo: b.memo || '',
@@ -3853,8 +3895,9 @@ async function executeSyncAction(modeChoice) {
           });
           records.push({
             id: b.id2 || uid(), groupId: gId, groupType: '세트', groupRole: 'end',
-            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
-            name: `[세트] ${basePName} 하의`, color: c2, size: b.s2,
+            rowDate: targetDate, date: targetDate, 
+            prodNum: finalProdNum,
+            name: `[세트] ${basePName} 하의`.trim(), color: c2, size: b.s2,
             colorSize: [c2, b.s2].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.botSale || 0, price: p.botSale || 0,
             depositPrice: p.botDep || 0, qty: bQty, memo: '',
@@ -3863,8 +3906,9 @@ async function executeSyncAction(modeChoice) {
         } else if (b.opt === 'top') {
           records.push({
             id: b.id || uid(), groupId: gId, groupType: '세트', groupRole: 'start',
-            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
-            name: `[세트 상의만] ${basePName} 상의`, color: c1, size: b.s1,
+            rowDate: targetDate, date: targetDate, 
+            prodNum: finalProdNum,
+            name: `[세트 상의만] ${basePName} 상의`.trim(), color: c1, size: b.s1,
             colorSize: [c1, b.s1].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.topSale || 0, price: p.topSale || 0,
             depositPrice: p.topDep || 0, qty: bQty, memo: b.memo || '',
@@ -3873,24 +3917,29 @@ async function executeSyncAction(modeChoice) {
         } else if (b.opt === 'bottom') {
           records.push({
             id: b.id || uid(), groupId: gId, groupType: '세트', groupRole: 'end',
-            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
-            name: `[세트 하의만] ${basePName} 하의`, color: c2, size: b.s2,
+            rowDate: targetDate, date: targetDate, 
+            prodNum: finalProdNum,
+            name: `[세트 하의만] ${basePName} 하의`.trim(), color: c2, size: b.s2,
             colorSize: [c2, b.s2].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.botSale || 0, price: p.botSale || 0,
-            depositPrice: p.botDep || 0, qty: bQty, memo: b.memo || '',
+            depositPrice: p.botDep || 0, qty: bQty, memo: '',
             tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
           });
         }
       } else if (p.mode === 'cross') {
         const gId = b.groupId || ('GRP_' + (b.id || uid()));
-        let basePName = p.name.replace(/^\[?(1\+1)\]?\s*/i, '').trim();
+        let baseRaw = p.name.replace(/^\[?(1\+1)\]?\s*/i, '').trim();
+        const parsed = splitProdNumAndName(baseRaw);
+        let basePName = parsed.name;
+        let finalProdNum = parsed.prodNum || b.prodNum || '';
         const m1Name = b.m1 ? ` ${b.m1}` : '';
         const m2Name = b.m2 ? ` ${b.m2}` : '';
 
         if (b.opt === 'full') {
           records.push({
             id: b.id || uid(), groupId: gId, groupType: '1+1', groupRole: 'start',
-            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            rowDate: targetDate, date: targetDate, 
+            prodNum: finalProdNum,
             name: `[1+1] ${basePName}${m1Name}`.trim(), color: c1, size: b.s1,
             colorSize: [c1, b.s1].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: p.salePrice || 0, price: p.salePrice || 0,
@@ -3899,7 +3948,8 @@ async function executeSyncAction(modeChoice) {
           });
           records.push({
             id: b.id2 || uid(), groupId: gId, groupType: '1+1', groupRole: 'end',
-            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            rowDate: targetDate, date: targetDate, 
+            prodNum: finalProdNum,
             name: `[1+1] ${basePName}${m2Name}`.trim(), color: c2, size: b.s2,
             colorSize: [c2, b.s2].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: 0, price: 0,
@@ -3909,7 +3959,8 @@ async function executeSyncAction(modeChoice) {
         } else if (b.opt === 'single') {
           records.push({
             id: b.id || uid(), groupId: gId, groupType: '1+1', groupRole: 'start',
-            rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
+            rowDate: targetDate, date: targetDate, 
+            prodNum: finalProdNum,
             name: `[1+1 중 1개만] ${basePName}${m1Name}`.trim(), color: c1, size: b.s1,
             colorSize: [c1, b.s1].filter(Boolean).join('/'),
             nickname: b.nickname, salePrice: (p.salePrice / 2) || 0, price: (p.salePrice / 2) || 0,
