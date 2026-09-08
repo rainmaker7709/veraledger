@@ -1190,15 +1190,23 @@ function handleProdFocus(inputEl, prodId) {
   handleInputFocus(inputEl);
   lastFocusedInput = inputEl;
   autoCenterInput(inputEl);
-  const q = inputEl.value.trim().toLowerCase();
-  const dropdown = document.getElementById('acDropdown');
+  
+  let q = inputEl.value.trim().toLowerCase();
+  
+  // 💡 핵심 수정: 품번("25번" 등)만 입력되어 있을 때는 검색어가 없는 것(초기 상태)으로 간주하여 칩스를 닫지 않게 함
+  if (/^\d+번$/.test(q)) {
+    q = '';
+  }
 
+  const dropdown = document.getElementById('acDropdown');
   const brands = getAutoBrands();
   let html = '';
 
   if (!q) {
     // 검색어가 없을 때: 초기 화면 스마트 분기
-    const numBtnHtml = `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep1('${prodId}')">🔢 품번</div>`;
+    // (이미 품번이 선택되어 "25번"이 입력된 상태라면 불필요한 [품번] 칩은 숨김 처리)
+    const hasNum = /^\d+번\s*$/.test(inputEl.value);
+    const numBtnHtml = hasNum ? '' : `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep1('${prodId}')">🔢 품번</div>`;
     
     if (preTags.length > 0) {
       // 태그가 있을 때: [품번] + [태그들] + [브랜드 통합버튼]
@@ -1334,8 +1342,12 @@ function selectProdNumFinal(prodId, num, event) {
     }, 10);
   }
   
-  // 번호 입력 후 자동으로 브랜드 목록 띄우기 (릴레이 모드)
-  renderBrandList(prodId, true);
+  // 💡 수정된 릴레이: 태그가 있으면 [품번+태그+브랜드] 초기 화면, 없으면 [브랜드 목록] 노출
+  if (preTags.length > 0) {
+    handleProdFocus(lastFocusedInput, prodId);
+  } else {
+    renderBrandList(prodId, true);
+  }
 }
 
 function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
