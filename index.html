@@ -493,6 +493,17 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
         <button class="btn-chip" style="background:var(--primary); color:#fff; padding:6px 12px;" onclick="addPreTag()">추가</button>
       </div>
       <div id="preTagList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+
+      <!-- 💠 무늬 사전등록 태그 추가 영역 -->
+      <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--line);">
+        <div style="font-weight:800; font-size:13px; color:#0F172A; margin-bottom:4px;">💠 무늬 사전등록 태그</div>
+        <div style="font-size:11px; color:#64748B; margin-bottom:8px;">체크, 스트라이프 등 상품명 릴레이 시 사용할 무늬 태그를 등록합니다.</div>
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <input type="text" id="patternTagInput" class="inp" style="flex:1;" placeholder="새 무늬 입력 (예: 체크, 단가라)" onfocus="handleInputFocus(this)">
+          <button class="btn-chip" style="background:var(--purple); color:#fff; padding:6px 12px;" onclick="addPatternTag()">추가</button>
+        </div>
+        <div id="patternTagList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+      </div>
     </div>
 
     <div class="settle-card">
@@ -873,6 +884,7 @@ let autoNicknames = [];
 let autoBrands = []; 
 let autoRewardInfo = {};
 let preTags = []; 
+let patternTags = []; // 👈 무늬 태그 저장용 배열 추가
 
 let settleGroupMode = 'deposit';
 let currentMemoTarget = null;
@@ -1186,68 +1198,69 @@ function applyAutoRewardToBuyer(buyer) {
   }
 }
 
-function handleProdFocus(inputEl, prodId) {
-  handleInputFocus(inputEl);
-  lastFocusedInput = inputEl;
-  autoCenterInput(inputEl);
-  
-  let q = inputEl.value.trim().toLowerCase();
-  
-  // 💡 핵심 수정: 품번("25번" 등)만 입력되어 있을 때는 검색어가 없는 것(초기 상태)으로 간주하여 칩스를 닫지 않게 함
-  if (/^\d+번$/.test(q)) {
-    q = '';
-  }
+// ===== 🌟 [상품명 스마트 릴레이 및 쾌속 자동완성 엔진] 🌟 =====
 
-  const dropdown = document.getElementById('acDropdown');
-  const brands = getAutoBrands();
-  let html = '';
+// ===== 🌟 [선택 시 색상 점등 & 재터치 시 삭제 토글 엔진] 🌟 =====
 
-  if (!q) {
-    // 검색어가 없을 때: 초기 화면 스마트 분기
-    // (이미 품번이 선택되어 "25번"이 입력된 상태라면 불필요한 [품번] 칩은 숨김 처리)
-    const hasNum = /^\d+번\s*$/.test(inputEl.value);
-    const numBtnHtml = hasNum ? '' : `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep1('${prodId}')">🔢 품번</div>`;
-    
-    if (preTags.length > 0) {
-      // 태그가 있을 때: [품번] + [태그들] + [브랜드 통합버튼]
-      const tagsHtml = preTags.map(t => 
-        `<div class="ac-item pre-tag" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${t.replace(/'/g, "\'")}')">🏷️ ${t}</div>`
-      ).join('');
-      const brandBtnHtml = `<div class="ac-item" style="background:#E8F3FF; color:var(--primary); border-color:var(--primary);" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderBrandList('${prodId}', false)">📦 브랜드</div>`;
-      html = numBtnHtml + tagsHtml + brandBtnHtml;
-    } else {
-      // 태그가 없을 때: [품번] + 바로 [기존 브랜드 목록]
-      const brandsHtml = brands.slice(0, 12).map(b => 
-        `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${b.replace(/'/g, "\'")}')">📦 ${b}</div>`
-      ).join('');
-      html = numBtnHtml + brandsHtml;
-    }
-  } else {
-    // 검색어가 있을 때: 기존처럼 검색 필터링
-    const matches = brands.filter(b => b.toLowerCase().includes(q)).slice(0, 12);
-    if (matches.length === 0) { hideDropdown(); return; }
-    html = matches.map(b => 
-      `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${b.replace(/'/g, "\'")}')">📦 ${b}</div>`
-    ).join('');
-  }
-
-  dropdown.innerHTML = html;
-  positionDropdown(inputEl);
+// 현재 단어가 상품명에 포함되어 있는지 확인하는 함수
+function isTagSelected(prodId, text) {
+  const prod = sales.find(p => p.id === prodId);
+  const currentVal = (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) 
+    ? lastFocusedInput.value 
+    : (prod ? prod.name : '');
+  const cleanText = text.trim();
+  if (!cleanText || !currentVal) return false;
+  const tokens = currentVal.trim().split(/\s+/);
+  return tokens.includes(cleanText);
 }
 
-function selectProdName(prodId, val) {
+// 칩 터치 시 토글 처리 (없으면 추가하고 색 점등, 있으면 제거하고 색 해제)
+function toggleTagInProdName(prodId, text) {
   saveState();
   const prod = sales.find(p => p.id === prodId);
-  let finalVal = val;
+  const cleanText = text.trim();
+  if (!cleanText) return;
   
-  // 💡 입력창 끝이 공백으로 끝난다면 (예: "25번 " 상태) 앞의 글자 유지하고 뒤에 브랜드 결합
-  if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
-    const currentVal = lastFocusedInput.value;
-    if (currentVal.endsWith(' ')) {
-      finalVal = currentVal + val;
-    }
+  let currentVal = (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) 
+    ? lastFocusedInput.value 
+    : (prod ? prod.name : '');
+  currentVal = currentVal.trim();
+
+  let tokens = currentVal ? currentVal.split(/\s+/) : [];
+  const idx = tokens.indexOf(cleanText);
+
+  if (idx !== -1) {
+    // 💡 이미 있으면 삭제 (토글 OFF)
+    tokens.splice(idx, 1);
+  } else {
+    // 💡 없으면 추가 (토글 ON)
+    tokens.push(cleanText);
   }
+
+  const finalVal = tokens.length > 0 ? tokens.join(' ') + ' ' : '';
   
+  if (prod) { prod.name = finalVal; }
+  
+  if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
+    lastFocusedInput.value = finalVal;
+    lastFocusedInput.focus();
+    setTimeout(() => {
+      const len = lastFocusedInput.value.length;
+      lastFocusedInput.setSelectionRange(len, len);
+    }, 10);
+  }
+  saveLocalData();
+}
+
+// 쾌속 모드 전용: 터치 즉시 입력 및 창 닫기
+function selectProdNameDirect(prodId, val) {
+  saveState();
+  const prod = sales.find(p => p.id === prodId);
+  let currentVal = (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) ? lastFocusedInput.value : (prod ? prod.name : '');
+  let finalVal = val;
+  if (/^\d+번\s*$/.test(currentVal)) {
+    finalVal = currentVal.trim() + ' ' + val;
+  }
   if (prod) { prod.name = finalVal; }
   hideDropdown();
   
@@ -1256,98 +1269,225 @@ function selectProdName(prodId, val) {
     lastFocusedInput.focus();
     setTimeout(() => {
       const len = lastFocusedInput.value.length;
-      lastFocusedInput.setSelectionRange(len, len); // 커서 맨 끝 유지
+      lastFocusedInput.setSelectionRange(len, len);
     }, 10);
   } else {
     pendingVisibilitySelector = '#card-' + prodId;
     renderSales();
   }
-  
   saveLocalData();
 }
 
-// [추가] 통합 브랜드 목록 열기 (품번 선택 후 릴레이 또는 📦브랜드 버튼 클릭 시)
-function renderBrandList(prodId, isRelay = false) {
+// 상품명 입력창 터치 시 진입점
+function handleProdFocus(inputEl, prodId) {
+  handleInputFocus(inputEl);
+  lastFocusedInput = inputEl;
+  autoCenterInput(inputEl);
+
+  const hasPre = preTags.length > 0;
+  const hasPat = patternTags.length > 0;
+
+  // [조건 4] 태그와 무늬 둘 다 없을 때: 기존 쾌속 모드 작동
+  if (!hasPre && !hasPat) {
+    renderFastMode(prodId);
+    return;
+  }
+
+  // [조건 1, 2, 3] 태그나 무늬가 하나라도 있을 때: 스마트 릴레이 1단계(품번) 시작
+  renderProdRelayStep1_Num(prodId);
+}
+
+// ===== ⚡ [쾌속 모드: 태그/무늬 둘 다 없을 때] =====
+function renderFastMode(prodId) {
+  const dropdown = document.getElementById('acDropdown');
+  const brands = getAutoBrands();
+  const q = lastFocusedInput ? lastFocusedInput.value.trim().toLowerCase() : '';
+
+  if (q && !/^\d+번\s*$/.test(q)) {
+    const matches = brands.filter(b => b.toLowerCase().includes(q)).slice(0, 15);
+    if (matches.length === 0) { hideDropdown(); return; }
+    dropdown.innerHTML = matches.map(b => 
+      `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectProdNameDirect('${prodId}', '${b.replace(/'/g, "\\'")}')">📦 ${b}</div>`
+    ).join('');
+    positionDropdown(lastFocusedInput);
+    return;
+  }
+
+  const numBtn = `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderFastNumStep1('${prodId}')">🔢 품번</div>`;
+  const brandsHtml = brands.slice(0, 15).map(b => 
+    `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectProdNameDirect('${prodId}', '${b.replace(/'/g, "\\'")}')">📦 ${b}</div>`
+  ).join('');
+
+  dropdown.innerHTML = numBtn + brandsHtml;
+  positionDropdown(lastFocusedInput);
+}
+
+function renderFastNumStep1(prodId) {
+  const dropdown = document.getElementById('acDropdown');
+  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderFastMode('${prodId}')">↩ 돌아가기</div>`;
+  html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderFastNumStep2('${prodId}', 0)">1~9번</div>`;
+  for (let i = 1; i <= 9; i++) {
+    html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderFastNumStep2('${prodId}', ${i * 10})">${i}0번대</div>`;
+  }
+  html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectFastNumFinal('${prodId}', 100)">100번</div>`;
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+function renderFastNumStep2(prodId, baseTen) {
+  const dropdown = document.getElementById('acDropdown');
+  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderFastNumStep1('${prodId}')">↩ 이전</div>`;
+  let start = baseTen === 0 ? 1 : baseTen;
+  let end = baseTen === 0 ? 9 : baseTen + 9;
+  for (let i = start; i <= end; i++) {
+    html += `<div class="ac-item custom-input" style="background:#E8F3FF; color:var(--primary); border-color:#BFDBFE;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectFastNumFinal('${prodId}', ${i})">${i}번</div>`;
+  }
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+function selectFastNumFinal(prodId, num) {
+  const valToInject = num + '번 ';
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) { prod.name = valToInject; saveState(); saveLocalData(); }
+  if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
+    lastFocusedInput.value = valToInject;
+    lastFocusedInput.focus();
+    setTimeout(() => { const len = lastFocusedInput.value.length; lastFocusedInput.setSelectionRange(len, len); }, 10);
+  }
+  const dropdown = document.getElementById('acDropdown');
+  const brands = getAutoBrands();
+  let html = brands.slice(0, 15).map(b => 
+    `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectProdNameDirect('${prodId}', '${b.replace(/'/g, "\\'")}')">📦 ${b}</div>`
+  ).join('');
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+// ===== 🔄 [스마트 릴레이 모드: 태그 또는 무늬가 등록되어 있을 때] =====
+
+// 릴레이 1단계: 품번 선택
+function renderProdRelayStep1_Num(prodId) {
+  const dropdown = document.getElementById('acDropdown');
+  let html = `<div class="ac-item" style="background:var(--primary); color:#fff; font-weight:800;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); goRelayAfterStep1('${prodId}')">다음 ➔</div>`;
+  
+  html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdRelayStep1_SubNum('${prodId}', 0)">1~9번</div>`;
+  for (let i = 1; i <= 9; i++) {
+    html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdRelayStep1_SubNum('${prodId}', ${i * 10})">${i}0번대</div>`;
+  }
+  html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectRelayNumFinal('${prodId}', 100)">100번</div>`;
+  
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+function renderProdRelayStep1_SubNum(prodId, baseTen) {
+  const dropdown = document.getElementById('acDropdown');
+  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdRelayStep1_Num('${prodId}')">↩ 이전</div>`;
+  let start = baseTen === 0 ? 1 : baseTen;
+  let end = baseTen === 0 ? 9 : baseTen + 9;
+  for (let i = start; i <= end; i++) {
+    html += `<div class="ac-item custom-input" style="background:#E8F3FF; color:var(--primary); border-color:#BFDBFE;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectRelayNumFinal('${prodId}', ${i})">${i}번</div>`;
+  }
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+function selectRelayNumFinal(prodId, num) {
+  const valToInject = num + '번 ';
+  const prod = sales.find(p => p.id === prodId);
+  if (prod) { prod.name = valToInject; saveState(); saveLocalData(); }
+  if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
+    lastFocusedInput.value = valToInject;
+    lastFocusedInput.focus();
+    setTimeout(() => { const len = lastFocusedInput.value.length; lastFocusedInput.setSelectionRange(len, len); }, 10);
+  }
+  goRelayAfterStep1(prodId);
+}
+
+// 1단계(품번) 완료 후 스마트 분기 이동
+function goRelayAfterStep1(prodId) {
+  if (preTags.length > 0) {
+    renderProdRelayStep2_Tag(prodId);
+  } else if (patternTags.length > 0) {
+    renderProdRelayStep3_Pattern(prodId, true);
+  } else {
+    renderProdRelayStep4_Color(prodId);
+  }
+}
+
+// 릴레이 2단계: 사전등록 태그 + 브랜드통합 (토글 선택 시 색상 점등)
+function renderProdRelayStep2_Tag(prodId) {
+  const dropdown = document.getElementById('acDropdown');
+  const nextTarget = (patternTags.length > 0) ? `renderProdRelayStep3_Pattern('${prodId}', false)` : `renderProdRelayStep4_Color('${prodId}')`;
+  let html = `<div class="ac-item" style="background:var(--primary); color:#fff; font-weight:800;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); ${nextTarget}">다음 ➔</div>`;
+
+  html += preTags.map(t => {
+    const isSel = isTagSelected(prodId, t);
+    const selStyle = isSel ? 'background:#3182F6 !important; color:#FFFFFF !important; border-color:#1D4ED8 !important; font-weight:900;' : '';
+    return `<div class="ac-item pre-tag" style="${selStyle}" onmousedown="event.preventDefault()" onclick="toggleTagInProdName('${prodId}', '${t.replace(/'/g, "\\'")}'); renderProdRelayStep2_Tag('${prodId}');">${isSel ? '✓ ' : ''}🏷️ ${t}</div>`;
+  }).join('');
+
+  html += `<div class="ac-item" style="background:#E8F3FF; color:var(--primary); border-color:var(--primary);" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderRelayBrandSubList('${prodId}', 'tag')">📦 브랜드</div>`;
+
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+// 릴레이 3단계: 무늬 태그 (토글 선택 시 보라색 점등)
+function renderProdRelayStep3_Pattern(prodId, hasBrandIntegration = false) {
+  const dropdown = document.getElementById('acDropdown');
+  let html = `<div class="ac-item" style="background:var(--primary); color:#fff; font-weight:800;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdRelayStep4_Color('${prodId}')">다음 ➔</div>`;
+
+  html += patternTags.map(t => {
+    const isSel = isTagSelected(prodId, t);
+    const selStyle = isSel 
+      ? 'background:#7C3AED !important; color:#FFFFFF !important; border-color:#5B21B6 !important; font-weight:900;' 
+      : 'background:#EDE9FE; color:#5B21B6; border:1.5px solid #C4B5FD;';
+    return `<div class="ac-item" style="${selStyle}" onmousedown="event.preventDefault()" onclick="toggleTagInProdName('${prodId}', '${t.replace(/'/g, "\\'")}'); renderProdRelayStep3_Pattern('${prodId}', ${hasBrandIntegration});">${isSel ? '✓ ' : ''}💠 ${t}</div>`;
+  }).join('');
+
+  if (hasBrandIntegration) {
+    html += `<div class="ac-item" style="background:#E8F3FF; color:var(--primary); border-color:var(--primary);" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderRelayBrandSubList('${prodId}', 'pattern')">📦 브랜드</div>`;
+  }
+
+  dropdown.innerHTML = html;
+  positionDropdown(lastFocusedInput);
+}
+
+// 브랜드 서브 목록 (토글 선택 시 색상 점등)
+function renderRelayBrandSubList(prodId, returnStep) {
   const dropdown = document.getElementById('acDropdown');
   const brands = getAutoBrands();
   
-  let html = '';
-  // 릴레이가 아닐 때만 이전으로 돌아가기 버튼 표시
-  if (!isRelay && preTags.length > 0) {
-    html += `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); handleProdFocus(lastFocusedInput, '${prodId}')">↩ 이전</div>`;
-  }
-  
-  html += brands.slice(0, 15).map(b => 
-    `<div class="ac-item" onmousedown="event.preventDefault()" onclick="selectProdName('${prodId}', '${b.replace(/'/g, "\'")}')">📦 ${b}</div>`
-  ).join('');
-  
-  if (!html) html = `<div class="ac-item" style="color:#94A3B8;">등록된 브랜드 없음</div>`;
-  
+  const returnFunc = returnStep === 'tag' ? `renderProdRelayStep2_Tag('${prodId}')` : `renderProdRelayStep3_Pattern('${prodId}', true)`;
+  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); ${returnFunc}">↩ 이전</div>`;
+
+  html += brands.slice(0, 15).map(b => {
+    const isSel = isTagSelected(prodId, b);
+    const selStyle = isSel ? 'background:#3182F6 !important; color:#FFFFFF !important; border-color:#1D4ED8 !important; font-weight:900;' : '';
+    return `<div class="ac-item" style="${selStyle}" onmousedown="event.preventDefault()" onclick="toggleTagInProdName('${prodId}', '${b.replace(/'/g, "\\'")}'); renderRelayBrandSubList('${prodId}', '${returnStep}');">${isSel ? '✓ ' : ''}📦 ${b}</div>`;
+  }).join('');
+
   dropdown.innerHTML = html;
   positionDropdown(lastFocusedInput);
 }
 
-// [추가] 품번 1단계: 번호대 선택
-function renderProdNumStep1(prodId) {
+// 릴레이 4단계: 색상 다중 선택 (토글 선택 시 테두리 점등 및 체크 표시)
+function renderProdRelayStep4_Color(prodId) {
   const dropdown = document.getElementById('acDropdown');
-  
-  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); handleProdFocus(lastFocusedInput, '${prodId}')">↩ 돌아가기</div>`;
-  
-  html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep2('${prodId}', 0)">1~9번</div>`;
-  for (let i = 1; i <= 9; i++) {
-    html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep2('${prodId}', ${i * 10})">${i}0번대</div>`;
-  }
-  html += `<div class="ac-item custom-input" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectProdNumFinal('${prodId}', 100, event)">100번</div>`;
-  
+  let html = `<div class="ac-item" style="background:#0F172A; color:#fff; font-weight:800;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); hideDropdown()">✅ 완성</div>`;
+
+  html += PRESET_COLORS.map(c => {
+    const isSel = isTagSelected(prodId, c);
+    const cStyle = getColorStyle(c);
+    const dot = `<span class="color-dot" style="background:${cStyle.main};"></span>`;
+    const selStyle = isSel ? 'background:#1E293B !important; color:#FFFFFF !important; border:2.5px solid #3182F6 !important; font-weight:900;' : '';
+    return `<div class="ac-item" style="${selStyle}" onmousedown="event.preventDefault()" onclick="toggleTagInProdName('${prodId}', '${c}'); renderProdRelayStep4_Color('${prodId}');">${dot}${isSel ? '✓ ' : ''}${c}</div>`;
+  }).join('');
+
   dropdown.innerHTML = html;
   positionDropdown(lastFocusedInput);
-}
-
-// [추가] 품번 2단계: 상세 번호 선택
-function renderProdNumStep2(prodId, baseTen) {
-  const dropdown = document.getElementById('acDropdown');
-  
-  let html = `<div class="ac-item" style="background:#F1F5F9; color:#475569;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); renderProdNumStep1('${prodId}')">↩ 이전</div>`;
-  
-  let start = baseTen === 0 ? 1 : baseTen;
-  let end = baseTen === 0 ? 9 : baseTen + 9;
-  
-  for (let i = start; i <= end; i++) {
-    html += `<div class="ac-item custom-input" style="background:#E8F3FF; color:var(--primary); border-color:#BFDBFE;" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); selectProdNumFinal('${prodId}', ${i}, event)">${i}번</div>`;
-  }
-  
-  dropdown.innerHTML = html;
-  positionDropdown(lastFocusedInput);
-}
-
-// [추가] 품번 최종 선택 및 브랜드 릴레이
-function selectProdNumFinal(prodId, num, event) {
-  if(event) { event.preventDefault(); event.stopPropagation(); }
-  
-  const valToInject = num + '번 '; // 💡 공백을 줘서 브랜드와 자연스럽게 연결되도록 함
-  const prod = sales.find(p => p.id === prodId);
-  if (prod) {
-    prod.name = valToInject;
-    saveState(); 
-    saveLocalData();
-  }
-  
-  if (lastFocusedInput && lastFocusedInput.classList.contains('inp-prod')) {
-    lastFocusedInput.value = valToInject;
-    // 커서 맨 끝 유지
-    lastFocusedInput.focus();
-    setTimeout(() => {
-      const len = lastFocusedInput.value.length;
-      lastFocusedInput.setSelectionRange(len, len);
-    }, 10);
-  }
-  
-  // 💡 수정된 릴레이: 태그가 있으면 [품번+태그+브랜드] 초기 화면, 없으면 [브랜드 목록] 노출
-  if (preTags.length > 0) {
-    handleProdFocus(lastFocusedInput, prodId);
-  } else {
-    renderBrandList(prodId, true);
-  }
 }
 
 function handleModelFocus(inputEl, prodId, buyerId, fieldName) {
@@ -1723,6 +1863,25 @@ function renderPreTags() {
   container.innerHTML = preTags.map((t, i) =>
     `<div class="btn-chip" style="background:#E2E8F0; color:#334155; display:flex; align-items:center; gap:4px;">
       <span>${t}</span><button style="border:none; background:none; color:var(--danger); padding:0; cursor:pointer;" onclick="removePreTag(${i})">✕</button>
+    </div>`
+  ).join('');
+}
+
+// 💠 무늬 태그 관리 함수 3종 추가
+function addPatternTag() {
+  const input = document.getElementById('patternTagInput');
+  const val = input.value.trim();
+  if (val && !patternTags.includes(val)) {
+    patternTags.push(val); input.value = ''; saveLocalData(); renderPatternTags(); toast('무늬 태그가 등록되었습니다.');
+  }
+}
+function removePatternTag(idx) { patternTags.splice(idx, 1); saveLocalData(); renderPatternTags(); }
+function renderPatternTags() {
+  const container = document.getElementById('patternTagList');
+  if(!container) return;
+  container.innerHTML = patternTags.map((t, i) =>
+    `<div class="btn-chip" style="background:#EDE9FE; color:#5B21B6; border:1px solid #C4B5FD; display:flex; align-items:center; gap:4px;">
+      <span>${t}</span><button style="border:none; background:none; color:var(--danger); padding:0; cursor:pointer;" onclick="removePatternTag(${i})">✕</button>
     </div>`
   ).join('');
 }
@@ -2614,6 +2773,7 @@ function switchTab(tab) {
     document.getElementById('view-settle').style.display = 'flex';
     renderSettlement();
     renderPreTags();
+    renderPatternTags(); // 👈 무늬 태그 그리기 추가
   } else if (tab === 'deposit') {
     document.getElementById('view-deposit').style.display = 'flex';
     renderDepositTab();
@@ -4157,6 +4317,7 @@ async function clearGoogleSheetRecords() {
 function saveLocalData() { 
   localStorage.setItem('m_live_ledger_v5.6', JSON.stringify(sales));
   localStorage.setItem('m_live_pre_tags', JSON.stringify(preTags));
+  localStorage.setItem('m_live_pattern_tags', JSON.stringify(patternTags)); // 👈 무늬 태그 저장 추가
   localStorage.setItem('m_live_reward_table', JSON.stringify(rewardTableData)); // 💡 모달 데이터 영구 보존
 }
 
@@ -4197,7 +4358,9 @@ function loadLocalData() {
   const ptData = localStorage.getItem('m_live_pre_tags');
   if (ptData) { try { preTags = JSON.parse(ptData); } catch(e){} }
 
-// 👇👇👇 새로 추가할 부분 👇👇👇
+  const patData = localStorage.getItem('m_live_pattern_tags');
+  if (patData) { try { patternTags = JSON.parse(patData); } catch(e){} } // 👈 무늬 태그 불러오기 추가
+
   const savedWhName = localStorage.getItem('m_live_warehouse_name');
   const whInput = document.getElementById('warehouseNameInput');
   if (savedWhName && whInput) {
