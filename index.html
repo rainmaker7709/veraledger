@@ -101,11 +101,19 @@
   .row-card.mode-etc .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #D7CCC8; border-bottom: 1px solid #BCAAA4; }
   .row-card.mode-etc .prod-num-badge { background: #8D6E63; }
 
-  /* 기타 카드 비율 조절 (취소 버튼 공간 확보 위해 고객명/수량 레이어 축소) */
-  .row-card.mode-etc .inp-nick { flex: 0 1 25% !important; min-width: 35px; }
-  .row-card.mode-etc .inp-color { width: 42px !important; }
-  .row-card.mode-etc .inp-size { width: 42px !important; }
+  /* 기타 및 선물 카드 비율 조절 */
+  .row-card.mode-etc .inp-nick, .row-card.mode-gift .inp-nick { flex: 0 1 25% !important; min-width: 35px; }
+  .row-card.mode-etc .inp-color, .row-card.mode-gift .inp-color { width: 42px !important; }
+  .row-card.mode-etc .inp-size, .row-card.mode-gift .inp-size { width: 42px !important; }
   .inp-qty { width: 42px; text-align: center; font-size: 12px; font-weight: 800; color: #5D4037; border: 1.5px solid #8D6E63; background: #FFF8E1; cursor: pointer; flex-shrink: 0; padding: 4px 2px; }
+
+  /* 🎁 선물 카드 (세트 핑크보다 짙은 파스텔 코랄 레드 톤) */
+  .row-card.mode-gift { border-color: #F87171; }
+  .row-card.mode-gift .card-band { border-left: 4px solid #DC2626; background: #FEE2E2; display: flex; flex-direction: column; }
+  .row-card.mode-gift .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #F87171; }
+  .row-card.mode-gift .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FECDD3; border-bottom: 1px solid #F87171; }
+  .row-card.mode-gift .prod-num-badge { background: #DC2626; }
+  .row-card.mode-gift .inp-qty { color: #991B1B; border-color: #EF4444; background: #FFF1F2; }
 
   /* 확대된 상품 번호 원형 배지 */
   .prod-num-badge {
@@ -608,22 +616,13 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
       </div>
     </div>
 
-    <!-- 미매칭 (진행중) 패널 -->
-    <div class="settle-card" style="padding:0; overflow:visible; border-color:#F59E0B;">
-      <div class="accordion-header" onclick="toggleAcc('acc-unmatched')" style="background:#FEF3C7; color:#B45309;">
-        <span>⚠️ 미매칭 목록 (<span id="cnt-unmatched">0</span>건)</span>
+    <!-- 💰 입금 및 정산 통합 내역 패널 -->
+    <div class="settle-card" style="padding:0; overflow:visible; border-color:#3182F6;">
+      <div class="accordion-header" onclick="toggleAcc('acc-unmatched')" style="background:#EFF6FF; color:#1E3A8A;">
+        <span>📋 입금 및 정산 내역 (<span id="cnt-unmatched">0</span>건)</span>
         <span id="acc-unmatched-icon">▲</span>
       </div>
       <div id="acc-unmatched" class="accordion-content" style="display:flex;"></div>
-    </div>
-
-    <!-- 정산완료 패널 -->
-    <div class="settle-card" style="padding:0; overflow:visible; border-color:#10B981;">
-      <div class="accordion-header" onclick="toggleAcc('acc-completed')" style="background:#D1FAE5; color:#047857;">
-        <span>✅ 정산완료 목록 (<span id="cnt-completed">0</span>건)</span>
-        <span id="acc-completed-icon">▼</span>
-      </div>
-      <div id="acc-completed" class="accordion-content" style="display:none;"></div>
     </div>
 
     <!-- 장부 미등록 입금건 -->
@@ -654,14 +653,15 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
 
   <div class="bottom-bar">
     <div class="sticky-summary" id="dash-summary">
-      <div style="gap:2px;">
-        <span>건수:</span>
-        <strong id="ft-count" style="margin-left:2px;">0</strong>
+      <div style="gap:4px; font-size:12.5px;">
+        <span>건수:<strong id="ft-count" style="margin-left:2px; color:#FFFFFF;">0</strong></span>
+        <span style="color:#6B7280; margin:0 1px;">|</span>
+        <span>총수량:<strong id="ft-qty" style="margin-left:2px; color:#FDE047;">0</strong></span>
       </div>
-      <div style="gap:4px;">
-        <span>입금가: <strong id="ft-deposit" style="color:#A7F3D0; margin-left:2px;">0</strong>원</span>
-        <span style="color:#6B7280; margin:0 2px;">|</span>
-        <span>판: <strong id="ft-sale" style="margin-left:2px;">0</strong>원</span>
+      <div style="gap:4px; font-size:12.5px;">
+        <span>입:<strong id="ft-deposit" style="color:#A7F3D0; margin-left:2px;">0</strong>원</span>
+        <span style="color:#6B7280; margin:0 1px;">|</span>
+        <span>판:<strong id="ft-sale" style="color:#FBCFE8; margin-left:2px;">0</strong>원</span>
       </div>
     </div>
     <div class="tab-group">
@@ -2061,6 +2061,7 @@ function renderSales() {
           <select class="select-mode" onchange="updateProductData('${p.id}', 'mode', this.value)">
             <option value="normal" ${p.mode==='normal'?'selected':''}>📦일반</option>
             <option value="etc" ${p.mode==='etc'?'selected':''}>🤎기타</option>
+            <option value="gift" ${p.mode==='gift'?'selected':''}>🎁선물</option>
             <option value="set" ${p.mode==='set'?'selected':''}>👕세트</option>
             <option value="cross" ${p.mode==='cross'?'selected':''}>👟1+1</option>
           </select>
@@ -2125,10 +2126,10 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
   const memoBtn = `<button class="btn-mini ${memoBtnClass}" onclick="openMemoModal('${p.id}', '${b.id}')">${memoIcon}</button>`;
   const cancelBtn = `<button class="btn-mini btn-cancel ${b.isCanceled ? 'is-canceled' : ''}" onclick="toggleCancel('${p.id}', '${b.id}')">${b.isCanceled ? '🔴 취소' : '취소'}</button>`;
 
-  if (p.mode === 'normal' || p.mode === 'etc') {
-        const isEtc = (p.mode === 'etc');
+  if (p.mode === 'normal' || p.mode === 'etc' || p.mode === 'gift') {
+        const isEtcOrGift = (p.mode === 'etc' || p.mode === 'gift');
         const displayQty = (parseInt(b.qty) || 1) + '개';
-        const tailItem = isEtc 
+        const tailItem = isEtcOrGift 
           ? `<input type="text" inputmode="numeric" class="inp inp-qty" value="${displayQty}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">${cancelBtn}`
           : cancelBtn;
 
@@ -2274,11 +2275,12 @@ function getStats() {
       const hasNick = (b.nickname || '').trim() !== '';
       if (!hasNick) return; 
 
-      const bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
-      activeQty += bQty;
+      const bQty = ((p.mode === 'etc' || p.mode === 'gift') && b.qty) ? Number(b.qty) : 1;
+      activeQty += 1; // 💡 주문 건수는 줄(Row)당 무조건 1건으로 계산
 
-      if (p.mode === 'normal' || p.mode === 'etc') {
-        singleCnt += bQty; physicalQty += bQty;
+      if (p.mode === 'normal' || p.mode === 'etc' || p.mode === 'gift') {
+        singleCnt += bQty; 
+        physicalQty += bQty; // 💡 실물은 수량(bQty)만큼 합산
         totalSale += (Number(p.salePrice)||0) * bQty; 
         totalDeposit += (Number(p.depositPrice)||0) * bQty;
       } else if (p.mode === 'set') {
@@ -2315,12 +2317,12 @@ function getFlattenedSales() {
       let sp = 0, dp = 0;
       let unitSp = 0, unitDp = 0;
       let colorStr = '', sizeStr = '';
-      const bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+      const bQty = ((p.mode === 'etc' || p.mode === 'gift') && b.qty) ? Number(b.qty) : 1;
       
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
 
-      if (p.mode === 'normal' || p.mode === 'etc') {
+      if (p.mode === 'normal' || p.mode === 'etc' || p.mode === 'gift') {
         unitSp = Number(p.salePrice) || 0;
         unitDp = Number(p.depositPrice) || 0;
         sp = unitSp * bQty; 
@@ -2351,7 +2353,9 @@ function getFlattenedSales() {
 
 function updateSummaryLogic() {
   const stats = getStats();
-  document.getElementById('ft-count').textContent = `${stats.activeQty}건`;
+  document.getElementById('ft-count').textContent = `${stats.activeQty}`;
+  const qtyEl = document.getElementById('ft-qty');
+  if (qtyEl) qtyEl.textContent = `${stats.physicalQty}`;
   document.getElementById('ft-deposit').textContent = fmt(stats.totalDeposit);
   document.getElementById('ft-sale').textContent = fmt(stats.totalSale);
 }
@@ -3015,7 +3019,6 @@ function renderSettlement() {
       }).join('') || '<tr><td colspan="5" style="text-align:center; color:#64748B;">내역 없음</td></tr>';
 
   } else if (settleGroupMode === 'product') {
-    titleEl.textContent = '📦 상품별 판매 집계';
     headEl.innerHTML = '<tr><th style="width:36px; text-align:center;">No.</th><th>상품명</th><th style="text-align:center; white-space:nowrap;">수량</th><th style="text-align:right;">입금가</th><th style="text-align:right;">판매가</th></tr>';
     const map = {}; activeSales.forEach(s => { 
       const pName = s.name || '미입력 상품';
@@ -3027,6 +3030,13 @@ function renderSettlement() {
     if (sq) {
       entries = entries.filter(([_, d]) => d.name.toLowerCase().includes(sq));
     }
+    
+    // 💡 검색 필터링된 상품들의 총 수량 실시간 계산 표시
+    const filteredTotalQty = entries.reduce((sum, [_, d]) => sum + d.qty, 0);
+    titleEl.innerHTML = sq 
+      ? `📦 상품별 판매 집계 <span style="color:var(--primary); font-size:12px; margin-left:4px;">(검색 합계: ${filteredTotalQty}개)</span>`
+      : '📦 상품별 판매 집계';
+
     bodyEl.innerHTML = entries.sort((a, b) => b[1].qty - a[1].qty)
       .map(([compKey, d], idx) => {
         const safeKey = compKey.replace(/'/g, "\\'");
@@ -3089,7 +3099,8 @@ function openSettleGroupDetail(mode, key) {
     if (copyBtn) copyBtn.style.display = 'none';
   }
 
-  document.getElementById('settleDetailTitle').textContent = `🔍 [${displayKey}] 세부 내역 (${matches.length}건)`;
+  const totalPhysicalMatches = matches.reduce((sum, m) => sum + (m.qty || 1), 0);
+  document.getElementById('settleDetailTitle').textContent = `🔍 [${displayKey}] 세부 내역 (${matches.length}건, 실물 ${totalPhysicalMatches}개)`;
   const contentEl = document.getElementById('settleDetailContent');
   
   if (matches.length === 0) contentEl.innerHTML = '<div style="text-align:center; color:#64748B; font-weight:700; padding:20px;">세부 내역이 없습니다.</div>';
@@ -3191,8 +3202,8 @@ function copyMobileCustomerHistory(targetNick) {
           itemsList.push(`📍1+1 단품 ${fullTitle} (${opt1})=${fmt(singlePrice)}원`);
         }
       } else {
-        // normal or etc
-        const q = (p.mode === 'etc' && b.qty) ? (Number(b.qty) || 1) : 1;
+        // normal, etc or gift
+        const q = ((p.mode === 'etc' || p.mode === 'gift') && b.qty) ? (Number(b.qty) || 1) : 1;
         const itemPrice = (Number(p.salePrice) || 0) * q;
         totalPrice += itemPrice;
         totalQty += q;
@@ -3298,7 +3309,7 @@ function openPaperLedger(targetProdId = null) {
         const optPart = [c1, b.s1].filter(Boolean).join(' ').trim();
         buyerCopyStr = optPart ? `${b.nickname} (${optPart})` : b.nickname;
 
-      } else if (p.mode === 'etc') {
+      } else if (p.mode === 'etc' || p.mode === 'gift') {
         optTxt = `${c1 || '-'}, ${b.s1 || '-'}`;
         const bQty = (b.qty && Number(b.qty) > 1) ? Number(b.qty) : 1;
         const optPart = [c1, b.s1].filter(Boolean).join(' ').trim();
@@ -3771,7 +3782,8 @@ async function executeSyncAction(modeChoice) {
           const dPrice = (s.depositPrice !== undefined && s.depositPrice !== '') ? Number(s.depositPrice) : '';
           const qtyVal = Number(s.qty) || 1;
 
-          const cardMode = (qtyVal > 1) ? 'etc' : 'normal';
+          const isGiftRecord = (s.isGift === true || String(s.name).indexOf('[선물]') !== -1 || s.groupType === 'gift');
+          const cardMode = isGiftRecord ? 'gift' : ((qtyVal > 1) ? 'etc' : 'normal');
           const key = `${cardMode}_${pName}_${sPrice}_${dPrice}`;
 
           if (!groupMap.has(key)) {
@@ -3856,19 +3868,20 @@ async function executeSyncAction(modeChoice) {
 
       let c1 = /^색상\d+$/.test(b.c1 || '') ? '' : b.c1;
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
-      let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
+      let bQty = ((p.mode === 'etc' || p.mode === 'gift') && b.qty) ? Number(b.qty) : 1;
 
-      if (p.mode === 'normal' || p.mode === 'etc') {
+      if (p.mode === 'normal' || p.mode === 'etc' || p.mode === 'gift') {
         records.push({
           id: b.id || uid(),
           groupId: b.groupId || '',
-          groupType: b.groupType || '',
+          groupType: p.mode === 'gift' ? 'gift' : '',
           groupRole: b.groupRole || '',
           rowDate: targetDate, date: targetDate, prodNum: b.prodNum || '',
           name: p.name, color: c1, size: b.s1,
           colorSize: [c1, b.s1].filter(Boolean).join('/'),
           nickname: b.nickname, salePrice: p.salePrice || 0, price: p.salePrice || 0,
           depositPrice: p.depositPrice || 0, qty: bQty, memo: b.memo || '',
+          isGift: (p.mode === 'gift'), // 💡 선물 카드 시트 H열 연동 플래그
           tags: { yt: !!b.chkYt, tt: !!b.chkTt, fs: !!b.chkFs, kp: !!b.chkKp }
         });
       } else if (p.mode === 'set') {
@@ -4120,7 +4133,7 @@ function exportExcel() {
         groupCounter++;
       }
 
-      if (p.mode === 'normal' || p.mode === 'etc') {
+      if (p.mode === 'normal' || p.mode === 'etc' || p.mode === 'gift') {
         let qty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
         for (let k = 0; k < qty; k++) {
           records.push({ group: groupStr, name: p.name || '', option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', salePrice: Number(p.salePrice) || 0, depositPrice: Number(p.depositPrice) || 0, memo: mergedMemo });
@@ -4218,7 +4231,7 @@ function exportWarehouseExcel() {
       let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
       let baseDep = Number(p.depositPrice) || 0;
 
-      if (p.mode === 'normal' || p.mode === 'etc') {
+      if (p.mode === 'normal' || p.mode === 'etc' || p.mode === 'gift') {
         addRecord(p.name || '', c1, b.s1 || '', baseDep, bQty, '', baseDep);
       } else if (p.mode === 'set') {
         let topDep = Number(p.topDep) || 0;
@@ -4319,7 +4332,7 @@ function exportEtcExcel() {
         groupCounter++;
       }
 
-      if (p.mode === 'normal' || p.mode === 'etc') {
+      if (p.mode === 'normal' || p.mode === 'etc' || p.mode === 'gift') {
         let uSale = Number(p.salePrice) || 0;
         let uDep = Number(p.depositPrice) || 0;
         records.push({
@@ -4703,19 +4716,19 @@ function renderDepositTab() {
     (p.buyers || []).forEach(b => {
       const nick = (b.nickname || '').trim();
       if(nick && !b.isCanceled) {
-        let dp = 0;
-        let bQty = (p.mode === 'etc' && b.qty) ? Number(b.qty) : 1;
-        if (p.mode === 'normal' || p.mode === 'etc') {
-          dp = (Number(p.depositPrice) || 0) * bQty;
+        let sp = 0; // 🔥 오류 수정: 고객 청구금액을 '판매가' 기준으로 합산
+        let bQty = ((p.mode === 'etc' || p.mode === 'gift') && b.qty) ? Number(b.qty) : 1;
+        if (p.mode === 'normal' || p.mode === 'etc' || p.mode === 'gift') {
+          sp = (Number(p.salePrice) || 0) * bQty;
         } else if (p.mode === 'set') {
-          if (b.opt === 'full') dp = (Number(p.topDep) || 0) + (Number(p.botDep) || 0);
-          else if (b.opt === 'top') dp = Number(p.topDep) || 0;
-          else if (b.opt === 'bottom') dp = Number(p.botDep) || 0;
+          if (b.opt === 'full') sp = (Number(p.topSale) || 0) + (Number(p.botSale) || 0);
+          else if (b.opt === 'top') sp = Number(p.topSale) || 0;
+          else if (b.opt === 'bottom') sp = Number(p.botSale) || 0;
         } else if (p.mode === 'cross') {
-          dp = Number(p.depositPrice) || 0;
-          if (b.opt === 'single') dp = dp / 2;
+          sp = Number(p.salePrice) || 0;
+          if (b.opt === 'single') sp = sp / 2;
         }
-        ledgerMap.set(nick, (ledgerMap.get(nick) || 0) + dp);
+        ledgerMap.set(nick, (ledgerMap.get(nick) || 0) + sp);
       }
     });
   });
@@ -4737,7 +4750,6 @@ function renderDepositTab() {
     if (matchedNick) { 
       if (!bankMappedMap.has(matchedNick)) bankMappedMap.set(matchedNick, 0);
       bankMappedMap.set(matchedNick, bankMappedMap.get(matchedNick) + b.amount);
-
       if (cleanBankName !== cleanBuyerName(matchedNick)) {
         matchedViaRealNameSet.add(matchedNick);
       }
@@ -4746,10 +4758,7 @@ function renderDepositTab() {
     }
   });
 
-  let unmatchedHtml = '';
-  let completedHtml = '';
-  let unCnt = 0;
-  let cmCnt = 0;
+  let integratedHtml = '';
   let cardIdx = 1;
 
   ledgerMap.forEach((ledgerBaseAmt, nick) => {
@@ -4758,7 +4767,6 @@ function renderDepositTab() {
     const diff = bankAmt - finalLedgerAmt;
     const realName = realNameTagMap.get(nick) || '';
 
-    // 🔍 통합검색 필터링 (닉네임, 실명, 청구금액, 입금금액 매칭)
     if (searchQuery) {
       const matchNick = nick.toLowerCase().includes(searchQuery);
       const matchReal = realName.toLowerCase().includes(searchQuery);
@@ -4769,7 +4777,7 @@ function renderDepositTab() {
     
     let statusBadge = '';
     if (bankAmt === 0) statusBadge = `<span class="badge-status badge-none">미입금</span>`;
-    else if (diff === 0) statusBadge = `<span class="badge-status badge-ok">정상 완료</span>`;
+    else if (diff === 0) statusBadge = `<span class="badge-status badge-ok">✅ 정상 완료</span>`;
     else if (diff > 0) statusBadge = `<span class="badge-status badge-over">+${fmt(diff)}원</span>`;
     else statusBadge = `<span class="badge-status badge-lack">-${fmt(Math.abs(diff))}원</span>`;
 
@@ -4791,52 +4799,38 @@ function renderDepositTab() {
 
     const currentCardNum = cardIdx++;
 
-    const cardHtml = `
+    // 💡 정산완료 패널 및 이동 버튼 없이, 번호 버튼 터치(색상 강조)와 계산기만 깔끔하게 배치
+    integratedHtml += `
       <div class="${cardClass}" id="dep-card-${nick}">
         <div class="dep-top-row">
           <div style="display:flex; align-items:center; gap:6px;">
-            <button class="settle-num-btn" onclick="toggleDepositColor('${nick}', 'next', event)" title="색상 토글">${currentCardNum}</button>
-            <div class="dep-name" onclick="openSmartCalcModal('${nick}')" style="cursor:pointer;" title="스마트 계산기">👤 ${nick}</div>
+            <button class="settle-num-btn" onclick="toggleDepositColor('${nick}', 'next', event)" title="터치하여 확인 색상 변경">${currentCardNum}</button>
+            <div class="dep-name" onclick="openSmartCalcModal('${nick}')" style="cursor:pointer;" title="스마트 계산기 열기">👤 ${nick}</div>
           </div>
           <div>${statusBadge}</div>
         </div>
 
         <div class="dep-price-row">
-          <div>청구: <span style="color:var(--purple);">${fmt(finalLedgerAmt)}원</span></div>
-          <div>입금: <span style="color:var(--accent-deposit);">${fmt(bankAmt)}원</span>${realNameTagHtml}</div>
+          <div>청구: <span style="color:var(--purple); font-weight:800;">${fmt(finalLedgerAmt)}원</span></div>
+          <div>입금: <span style="color:var(--accent-deposit); font-weight:800;">${fmt(bankAmt)}원</span>${realNameTagHtml}</div>
         </div>
 
         ${memoBadgeHtml ? `<div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:3px;">${memoBadgeHtml}</div>` : ''}
 
-        <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:6px; gap:4px;">
+        <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:4px;">
           <button class="btn-mini" style="background:#E2E8F0; color:#0F172A; font-weight:800;" onclick="openSmartCalcModal('${nick}')">🧮 계산기</button>
-          ${completedDepositIds.has(nick) 
-            ? `<button class="btn-restore" onclick="moveToUnmatched('${nick}')">↩ 미매칭 복원</button>` 
-            : `<button class="btn-move" onclick="moveToCompleted('${nick}')">정산완료 ➔</button>`}
         </div>
       </div>
     `;
-
-    if (completedDepositIds.has(nick)) {
-      completedHtml += cardHtml;
-      cmCnt++;
-    } else {
-      unmatchedHtml += cardHtml;
-      unCnt++;
-    }
   });
 
-  // 장부 미등록 입금건 필터링
   const filteredUnassigned = unassignedBankList.filter(b => {
     if (!searchQuery) return true;
     return b.name.toLowerCase().includes(searchQuery) || String(b.amount).includes(searchQuery);
   });
 
-  document.getElementById('acc-unmatched').innerHTML = unmatchedHtml || '<div style="text-align:center; padding:10px; color:#94A3B8;">내역이 없습니다.</div>';
-  document.getElementById('cnt-unmatched').textContent = unCnt;
-
-  document.getElementById('acc-completed').innerHTML = completedHtml || '<div style="text-align:center; padding:10px; color:#94A3B8;">내역이 없습니다.</div>';
-  document.getElementById('cnt-completed').textContent = cmCnt;
+  document.getElementById('acc-unmatched').innerHTML = integratedHtml || '<div style="text-align:center; padding:10px; color:#94A3B8;">내역이 없습니다.</div>';
+  document.getElementById('cnt-unmatched').textContent = cardIdx - 1;
 
   document.getElementById('cnt-unknown').textContent = filteredUnassigned.length;
   document.getElementById('acc-unknown').innerHTML = filteredUnassigned.map(b => {
@@ -4850,14 +4844,11 @@ function renderDepositTab() {
     `;
   }).join('') || '<div style="text-align:center; padding:10px; color:#94A3B8;">미등록 입금건이 없습니다.</div>';
 
-  // 💡 검색어가 있을 때 검색 결과가 존재하는 패널 자동 펼침 (Accordion Auto-Expand)
   if (searchQuery) {
-    if (unCnt > 0) { document.getElementById('acc-unmatched').style.display = 'flex'; document.getElementById('acc-unmatched-icon').textContent = '▲'; }
-    if (cmCnt > 0) { document.getElementById('acc-completed').style.display = 'flex'; document.getElementById('acc-completed-icon').textContent = '▲'; }
+    if (cardIdx > 1) { document.getElementById('acc-unmatched').style.display = 'flex'; document.getElementById('acc-unmatched-icon').textContent = '▲'; }
     if (filteredUnassigned.length > 0) { document.getElementById('acc-unknown').style.display = 'flex'; document.getElementById('acc-unknown-icon').textContent = '▲'; }
   }
 
-  // 통장 원본 내역 필터링
   const bankQuery = searchQuery || (document.getElementById('bankSearchInput') ? document.getElementById('bankSearchInput').value.trim().toLowerCase() : '');
   const filteredBank = bankRecords.filter(b => b.name.toLowerCase().includes(bankQuery) || String(b.amount).includes(bankQuery));
   
