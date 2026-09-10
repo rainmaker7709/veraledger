@@ -2075,7 +2075,7 @@ function renderSales() {
             ${priceHtml}
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
-            ${p.mode === 'normal' ? `<button class="btn-mini" style="background:var(--primary-bg); color:var(--primary); font-weight:800; border:1px solid var(--primary);" onclick="openMatrixModal('${p.id}')">🔲 표</button>` : ''}
+            ${(p.mode === 'normal' || p.mode === 'etc') ? `<button class="btn-mini" style="background:var(--primary-bg); color:var(--primary); font-weight:800; border:1px solid var(--primary);" onclick="openMatrixModal('${p.id}')">🔲 표</button>` : ''}
             <button class="btn-fold" onclick="toggleFold('${p.id}')">
               👥 ${activeBuyerCount}명 ${p.isFolded ? '▼' : '▲'}
             </button>
@@ -2531,50 +2531,102 @@ function syncMatrixToSales() {
     }
   });
 
-  matrixState.sizes.forEach((sz, rIdx) => {
-    matrixState.colors.forEach((col, cIdx) => {
-      const key = `${cIdx}_${rIdx}`;
-      const orders = matrixState.orders[key] || [];
-
-      orders.forEach(order => {
-        let val = (order.nickname || '').trim();
+  if (prod.mode === 'etc') {
+    // 💡 [기타카드 전용] 동일 옵션 칸 내 동일 구매자명을 1개 행으로 합치고 수량(qty)에 합산
+    matrixState.sizes.forEach((sz, rIdx) => {
+      matrixState.colors.forEach((col, cIdx) => {
+        const key = `${cIdx}_${rIdx}`;
+        const orders = matrixState.orders[key] || [];
         let cVal = (col || '').trim() || `색상${cIdx + 1}`;
         let sVal = (sz || '').trim();
 
-        if (!val && !cVal && !sVal) return;
+        const grouped = new Map(); // nick -> { count, orderIds }
+        orders.forEach(order => {
+          const nick = (order.nickname || '').trim();
+          if (!nick && !cVal && !sVal) return;
+          if (!grouped.has(nick)) {
+            grouped.set(nick, { count: 0, orderIds: [] });
+          }
+          const g = grouped.get(nick);
+          g.count++;
+          if (order.id) g.orderIds.push(order.id);
+        });
 
-        if (order.id) {
-          let existing = prod.buyers.find(b => b.id === order.id);
+        grouped.forEach((gData, nick) => {
+          let existing = null;
+          for (const oId of gData.orderIds) {
+            existing = prod.buyers.find(b => b.id === oId);
+            if (existing) break;
+          }
+
           if (existing) {
-            existing.nickname = val;
+            existing.nickname = nick;
             existing.c1 = cVal;
             existing.s1 = sVal;
+            existing.qty = gData.count; // 입력 횟수만큼 수량 자동 계산
             applyAutoRewardToBuyer(existing);
             finalBuyers.push(existing);
           } else {
+            let newId = gData.orderIds[0] || uid();
             let b = createEmptyBuyer();
-            b.id = order.id;
+            b.id = newId;
+            b.nickname = nick;
+            b.c1 = cVal;
+            b.s1 = sVal;
+            b.qty = gData.count; // 입력 횟수만큼 수량 자동 계산
+            applyAutoRewardToBuyer(b);
+            finalBuyers.push(b);
+          }
+        });
+      });
+    });
+  } else {
+    // 💡 [일반카드] 기존 1:1 행 생성 로직 유지
+    matrixState.sizes.forEach((sz, rIdx) => {
+      matrixState.colors.forEach((col, cIdx) => {
+        const key = `${cIdx}_${rIdx}`;
+        const orders = matrixState.orders[key] || [];
+
+        orders.forEach(order => {
+          let val = (order.nickname || '').trim();
+          let cVal = (col || '').trim() || `색상${cIdx + 1}`;
+          let sVal = (sz || '').trim();
+
+          if (!val && !cVal && !sVal) return;
+
+          if (order.id) {
+            let existing = prod.buyers.find(b => b.id === order.id);
+            if (existing) {
+              existing.nickname = val;
+              existing.c1 = cVal;
+              existing.s1 = sVal;
+              applyAutoRewardToBuyer(existing);
+              finalBuyers.push(existing);
+            } else {
+              let b = createEmptyBuyer();
+              b.id = order.id;
+              b.nickname = val;
+              b.c1 = cVal;
+              b.s1 = sVal;
+              applyAutoRewardToBuyer(b);
+              finalBuyers.push(b);
+            }
+          } else {
+            let newId = uid();
+            order.id = newId;
+            matrixLoadedBuyerIds.add(newId);
+            let b = createEmptyBuyer();
+            b.id = newId;
             b.nickname = val;
             b.c1 = cVal;
             b.s1 = sVal;
             applyAutoRewardToBuyer(b);
             finalBuyers.push(b);
           }
-        } else {
-          let newId = uid();
-          order.id = newId;
-          matrixLoadedBuyerIds.add(newId);
-          let b = createEmptyBuyer();
-          b.id = newId;
-          b.nickname = val;
-          b.c1 = cVal;
-          b.s1 = sVal;
-          applyAutoRewardToBuyer(b);
-          finalBuyers.push(b);
-        }
+        });
       });
     });
-  });
+  }
 
   if (finalBuyers.length === 0) {
     finalBuyers.push(createEmptyBuyer());
@@ -2631,7 +2683,16 @@ function openMatrixModal(prodId) {
     if (cIdx !== -1 && rIdx !== -1) {
       const key = `${cIdx}_${rIdx}`;
       if (!matrixState.orders[key]) matrixState.orders[key] = [];
-      matrixState.orders[key].push({ id: b.id, nickname: b.nickname });
+
+      // 💡 기타카드는 수량(qty)만큼 매트릭스 칩을 복원하여 나열
+      if (prod.mode === 'etc') {
+        const repeatCount = Math.max(1, parseInt(b.qty) || 1);
+        for (let k = 0; k < repeatCount; k++) {
+          matrixState.orders[key].push({ id: (k === 0 ? b.id : uid()), nickname: b.nickname });
+        }
+      } else {
+        matrixState.orders[key].push({ id: b.id, nickname: b.nickname });
+      }
       matrixLoadedBuyerIds.add(b.id);
     }
   });
