@@ -2523,111 +2523,66 @@ function syncMatrixToSales() {
   prod.matrixSizes = [...matrixState.sizes];
   prod.isMatrixCustomized = true;
 
-  let finalBuyers = [];
+  // 1. 표를 열 당시 표 좌표에 매칭되지 못했던 기존 유효 고객만 보존 (유령/빈 고객 누적 완전 차단)
+  let finalBuyers = [...(prod._initialUnmappedBuyers || [])];
 
-  prod.buyers.forEach(b => {
-    if (!matrixLoadedBuyerIds.has(b.id)) {
-      finalBuyers.push(b);
-    }
-  });
-
+  // 2. 매트릭스 그리드에서 실제 이름이 입력된 항목만 수집
   if (prod.mode === 'etc') {
-    // 💡 [기타카드 전용] 동일 옵션 칸 내 동일 구매자명을 1개 행으로 합치고 수량(qty)에 합산
+    // 💡 [기타카드] 같은 칸의 동일 고객은 무조건 1줄로 묶고 수량(qty)에 개수 반영
     matrixState.sizes.forEach((sz, rIdx) => {
       matrixState.colors.forEach((col, cIdx) => {
         const key = `${cIdx}_${rIdx}`;
         const orders = matrixState.orders[key] || [];
-        let cVal = (col || '').trim() || `색상${cIdx + 1}`;
-        let sVal = (sz || '').trim();
+        const cVal = (col || '').trim();
+        const sVal = (sz || '').trim();
 
-        const grouped = new Map(); // nick -> { count, orderIds }
+        // 고객별 입력 횟수 집계
+        const nickMap = new Map();
         orders.forEach(order => {
           const nick = (order.nickname || '').trim();
-          if (!nick && !cVal && !sVal) return;
-          if (!grouped.has(nick)) {
-            grouped.set(nick, { count: 0, orderIds: [] });
-          }
-          const g = grouped.get(nick);
-          g.count++;
-          if (order.id) g.orderIds.push(order.id);
+          if (!nick) return; // 이름 없는 빈 칩은 절대 생성하지 않음!
+          if (!nickMap.has(nick)) nickMap.set(nick, { count: 0, orderId: order.id });
+          nickMap.get(nick).count++;
         });
 
-        grouped.forEach((gData, nick) => {
-          let existing = null;
-          for (const oId of gData.orderIds) {
-            existing = prod.buyers.find(b => b.id === oId);
-            if (existing) break;
-          }
-
-          if (existing) {
-            existing.nickname = nick;
-            existing.c1 = cVal;
-            existing.s1 = sVal;
-            existing.qty = gData.count; // 입력 횟수만큼 수량 자동 계산
-            applyAutoRewardToBuyer(existing);
-            finalBuyers.push(existing);
-          } else {
-            let newId = gData.orderIds[0] || uid();
-            let b = createEmptyBuyer();
-            b.id = newId;
-            b.nickname = nick;
-            b.c1 = cVal;
-            b.s1 = sVal;
-            b.qty = gData.count; // 입력 횟수만큼 수량 자동 계산
-            applyAutoRewardToBuyer(b);
-            finalBuyers.push(b);
-          }
+        nickMap.forEach((info, nick) => {
+          let b = createEmptyBuyer();
+          b.id = info.orderId || uid();
+          b.nickname = nick;
+          b.c1 = cVal;
+          b.s1 = sVal;
+          b.qty = info.count; // 입력 횟수만큼 정확히 수량 반영
+          applyAutoRewardToBuyer(b);
+          finalBuyers.push(b);
         });
       });
     });
   } else {
-    // 💡 [일반카드] 기존 1:1 행 생성 로직 유지
+    // 💡 [일반카드] 각 칩당 1줄씩 생성하되, 빈 이름 칩은 무시
     matrixState.sizes.forEach((sz, rIdx) => {
       matrixState.colors.forEach((col, cIdx) => {
         const key = `${cIdx}_${rIdx}`;
         const orders = matrixState.orders[key] || [];
+        const cVal = (col || '').trim();
+        const sVal = (sz || '').trim();
 
         orders.forEach(order => {
-          let val = (order.nickname || '').trim();
-          let cVal = (col || '').trim() || `색상${cIdx + 1}`;
-          let sVal = (sz || '').trim();
+          const nick = (order.nickname || '').trim();
+          if (!nick) return; // 빈 칩 무시
 
-          if (!val && !cVal && !sVal) return;
-
-          if (order.id) {
-            let existing = prod.buyers.find(b => b.id === order.id);
-            if (existing) {
-              existing.nickname = val;
-              existing.c1 = cVal;
-              existing.s1 = sVal;
-              applyAutoRewardToBuyer(existing);
-              finalBuyers.push(existing);
-            } else {
-              let b = createEmptyBuyer();
-              b.id = order.id;
-              b.nickname = val;
-              b.c1 = cVal;
-              b.s1 = sVal;
-              applyAutoRewardToBuyer(b);
-              finalBuyers.push(b);
-            }
-          } else {
-            let newId = uid();
-            order.id = newId;
-            matrixLoadedBuyerIds.add(newId);
-            let b = createEmptyBuyer();
-            b.id = newId;
-            b.nickname = val;
-            b.c1 = cVal;
-            b.s1 = sVal;
-            applyAutoRewardToBuyer(b);
-            finalBuyers.push(b);
-          }
+          let b = createEmptyBuyer();
+          b.id = order.id || uid();
+          b.nickname = nick;
+          b.c1 = cVal;
+          b.s1 = sVal;
+          applyAutoRewardToBuyer(b);
+          finalBuyers.push(b);
         });
       });
     });
   }
 
+  // 데이터가 아예 비어있으면 깨끗한 빈 줄 1개 유지
   if (finalBuyers.length === 0) {
     finalBuyers.push(createEmptyBuyer());
   }
@@ -2648,52 +2603,67 @@ function openMatrixModal(prodId) {
   matrixRedoStack = [];
   
   document.getElementById('matrixHeaderTitle').textContent = `🔲 [${prod.name || '상품'}] 매트릭스`;
-  
-  const cardColors = Array.from(new Set(prod.buyers.map(b => (b.c1 || '').trim()).filter(Boolean)));
-  const cardSizes = Array.from(new Set(prod.buyers.map(b => (b.s1 || '').trim()).filter(Boolean)));
 
-  if (!prod.isMatrixCustomized && (cardColors.length > 0 || cardSizes.length > 0)) {
-    prod.matrixColors = cardColors.length > 0 ? cardColors : ['', ''];
-    prod.matrixSizes = cardSizes.length > 0 ? cardSizes : ['프리', 'S', 'M', 'L', 'XL', '2XL'];
-  } else {
-    if (!prod.matrixColors || prod.matrixColors.length === 0) prod.matrixColors = ['', ''];
-    if (!prod.matrixSizes || prod.matrixSizes.length === 0) prod.matrixSizes = ['프리', 'S', 'M', 'L', 'XL', '2XL'];
+  // 카드에 현재 입력되어 있는 유효한 색상과 사이즈 수집
+  const validBuyers = (prod.buyers || []).filter(b => (b.nickname || '').trim() !== '');
+  const cardColors = Array.from(new Set(validBuyers.map(b => (b.c1 || '').trim()).filter(Boolean)));
+  const cardSizes = Array.from(new Set(validBuyers.map(b => (b.s1 || '').trim()).filter(Boolean)));
+
+  // 💡 [핵심 1: 사이즈 자동 감지 및 최적 프리셋 스위칭]
+  const hasWomen = cardSizes.some(s => ['44', '55', '66', '77', '88', '99'].includes(s));
+  const hasShoe = cardSizes.some(s => PRESET_SIZES_SHOES.includes(s));
+  const hasSport = cardSizes.some(s => ['S', 'M', 'L', 'XL', '2XL', '3XL'].includes(s.toUpperCase()));
+
+  if (hasWomen) {
+    currentPresetIndex = 1; // 👗 여성복 (프리, 44, 55, 66, 77)
+  } else if (hasShoe) {
+    currentPresetIndex = 2; // 👟 신발 (220 ~ 285)
+  } else if (hasSport) {
+    currentPresetIndex = 0; // 👕 스포츠 (프리, S, M, L, XL, 2XL)
   }
-
-  matrixState.colors = (prod.matrixColors || ['', '']).map((col, idx) => (col || '').trim());
-  matrixState.sizes = [...prod.matrixSizes];
-
   updatePresetButtonText();
 
+  // 프리셋 기본 사이즈 세팅 + 카드에 적힌 사이즈가 있다면 누락 없이 행 병합
+  let baseSizes = [...MATRIX_PRESETS[currentPresetIndex].sizes];
+  cardSizes.forEach(s => {
+    if (!baseSizes.includes(s)) baseSizes.push(s);
+  });
+  matrixState.sizes = baseSizes;
+
+  // 카드에 적힌 색상이 있으면 1열부터 채우고, 최소 2개 열 유지
+  let baseColors = cardColors.length > 0 ? [...cardColors] : ['', ''];
+  while (baseColors.length < 2) baseColors.push('');
+  matrixState.colors = baseColors;
+
+  // 💡 [핵심 2: 외부 고객 보존용 격리 보관함 (자기복제 버그 원천 차단)]
+  prod._initialUnmappedBuyers = [];
+
+  // 카드에 있던 고객들을 매트릭스 표 좌표에 정확히 배치
   prod.buyers.forEach(b => {
-    if (!b.nickname && !b.c1 && !b.s1) return;
-    
-    let targetColor = (b.c1 || '').trim();
-    let cIdx = matrixState.colors.indexOf(targetColor);
-    
-    if (cIdx === -1 && /^색상\d+$/.test(targetColor)) {
-      const defaultIdx = parseInt(targetColor.replace('색상', ''), 10) - 1;
-      if (defaultIdx >= 0 && defaultIdx < matrixState.colors.length) {
-        cIdx = defaultIdx;
-      }
-    }
-    
-    let rIdx = matrixState.sizes.indexOf((b.s1 || '').trim());
-    
+    const nick = (b.nickname || '').trim();
+    const cVal = (b.c1 || '').trim();
+    const sVal = (b.s1 || '').trim();
+
+    // 고객명이 없으면 표에 올리지 않음
+    if (!nick) return;
+
+    // 색상과 사이즈가 모두 갖춰져야 표 좌표(X, Y)에 배치 가능
+    let cIdx = matrixState.colors.indexOf(cVal);
+    let rIdx = matrixState.sizes.indexOf(sVal);
+
     if (cIdx !== -1 && rIdx !== -1) {
       const key = `${cIdx}_${rIdx}`;
       if (!matrixState.orders[key]) matrixState.orders[key] = [];
 
-      // 💡 기타카드는 수량(qty)만큼 매트릭스 칩을 복원하여 나열
-      if (prod.mode === 'etc') {
-        const repeatCount = Math.max(1, parseInt(b.qty) || 1);
-        for (let k = 0; k < repeatCount; k++) {
-          matrixState.orders[key].push({ id: (k === 0 ? b.id : uid()), nickname: b.nickname });
-        }
-      } else {
-        matrixState.orders[key].push({ id: b.id, nickname: b.nickname });
+      // 기타카드는 수량(qty)만큼 칩을 복원하여 나열
+      const repeatCount = (prod.mode === 'etc') ? Math.max(1, parseInt(b.qty) || 1) : 1;
+      for (let k = 0; k < repeatCount; k++) {
+        matrixState.orders[key].push({ id: b.id, nickname: nick });
       }
       matrixLoadedBuyerIds.add(b.id);
+    } else {
+      // 색상이나 사이즈가 미지정되어 표에 못 올라간 고객은 따로 보존
+      prod._initialUnmappedBuyers.push(b);
     }
   });
 
