@@ -79,10 +79,12 @@
     border-top-right-radius: calc(var(--radius) - 1.5px);
   }
 
-  .row-card.mode-normal { border-color: #C4B5FD; }
-  .row-card.mode-normal .card-band { border-left: 4px solid #7C3AED; background: #EDE9FE; display: flex; flex-direction: column; }
-  .row-card.mode-normal .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #C4B5FD; }
-  .row-card.mode-normal .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #E0E7FF; border-bottom: 1px solid #C4B5FD; }
+  /* 숨겨둘 예전 일반카드 (현재는 브라운 톤 적용) */
+  .row-card.mode-normal { border-color: #BCAAA4; }
+  .row-card.mode-normal .card-band { border-left: 4px solid #8D6E63; background: #EFEBE9; display: flex; flex-direction: column; }
+  .row-card.mode-normal .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #BCAAA4; }
+  .row-card.mode-normal .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #D7CCC8; border-bottom: 1px solid #BCAAA4; }
+  .row-card.mode-normal .prod-num-badge { background: #8D6E63; }
 
   .row-card.mode-set { border-color: #34D399; }
   .row-card.mode-set .card-band { border-left: 4px solid #059669; background: #ECFDF5; display: flex; flex-direction: column; }
@@ -94,18 +96,30 @@
   .row-card.mode-cross .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #93C5FD; }
   .row-card.mode-cross .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #E0F2FE; border-bottom: 1px solid #93C5FD; }
 
-/* 기타 카드 (눈이 편안한 연한 샌드 브라운 톤) */
-  .row-card.mode-etc { border-color: #BCAAA4; }
-  .row-card.mode-etc .card-band { border-left: 4px solid #8D6E63; background: #EFEBE9; display: flex; flex-direction: column; }
-  .row-card.mode-etc .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #BCAAA4; }
-  .row-card.mode-etc .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #D7CCC8; border-bottom: 1px solid #BCAAA4; }
-  .row-card.mode-etc .prod-num-badge { background: #8D6E63; }
+/* 🌟 새롭게 쓸 일반 카드 (내부 코드는 etc지만, 색상은 보라색으로 적용) */
+  .row-card.mode-etc { border-color: #C4B5FD; }
+  .row-card.mode-etc .card-band { border-left: 4px solid #7C3AED; background: #EDE9FE; display: flex; flex-direction: column; }
+  .row-card.mode-etc .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #C4B5FD; }
+  .row-card.mode-etc .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #E0E7FF; border-bottom: 1px solid #C4B5FD; }
+  .row-card.mode-etc .prod-num-badge { background: #7C3AED; }
 
   /* 기타 및 선물 카드 비율 조절 */
   .row-card.mode-etc .inp-nick, .row-card.mode-gift .inp-nick { flex: 0 1 25% !important; min-width: 35px; }
   .row-card.mode-etc .inp-color, .row-card.mode-gift .inp-color { width: 42px !important; }
   .row-card.mode-etc .inp-size, .row-card.mode-gift .inp-size { width: 42px !important; }
-  .inp-qty { width: 42px; text-align: center; font-size: 12px; font-weight: 800; color: #5D4037; border: 1.5px solid #8D6E63; background: #FFF8E1; cursor: pointer; flex-shrink: 0; padding: 4px 2px; }
+  /* 1개일 때: 깔끔하고 차분한 기본 테두리 */
+  .inp-qty { 
+    width: 42px; text-align: center; font-size: 12px; font-weight: 800; 
+    color: var(--ink); border: 1.5px solid var(--line); background: #FFFFFF; 
+    cursor: pointer; flex-shrink: 0; padding: 4px 2px; 
+  }
+
+  /* 2개 이상일 때: 일반카드/선물카드 공통으로 켜지는 예쁜 붉은 테두리 */
+  .inp-qty.is-multi { 
+    color: #991B1B !important; 
+    border-color: #EF4444 !important; 
+    background: #FFF1F2 !important; 
+  }
 
   /* 🎁 선물 카드 (세트 핑크보다 짙은 파스텔 코랄 레드 톤) */
   .row-card.mode-gift { border-color: #F87171; }
@@ -113,7 +127,6 @@
   .row-card.mode-gift .card-band-top { padding: 6px 8px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-bottom: 1px dashed #F87171; }
   .row-card.mode-gift .card-band-bottom { padding: 6px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #FECDD3; border-bottom: 1px solid #F87171; }
   .row-card.mode-gift .prod-num-badge { background: #DC2626; }
-  .row-card.mode-gift .inp-qty { color: #991B1B; border-color: #EF4444; background: #FFF1F2; }
 
   /* 확대된 상품 번호 원형 배지 */
   .prod-num-badge {
@@ -547,11 +560,12 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
     </div>
 
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; width:100%;">
-      <button class="btn-chip" style="background:#2F80ED; color:#fff; padding:8px; width:100%;" onclick="exportJsonForPC()">📁 PC용 JSON 공유</button>
-      <button class="btn-chip" style="background:#8B5CF6; color:#fff; padding:8px; width:100%;" onclick="document.getElementById('mobile-json-import').click()">📥 PC JSON 불러오기</button>
-      <button class="btn-chip" style="background:#10B981; color:#fff; padding:8px; width:100%;" onclick="exportWarehouseExcel()">📦 창고 정산용 엑셀</button>
-      <button class="btn-chip" style="background:#27AE60; color:#fff; padding:8px; width:100%;" onclick="exportExcel()">📊 엑셀 내보내기</button>
-      <button class="btn-chip" style="background:#8D6E63; color:#fff; padding:8px; width:100%;" onclick="exportEtcExcel()">🤎 기타 엑셀 내보내기</button>
+      <button class="btn-chip" style="background:#2F80ED; color:#fff; padding:8px; width:100%;" onclick="exportJsonForPC()">📁 JSON 파일 저장</button>
+      <button class="btn-chip" style="background:#8B5CF6; color:#fff; padding:8px; width:100%;" onclick="document.getElementById('mobile-json-import').click()">📥 JSON 불러오기</button>
+      <button class="btn-chip" style="background:#F472B6; color:#fff; padding:8px; width:100%;" onclick="exportWarehouseExcel()">📦 창고 정산용 엑셀</button>
+      <!-- 기존 코드 -->
+<button class="btn-chip" style="background:#8D6E63; color:#fff; padding:8px; width:100%;" onclick="exportExcel()">📊 엑셀 내보내기</button>
+<button class="btn-chip" style="background:#27AE60; color:#fff; padding:8px; width:100%;" onclick="exportEtcExcel()">❤️ 통합 엑셀 내보내기</button>
       <input type="text" id="warehouseNameInput" class="inp" style="width:100%; min-width:0; height:100%; padding:8px; text-align:center; font-weight:800; border-radius:6px;" placeholder="🏭 창고명 입력" onfocus="handleInputFocus(this)" oninput="saveWarehouseName()">
     </div>
     <input type="file" id="mobile-json-import" accept=".json" style="display:none;" onchange="importJsonFile(event)">
@@ -607,7 +621,7 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
       
       <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
         <span style="font-size:12px; font-weight:800; color:var(--ink-sub);">🚚 총 배송비 일괄적용:</span>
-        <input type="text" id="global-shipping-input" class="inp inp-num" style="width: 80px;" placeholder="0" value="0" onchange="renderDepositTab()">
+        <input type="text" id="global-shipping-input" class="inp inp-num" style="width: 80px;" placeholder="0" value="0" onchange="renderDepositTab(); saveDepositData();">
       </div>
 
       <!-- 🔍 입금정산 전체 통합검색창 추가 -->
@@ -1140,9 +1154,10 @@ function updatePresetButtonText() {
   if (btn) btn.textContent = MATRIX_PRESETS[currentPresetIndex].name;
 }
 
+// 1. 처음 앱을 켰을 때 생기는 빈 카드
 function createEmptyProduct() {
   return { 
-    id: uid(), mode: 'normal', name: '', 
+    id: uid(), mode: 'etc', name: '', // 👈 'normal'을 'etc'로 변경
     salePrice: '', depositPrice: '',
     topSale: '', topDep: '', botSale: '', botDep: '',
     matrixColors: ['', ''], matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'], 
@@ -2059,8 +2074,9 @@ function renderSales() {
           <button class="btn-mini del" onclick="deleteProduct('${p.id}')">✕</button>
           <button class="prod-num-badge" onclick="openPaperLedger('${p.id}')" title="이 상품만 장부 보기">${pIdx + 1}</button>
           <select class="select-mode" onchange="updateProductData('${p.id}', 'mode', this.value)">
-            <option value="normal" ${p.mode==='normal'?'selected':''}>📦일반</option>
-            <option value="etc" ${p.mode==='etc'?'selected':''}>🤎기타</option>
+            <option value="etc" ${p.mode==='etc'?'selected':''}>📦일반</option>
+            <!-- 👇 예전 일반카드는 기타로 이름을 바꾸고 숨겨둡니다 -->
+            <option value="normal" ${p.mode==='normal'?'selected':''} style="display:none;">🤎기타(사용안함)</option>
             <option value="gift" ${p.mode==='gift'?'selected':''}>🎁선물</option>
             <option value="set" ${p.mode==='set'?'selected':''}>👕세트</option>
             <option value="cross" ${p.mode==='cross'?'selected':''}>👟1+1</option>
@@ -2128,9 +2144,11 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
 
   if (p.mode === 'normal' || p.mode === 'etc' || p.mode === 'gift') {
         const isEtcOrGift = (p.mode === 'etc' || p.mode === 'gift');
-        const displayQty = (parseInt(b.qty) || 1) + '개';
+        const numQty = parseInt(b.qty) || 1;
+        const displayQty = numQty + '개';
+        const multiClass = numQty >= 2 ? 'is-multi' : ''; // 👈 2개 이상일 때 붉은 테두리 클래스 부착
         const tailItem = isEtcOrGift 
-          ? `<input type="text" inputmode="numeric" class="inp inp-qty" value="${displayQty}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">${cancelBtn}`
+          ? `<input type="text" inputmode="numeric" class="inp inp-qty ${multiClass}" value="${displayQty}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">${cancelBtn}`
           : cancelBtn;
 
         return `
@@ -2362,7 +2380,7 @@ function updateSummaryLogic() {
 
 function addEmptyRow() { 
   saveState(); 
-  const lastMode = sales.length > 0 ? sales[sales.length - 1].mode : 'normal';
+  const lastMode = sales.length > 0 ? sales[sales.length - 1].mode : 'etc'; // 👈 'normal'을 'etc'로 변경
   const newProd = createEmptyProduct();
   newProd.mode = lastMode; 
   sales.push(newProd); 
@@ -3814,7 +3832,7 @@ async function executeSyncAction(modeChoice) {
           const qtyVal = Number(s.qty) || 1;
 
           const isGiftRecord = (s.isGift === true || String(s.name).indexOf('[선물]') !== -1 || s.groupType === 'gift');
-          const cardMode = isGiftRecord ? 'gift' : ((qtyVal > 1) ? 'etc' : 'normal');
+          const cardMode = isGiftRecord ? 'gift' : 'etc';
           const key = `${cardMode}_${pName}_${sPrice}_${dPrice}`;
 
           if (!groupMap.has(key)) {
@@ -4112,7 +4130,7 @@ function importJsonFile(e) {
       const groupMap = new Map();
       rawSales.forEach(s => {
         const key = `${s.name || ''}_${s.salePrice || ''}_${s.depositPrice || ''}`;
-        if (!groupMap.has(key)) groupMap.set(key, { id: uid(), mode: 'normal', name: s.name || '', salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', topSale:'', topDep:'', botSale:'', botDep:'', matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], isMatrixCustomized: false, isFolded: false, buyers: [] });
+        if (!groupMap.has(key)) groupMap.set(key, { id: uid(), mode: 'etc', name: s.name || '', salePrice: s.salePrice || '', depositPrice: s.depositPrice || '', topSale:'', topDep:'', botSale:'', botDep:'', matrixColors: ['', ''], matrixSizes: ['S', 'M', 'L', 'XL', '2XL'], isMatrixCustomized: false, isFolded: false, buyers: [] });
         
         let yt = false, tt = false, fs = false, kp = false;
         if(s.tags) { yt = !!s.tags.yt; tt = !!s.tags.tt; fs = !!s.tags.fs; kp = !!s.tags.kp; }
@@ -5033,6 +5051,7 @@ function saveDepositData() {
   localStorage.setItem('m_live_deposit_filename', depositFileName);
   localStorage.setItem('m_live_deposit_completed', JSON.stringify(Array.from(completedDepositIds)));
   localStorage.setItem('m_live_deposit_colors', JSON.stringify(depositColors));
+  localStorage.setItem('m_live_deposit_shipping', depositGlobalShipping); // 👈 배송비 저장 추가
 }
 
 function loadDepositData() {
@@ -5045,6 +5064,16 @@ function loadDepositData() {
     if (completed) completedDepositIds = new Set(JSON.parse(completed));
     const colors = localStorage.getItem('m_live_deposit_colors');
     if (colors) depositColors = JSON.parse(colors);
+    
+    // 👇 배송비 불러오기 및 입력창에 적용하는 코드 추가
+    const shipping = localStorage.getItem('m_live_deposit_shipping');
+    if (shipping) {
+      depositGlobalShipping = Number(shipping) || 0;
+      const shippingInput = document.getElementById('global-shipping-input');
+      if (shippingInput) {
+        shippingInput.value = depositGlobalShipping === 0 ? '0' : depositGlobalShipping.toLocaleString('ko-KR');
+      }
+    }
   } catch(e) {}
 }
 
