@@ -114,11 +114,10 @@
     cursor: pointer; flex-shrink: 0; padding: 4px 2px; 
   }
 
-  /* 2개 이상일 때: 일반카드/선물카드 공통으로 켜지는 예쁜 붉은 테두리 */
-  .inp-qty.is-multi { 
-    color: #991B1B !important; 
-    border-color: #EF4444 !important; 
-    background: #FFF1F2 !important; 
+  /* 💡 2개 이상 주문 고객: 배경은 그대로 두고 줄 전체 바깥 테두리만 빨간색 강조 */
+  .buyer-item.is-multi-qty { 
+    border: 2.5px solid #EF4444 !important; 
+    border-radius: 6px !important; 
   }
 
   /* 🎁 선물 카드 (세트 핑크보다 짙은 파스텔 코랄 레드 톤) */
@@ -167,7 +166,7 @@
   .inp-nick { font-weight: 800; flex: 1; min-width: 40px; }
   .inp-model { flex: none; width: 90px; min-width: 40px; }
   .inp-num { text-align: right; font-weight: 800; font-family: monospace; }
-  .select-mode { border: 1.5px solid var(--line); background: #fff; border-radius: 5px; padding: 4px 2px; font-size: 11px; font-weight: 800; outline: none; color: var(--ink); flex-shrink: 0; }
+  .select-mode { border: 1.5px solid var(--line); background: #fff; border-radius: 5px; padding: 4px 2px; font-size: 11px; font-weight: 800; outline: none; color: var(--ink); flex-shrink: 0; max-width: 65px; }
 
   .btn-mini { background: #E5E8EB; border: none; padding: 4px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #334155; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
   .btn-mini.del { color: var(--danger); background: #FFF0F0; border: 1px solid #FCA5A5; }
@@ -2146,13 +2145,13 @@ function renderBuyerItemHTML(p, b, isMultiBuyer, bIdx) {
         const isEtcOrGift = (p.mode === 'etc' || p.mode === 'gift');
         const numQty = parseInt(b.qty) || 1;
         const displayQty = numQty + '개';
-        const multiClass = numQty >= 2 ? 'is-multi' : ''; // 👈 2개 이상일 때 붉은 테두리 클래스 부착
+        const multiRowClass = numQty >= 2 ? 'is-multi-qty' : ''; // 👈 줄 전체에 붙일 붉은 테두리 클래스
         const tailItem = isEtcOrGift 
-          ? `<input type="text" inputmode="numeric" class="inp inp-qty ${multiClass}" value="${displayQty}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">${cancelBtn}`
+          ? `<input type="text" inputmode="numeric" class="inp inp-qty" value="${displayQty}" placeholder="수량" onfocus="handleQtyFocus(this, '${p.id}', '${b.id}')" oninput="handleQtyFocus(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'qty', this.value)">${cancelBtn}`
           : cancelBtn;
 
         return `
-      <div class="buyer-item ${b.isCanceled ? 'canceled' : ''}" data-buyer-id="${b.id}" style="background:#fff; border:none; border-bottom:1px dashed #E5E8EB; flex-direction:row; align-items:center; gap:3px;">
+      <div class="buyer-item ${b.isCanceled ? 'canceled' : ''} ${multiRowClass}" data-buyer-id="${b.id}" style="background:#fff; border:none; border-bottom:1px dashed #E5E8EB; flex-direction:row; align-items:center; gap:3px;">
         ${safeDelNumBtn}
         <input type="text" class="inp inp-nick" style="color:${nickColor};" value="${b.nickname}" placeholder="👤 고객명" onfocus="handleNickInput(this, '${p.id}', '${b.id}')" oninput="handleNickInput(this, '${p.id}', '${b.id}')" onchange="updateBuyerData('${p.id}', '${b.id}', 'nickname', this.value)">
         ${memoBtn}
