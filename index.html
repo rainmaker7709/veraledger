@@ -166,7 +166,7 @@
   .inp-nick { font-weight: 800; flex: 1; min-width: 40px; }
   .inp-model { flex: none; width: 90px; min-width: 40px; }
   .inp-num { text-align: right; font-weight: 800; font-family: monospace; }
-  .select-mode { border: 1.5px solid var(--line); background: #fff; border-radius: 5px; padding: 4px 2px; font-size: 11px; font-weight: 800; outline: none; color: var(--ink); flex-shrink: 0; max-width: 65px; }
+  .select-mode { border: 1.5px solid var(--line); background: #fff; border-radius: 5px; padding: 4px 2px; font-size: 11px; font-weight: 800; outline: none; color: var(--ink); flex-shrink: 0; width: 58px; }
 
   .btn-mini { background: #E5E8EB; border: none; padding: 4px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; color: #334155; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
   .btn-mini.del { color: var(--danger); background: #FFF0F0; border: 1px solid #FCA5A5; }
@@ -2073,10 +2073,9 @@ function renderSales() {
           <button class="btn-mini del" onclick="deleteProduct('${p.id}')">✕</button>
           <button class="prod-num-badge" onclick="openPaperLedger('${p.id}')" title="이 상품만 장부 보기">${pIdx + 1}</button>
           <select class="select-mode" onchange="updateProductData('${p.id}', 'mode', this.value)">
-            <option value="etc" ${p.mode==='etc'?'selected':''}>📦일반</option>
-            <!-- 👇 예전 일반카드는 기타로 이름을 바꾸고 숨겨둡니다 -->
-            <option value="normal" ${p.mode==='normal'?'selected':''} style="display:none;">🤎기타(사용안함)</option>
-            <option value="gift" ${p.mode==='gift'?'selected':''}>🎁선물</option>
+  <option value="etc" ${p.mode==='etc'?'selected':''}>📦일반</option>
+  <option value="normal" ${p.mode==='normal'?'selected':''} style="display:none;">기타</option>
+  <option value="gift" ${p.mode==='gift'?'selected':''}>🎁선물</option>
             <option value="set" ${p.mode==='set'?'selected':''}>👕세트</option>
             <option value="cross" ${p.mode==='cross'?'selected':''}>👟1+1</option>
           </select>
