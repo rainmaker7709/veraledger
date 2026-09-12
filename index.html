@@ -836,6 +836,46 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
     </div>
   </div>
 
+<!-- 📥 2단계: 장부 불러오기 상세 옵션 모달 (모바일용) -->
+  <div class="modal-overlay" id="mobileSyncStep2Modal" onclick="if(event.target === this) closeSyncStep2Modal()">
+    <div class="modal-box" style="width:340px; max-width:92vw;">
+      <div class="modal-title">
+        <span>📥 불러오기 상세 설정</span>
+        <button class="btn-mini del" onclick="closeSyncStep2Modal()">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px; margin-top:4px;">
+        <!-- 1. 불러올 날짜 범위 -->
+        <div style="background:#F8FAFC; border:1.5px solid #CBD5E1; border-radius:8px; padding:10px;">
+          <div style="font-size:13px; font-weight:800; margin-bottom:8px; color:#1E293B;">1. 불러올 데이터 범위</div>
+          <label style="display:flex; align-items:center; gap:6px; margin-bottom:8px; font-size:12.5px; font-weight:700;">
+            <input type="radio" name="fetch_range" value="all" checked onchange="toggleFetchDateInput()" style="width:16px; height:16px;"> 전체 데이터 가져오기
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;">
+            <input type="radio" name="fetch_range" value="specific" onchange="toggleFetchDateInput()" style="width:16px; height:16px;"> 특정 날짜만 선택 가져오기
+          </label>
+          <input type="text" id="fetch-specific-dates" class="inp" style="display:none; margin-top:8px; width:100%; border-color:var(--primary);" placeholder="예: 09.08수요일, 09.09 (쉼표 구분)">
+        </div>
+
+        <!-- 2. 적용 방식 -->
+        <div style="background:#F8FAFC; border:1.5px solid #CBD5E1; border-radius:8px; padding:10px;">
+          <div style="font-size:13px; font-weight:800; margin-bottom:8px; color:#1E293B;">2. 현재 화면에 적용할 방식</div>
+          <label style="display:flex; align-items:center; gap:6px; margin-bottom:8px; font-size:12.5px; font-weight:700;">
+            <input type="radio" name="fetch_method" value="overwrite" checked style="width:16px; height:16px;"> <span style="color:var(--danger);">새로 덮어씌우기</span>
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;">
+            <input type="radio" name="fetch_method" value="append" style="width:16px; height:16px;"> <span style="color:var(--primary);">아래에 이어서 붙이기</span>
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; gap:8px; margin-top:6px;">
+        <button type="button" class="btn-chip" style="background:#E2E8F0; color:#475569; padding:10px; flex:1; font-weight:800;" onclick="backToSyncStep1()">◀ 뒤로</button>
+        <button type="button" class="btn-chip" style="background:var(--purple); color:#fff; padding:10px; flex:2; font-weight:800;" onclick="executeFetchStep2()">📥 불러오기 실행</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -3622,267 +3662,15 @@ async function executeSyncAction(modeChoice) {
   localStorage.setItem('m_live_sync_session', sessionVal);
   lastTargetDate = targetDate;
 
-  // [옵션 4: 최신 장부 불러오기 - 1+1 및 세트 전용 카드로 지능형 자동 조립]
+  // [옵션 4: 최신 장부 불러오기 - 2단계 팝업으로 연결]
   if (modeChoice === "4") {
-    if (!confirm(`📥 [옵션 4: 실시간 장부 불러오기]\n\n날짜/회차: [${targetDate}]\n\n서버에 올라온 최신 데이터를 모바일 카드로 가져오시겠습니까?\n(기존 화면 내용은 되돌리기가 가능합니다)`)) return;
-
     closeApiSyncModal();
-    toast(`📥 실시간 장부 데이터를 가져오는 중...`);
-
-    try {
-      const res = await fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({ fn: 'loadLiveSalesRecords', args: [targetDate] })
-      }).then(r => r.json());
-
-      // 👇👇👇 추가되는 부분: 적립금&무배 데이터 동시 불러오기 👇👇👇
-      try {
-        const rewardRes = await fetch(GAS_URL, {
-          method: 'POST',
-          body: JSON.stringify({ fn: 'loadRewardTable2', args: [] })
-        }).then(r => r.json());
-        
-        if (rewardRes && rewardRes.success) {
-          rewardTableData = rewardRes.records || [];
-          if (typeof renderRewardTable === 'function') renderRewardTable(); // 모달창 즉시 갱신
-        }
-      } catch (e) {
-        console.log('적립금 데이터 동기화 실패', e);
-      }
-      // 👆👆👆 여기까지 👆👆👆
-
-      if (res && res.success) {
-        if (!res.records || res.records.length === 0) {
-          toast(`⚠️ 불러올 실시간 장부 데이터가 없습니다.`);
-          return;
-        }
-
-        saveState();
-
-        // 1. 그룹 묶음(1+1, 세트)과 단품 분리
-        const groupClusters = new Map();
-        const singleItems = [];
-
-        res.records.forEach(s => {
-          if (s.groupId && (s.groupType === '1+1' || s.groupType === '세트')) {
-            if (!groupClusters.has(s.groupId)) groupClusters.set(s.groupId, []);
-            groupClusters.get(s.groupId).push(s);
-          } else {
-            singleItems.push(s);
-          }
-        });
-
-        const groupMap = new Map();
-
-        // 2. 1+1 및 세트 그룹을 모바일 전용 카드로 자동 조립
-        groupClusters.forEach((cluster, gId) => {
-          const startItem = cluster.find(it => it.groupRole === 'start') || cluster[0];
-          const endItem = cluster.find(it => it !== startItem) || null;
-          const gType = startItem.groupType || (endItem ? endItem.groupType : '1+1');
-
-          if (gType === '1+1') {
-            // 🎁 1+1 (mode: 'cross') 카드 조립
-            let cleanName = (startItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
-            let m1 = '', m2 = '';
-            if (endItem) {
-              let endClean = (endItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
-              if (endClean !== cleanName) {
-                m1 = cleanName;
-                m2 = endClean;
-                cleanName = '1+1 상품';
-              }
-            }
-            cleanName = cleanName || '1+1 상품';
-
-            const sPrice = (Number(startItem.salePrice) || 0) + (endItem ? (Number(endItem.salePrice) || 0) : 0);
-            const dPrice = (Number(startItem.depositPrice) || 0) + (endItem ? (Number(endItem.depositPrice) || 0) : 0);
-
-            const cardKey = `cross_${cleanName}_${sPrice}_${dPrice}`;
-            if (!groupMap.has(cardKey)) {
-              groupMap.set(cardKey, {
-                id: uid(),
-                mode: 'cross',
-                name: cleanName,
-                salePrice: sPrice,
-                depositPrice: dPrice,
-                topSale: '', topDep: '', botSale: '', botDep: '',
-                matrixColors: ['', ''],
-                matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
-                isMatrixCustomized: false,
-                isFolded: false,
-                buyers: []
-              });
-            }
-
-            let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
-            let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
-            let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
-            let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
-            let bQty = Number(startItem.qty) || 1;
-
-            const newBuyer = {
-              id: startItem.id || uid(),
-              id2: endItem ? (endItem.id || uid()) : uid(),
-              groupId: gId,
-              groupType: '1+1',
-              prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
-              nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
-              m1: m1, c1: c1, s1: s1,
-              m2: m2, c2: c2, s2: s2,
-              qty: bQty,
-              memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
-              isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
-              opt: endItem ? 'full' : 'single',
-              chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
-              chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
-              chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
-              chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
-            };
-            applyAutoRewardToBuyer(newBuyer);
-            groupMap.get(cardKey).buyers.push(newBuyer);
-
-          } else if (gType === '세트') {
-            // 📦 세트 (mode: 'set') 카드 조립
-            let cleanName = (startItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
-            if (!cleanName && endItem) {
-              cleanName = (endItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
-            }
-            cleanName = cleanName || '세트 상품';
-
-            const topSale = Number(startItem.salePrice) || 0;
-            const topDep = Number(startItem.depositPrice) || 0;
-            const botSale = endItem ? (Number(endItem.salePrice) || 0) : 0;
-            const botDep = endItem ? (Number(endItem.depositPrice) || 0) : 0;
-
-            const cardKey = `set_${cleanName}_${topSale}_${botSale}`;
-            if (!groupMap.has(cardKey)) {
-              groupMap.set(cardKey, {
-                id: uid(),
-                mode: 'set',
-                name: cleanName,
-                salePrice: '',
-                depositPrice: '',
-                topSale: topSale,
-                topDep: topDep,
-                botSale: botSale,
-                botDep: botDep,
-                matrixColors: ['', ''],
-                matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
-                isMatrixCustomized: false,
-                isFolded: false,
-                buyers: []
-              });
-            }
-
-            let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
-            let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
-            let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
-            let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
-            let bQty = Number(startItem.qty) || 1;
-
-            let opt = 'full';
-            if (!endItem) {
-              opt = (startItem.groupRole === 'end' || (startItem.name && startItem.name.includes('하의'))) ? 'bottom' : 'top';
-            }
-
-            const newBuyer = {
-              id: startItem.id || uid(),
-              id2: endItem ? (endItem.id || uid()) : uid(),
-              groupId: gId,
-              groupType: '세트',
-              prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
-              nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
-              c1: c1, s1: s1,
-              c2: c2, s2: s2,
-              qty: bQty,
-              memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
-              isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
-              opt: opt,
-              chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
-              chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
-              chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
-              chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
-            };
-            applyAutoRewardToBuyer(newBuyer);
-            groupMap.get(cardKey).buyers.push(newBuyer);
-          }
-        });
-
-        // 3. 단품 (일반 및 수량 2개 이상 기타카드) 처리
-        singleItems.forEach(s => {
-          let colorVal = s.color || '';
-          let sizeVal = s.size || '';
-          if (!colorVal && !sizeVal && s.colorSize) {
-            const parts = s.colorSize.split('/');
-            colorVal = parts[0] || '';
-            sizeVal = parts[1] || '';
-          }
-
-          let pName = (s.name || '').trim();
-          if (s.prodNum) {
-            let pn = String(s.prodNum).trim();
-            if (/^\d+$/.test(pn)) pn += '번';
-            if (!pName.includes(pn)) pName = (pn + ' ' + pName).trim();
-          }
-
-          const sPrice = (s.salePrice !== undefined && s.salePrice !== '') ? Number(s.salePrice) : (s.price !== undefined && s.price !== '' ? Number(s.price) : '');
-          const dPrice = (s.depositPrice !== undefined && s.depositPrice !== '') ? Number(s.depositPrice) : '';
-          const qtyVal = Number(s.qty) || 1;
-
-          const isGiftRecord = (s.isGift === true || String(s.name).indexOf('[선물]') !== -1 || s.groupType === 'gift');
-          const cardMode = isGiftRecord ? 'gift' : 'etc';
-          const key = `${cardMode}_${pName}_${sPrice}_${dPrice}`;
-
-          if (!groupMap.has(key)) {
-            groupMap.set(key, {
-              id: uid(),
-              mode: cardMode,
-              name: pName,
-              salePrice: sPrice,
-              depositPrice: dPrice,
-              topSale: '', topDep: '', botSale: '', botDep: '',
-              matrixColors: ['', ''],
-              matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
-              isMatrixCustomized: false,
-              isFolded: false,
-              buyers: []
-            });
-          }
-
-          const newBuyer = {
-            id: s.id || uid(),
-            prodNum: s.prodNum || '',
-            nickname: s.nickname || '',
-            c1: colorVal,
-            s1: sizeVal,
-            c2: '', s2: '', m1: '', m2: '',
-            qty: qtyVal,
-            memo: s.memo || '',
-            isCanceled: !!s.isExcluded,
-            opt: 'full',
-            chkYt: !!(s.tags && s.tags.yt),
-            chkTt: !!(s.tags && s.tags.tt),
-            chkFs: !!(s.tags && s.tags.fs),
-            chkKp: !!(s.tags && s.tags.kp)
-          };
-          applyAutoRewardToBuyer(newBuyer);
-          groupMap.get(key).buyers.push(newBuyer);
-        });
-
-        const importedProducts = Array.from(groupMap.values());
-        importedProducts.forEach(p => {
-          if (p.buyers.length === 0) p.buyers.push(createEmptyBuyer());
-        });
-
-        sales = importedProducts.length > 0 ? importedProducts : [createEmptyProduct()];
-        saveLocalData();
-        renderSales();
-        toast(`✅ 실시간 장부(${res.records.length}건)를 모바일 카드로 반영했습니다!`);
-      } else {
-        toast('⚠️ 불러오기 실패: ' + (res && res.message ? res.message : '오류'));
-      }
-    } catch (e) {
-      toast('⚠️ 네트워크 오류: ' + e.message);
+    document.getElementById('mobileSyncStep2Modal').style.display = 'flex';
+    
+    // 장부 상단에 적어둔 날짜가 있으면 입력창에 미리 세팅해줌
+    const fetchDateInput = document.getElementById('fetch-specific-dates');
+    if (fetchDateInput && targetDate) {
+      fetchDateInput.value = targetDate;
     }
     return;
   }
@@ -5559,6 +5347,264 @@ async function loadTagsFromSheet() {
     toast('⚠️ 네트워크 오류: ' + e.message);
   }
 }
+
+// ==========================================
+// 📥 2단계 장부 불러오기 제어 함수 모음 (모바일)
+// ==========================================
+
+window.closeSyncStep2Modal = function() {
+  const modal = document.getElementById('mobileSyncStep2Modal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.backToSyncStep1 = function() {
+  closeSyncStep2Modal();
+  const modal1 = document.getElementById('apiSyncModal');
+  if (modal1) modal1.style.display = 'flex';
+};
+
+window.toggleFetchDateInput = function() {
+  const radio = document.querySelector('input[name="fetch_range"]:checked');
+  const input = document.getElementById('fetch-specific-dates');
+  if (radio && input) {
+    input.style.display = (radio.value === 'specific') ? 'block' : 'none';
+  }
+};
+
+window.executeFetchStep2 = async function() {
+  const rangeChoice = document.querySelector('input[name="fetch_range"]:checked').value;
+  const methodChoice = document.querySelector('input[name="fetch_method"]:checked').value;
+  let targetDatesStr = '';
+  
+  if (rangeChoice === 'specific') {
+    targetDatesStr = document.getElementById('fetch-specific-dates').value.trim();
+    if (!targetDatesStr) {
+      toast('⚠️ 가져올 특정 날짜를 입력해주세요. (예: 09.08수요일)');
+      return;
+    }
+  }
+
+  closeSyncStep2Modal();
+  toast(`📥 구글 시트에서 데이터를 가져오는 중...`);
+
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ fn: 'loadLiveSalesRecords', args: [''] })
+    }).then(r => r.json());
+
+    try {
+      const rewardRes = await fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ fn: 'loadRewardTable2', args: [] })
+      }).then(r => r.json());
+      
+      if (rewardRes && rewardRes.success) {
+        rewardTableData = rewardRes.records || [];
+        if (typeof renderRewardTable === 'function') renderRewardTable();
+      }
+    } catch (e) {
+      console.log('적립금 데이터 동기화 실패', e);
+    }
+
+    if (res && res.success) {
+      if (!res.records || res.records.length === 0) {
+        toast(`⚠️ 불러올 실시간 장부 데이터가 없습니다.`);
+        return;
+      }
+
+      saveState();
+
+      let fetchedRecords = res.records;
+      if (rangeChoice === 'specific') {
+        const dateKeywords = targetDatesStr.split(',').map(d => d.trim()).filter(Boolean);
+        fetchedRecords = fetchedRecords.filter(r => {
+          const rowDate = (r.rowDate || r.date || '').replace(/\s+/g, '');
+          return dateKeywords.some(keyword => {
+            const kw = keyword.replace(/\s+/g, '');
+            return rowDate.includes(kw);
+          });
+        });
+
+        if (fetchedRecords.length === 0) {
+          toast(`⚠️ 시트에 [${targetDatesStr}] 날짜에 해당하는 데이터가 없습니다.`);
+          return;
+        }
+      }
+
+      const groupClusters = new Map();
+      const singleItems = [];
+
+      fetchedRecords.forEach(s => {
+        if (s.groupId && (s.groupType === '1+1' || s.groupType === '세트')) {
+          if (!groupClusters.has(s.groupId)) groupClusters.set(s.groupId, []);
+          groupClusters.get(s.groupId).push(s);
+        } else {
+          singleItems.push(s);
+        }
+      });
+
+      const groupMap = new Map();
+
+      groupClusters.forEach((cluster, gId) => {
+        const startItem = cluster.find(it => it.groupRole === 'start') || cluster[0];
+        const endItem = cluster.find(it => it !== startItem) || null;
+        const gType = startItem.groupType || (endItem ? endItem.groupType : '1+1');
+
+        if (gType === '1+1') {
+          let cleanName = (startItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
+          let m1 = '', m2 = '';
+          if (endItem) {
+            let endClean = (endItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
+            if (endClean !== cleanName) {
+              m1 = cleanName; m2 = endClean; cleanName = '1+1 상품';
+            }
+          }
+          cleanName = cleanName || '1+1 상품';
+
+          const sPrice = (Number(startItem.salePrice) || 0) + (endItem ? (Number(endItem.salePrice) || 0) : 0);
+          const dPrice = (Number(startItem.depositPrice) || 0) + (endItem ? (Number(endItem.depositPrice) || 0) : 0);
+
+          const cardKey = `cross_${cleanName}_${sPrice}_${dPrice}`;
+          if (!groupMap.has(cardKey)) {
+            groupMap.set(cardKey, {
+              id: uid(), mode: 'cross', name: cleanName, salePrice: sPrice, depositPrice: dPrice,
+              topSale: '', topDep: '', botSale: '', botDep: '', matrixColors: ['', ''], matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
+              isMatrixCustomized: false, isFolded: false, buyers: []
+            });
+          }
+
+          let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
+          let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
+          let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
+          let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
+          let bQty = Number(startItem.qty) || 1;
+
+          const newBuyer = {
+            id: startItem.id || uid(), id2: endItem ? (endItem.id || uid()) : uid(),
+            groupId: gId, groupType: '1+1', prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
+            nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
+            m1: m1, c1: c1, s1: s1, m2: m2, c2: c2, s2: s2, qty: bQty,
+            memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
+            isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
+            opt: endItem ? 'full' : 'single',
+            chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
+            chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
+            chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
+            chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
+          };
+          applyAutoRewardToBuyer(newBuyer);
+          groupMap.get(cardKey).buyers.push(newBuyer);
+
+        } else if (gType === '세트') {
+          let cleanName = (startItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
+          if (!cleanName && endItem) cleanName = (endItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
+          cleanName = cleanName || '세트 상품';
+
+          const topSale = Number(startItem.salePrice) || 0; const topDep = Number(startItem.depositPrice) || 0;
+          const botSale = endItem ? (Number(endItem.salePrice) || 0) : 0; const botDep = endItem ? (Number(endItem.depositPrice) || 0) : 0;
+
+          const cardKey = `set_${cleanName}_${topSale}_${botSale}`;
+          if (!groupMap.has(cardKey)) {
+            groupMap.set(cardKey, {
+              id: uid(), mode: 'set', name: cleanName, salePrice: '', depositPrice: '',
+              topSale: topSale, topDep: topDep, botSale: botSale, botDep: botDep, matrixColors: ['', ''], matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
+              isMatrixCustomized: false, isFolded: false, buyers: []
+            });
+          }
+
+          let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
+          let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
+          let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
+          let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
+          let bQty = Number(startItem.qty) || 1;
+
+          let opt = 'full';
+          if (!endItem) opt = (startItem.groupRole === 'end' || (startItem.name && startItem.name.includes('하의'))) ? 'bottom' : 'top';
+
+          const newBuyer = {
+            id: startItem.id || uid(), id2: endItem ? (endItem.id || uid()) : uid(),
+            groupId: gId, groupType: '세트', prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
+            nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
+            c1: c1, s1: s1, c2: c2, s2: s2, qty: bQty,
+            memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
+            isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
+            opt: opt,
+            chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
+            chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
+            chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
+            chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
+          };
+          applyAutoRewardToBuyer(newBuyer);
+          groupMap.get(cardKey).buyers.push(newBuyer);
+        }
+      });
+
+      singleItems.forEach(s => {
+        let colorVal = s.color || ''; let sizeVal = s.size || '';
+        if (!colorVal && !sizeVal && s.colorSize) {
+          const parts = s.colorSize.split('/'); colorVal = parts[0] || ''; sizeVal = parts[1] || '';
+        }
+
+        let pName = (s.name || '').trim();
+        if (s.prodNum) {
+          let pn = String(s.prodNum).trim();
+          if (/^\d+$/.test(pn)) pn += '번';
+          if (!pName.includes(pn)) pName = (pn + ' ' + pName).trim();
+        }
+
+        const sPrice = (s.salePrice !== undefined && s.salePrice !== '') ? Number(s.salePrice) : (s.price !== undefined && s.price !== '' ? Number(s.price) : '');
+        const dPrice = (s.depositPrice !== undefined && s.depositPrice !== '') ? Number(s.depositPrice) : '';
+        const qtyVal = Number(s.qty) || 1;
+
+        const isGiftRecord = (s.isGift === true || String(s.name).indexOf('[선물]') !== -1 || s.groupType === 'gift');
+        const cardMode = isGiftRecord ? 'gift' : 'etc';
+        const key = `${cardMode}_${pName}_${sPrice}_${dPrice}`;
+
+        if (!groupMap.has(key)) {
+          groupMap.set(key, {
+            id: uid(), mode: cardMode, name: pName, salePrice: sPrice, depositPrice: dPrice,
+            topSale: '', topDep: '', botSale: '', botDep: '', matrixColors: ['', ''], matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
+            isMatrixCustomized: false, isFolded: false, buyers: []
+          });
+        }
+
+        const newBuyer = {
+          id: s.id || uid(), prodNum: s.prodNum || '', nickname: s.nickname || '',
+          c1: colorVal, s1: sizeVal, c2: '', s2: '', m1: '', m2: '', qty: qtyVal,
+          memo: s.memo || '', isCanceled: !!s.isExcluded, opt: 'full',
+          chkYt: !!(s.tags && s.tags.yt), chkTt: !!(s.tags && s.tags.tt), chkFs: !!(s.tags && s.tags.fs), chkKp: !!(s.tags && s.tags.kp)
+        };
+        applyAutoRewardToBuyer(newBuyer);
+        groupMap.get(key).buyers.push(newBuyer);
+      });
+
+      const importedProducts = Array.from(groupMap.values());
+      importedProducts.forEach(p => {
+        if (p.buyers.length === 0) p.buyers.push(createEmptyBuyer());
+      });
+
+      if (methodChoice === 'overwrite') {
+        sales = importedProducts.length > 0 ? importedProducts : [createEmptyProduct()];
+      } else if (methodChoice === 'append') {
+        if (sales.length === 1 && sales[0].buyers.length === 1 && !sales[0].name && !sales[0].buyers[0].nickname) {
+          sales = [];
+        }
+        sales = sales.concat(importedProducts);
+      }
+
+      saveLocalData();
+      renderSales();
+      
+      let msgType = methodChoice === 'overwrite' ? '덮어쓰기로' : '이어붙이기로';
+      toast(`✅ 설정한 방식(${msgType})으로 데이터(${fetchedRecords.length}건)를 화면에 반영했습니다!`);
+    } else {
+      toast('⚠️ 불러오기 실패: ' + (res && res.message ? res.message : '오류'));
+    }
+  } catch (e) {
+    toast('⚠️ 네트워크 오류: ' + e.message);
+  }
+};
 </script>
 </body>
 </html>
