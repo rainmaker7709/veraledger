@@ -787,23 +787,24 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
     <div class="paper-content" id="paperLedgerContent"></div>
   </div>
 
-  <!-- ☁️ API 전송 & 실시간 동기화 원터치 모달 -->
+  <!-- ☁️ API 전송 & 실시간 동기화 원터치 모달 (타이틀 16.5px, 날짜/회차 14.5~15px 고대비 확대) -->
   <div class="modal-overlay" id="apiSyncModal" onclick="if(event.target === this) closeApiSyncModal()">
-    <div class="modal-box" style="width:340px; max-width:92vw;">
-      <div class="modal-title">
-        <span>☁️ 구글시트 전송 & 동기화</span>
-        <button class="btn-mini del" onclick="closeApiSyncModal()">✕</button>
+    <div class="modal-box" style="width:355px; max-width:94vw; padding:15px 14px;">
+      <!-- 최상단 타이틀: 줄 바꿈 없이 16.5px로 확대 -->
+      <div class="modal-title" style="margin-bottom:4px;">
+        <span style="font-size:16.5px; font-weight:900; color:#0F172A; white-space:nowrap; letter-spacing:-0.5px;">☁️ 구글시트 전송 & 동기화</span>
+        <button type="button" class="btn-mini del" style="width:28px; height:28px; font-size:14px; font-weight:900; display:inline-flex; align-items:center; justify-content:center; padding:0;" onclick="closeApiSyncModal()">✕</button>
       </div>
       
-      <!-- 날짜 / 회차 분리 및 오늘 날짜 리셋 버튼 (실시간 자동 저장 oninput 추가) -->
-      <div style="background:#F8FAFC; border:1.5px solid #CBD5E1; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+      <!-- 날짜 / 회차 입력 영역: 14px 라벨 + 14.5~15px 입력창 -->
+      <div style="background:#F8FAFC; border:1.5px solid #CBD5E1; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:8px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:12px; font-weight:800; color:#334155;">📅 방송 날짜 및 회차</span>
-          <button type="button" class="btn-mini" style="background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE; font-weight:800;" onclick="resetSyncDateToToday()">🔄 오늘 날짜</button>
+          <span style="font-size:14px; font-weight:900; color:#1E293B; white-space:nowrap;">📅 방송 날짜 및 회차</span>
+          <button type="button" class="btn-mini" style="background:#EFF6FF; color:#2563EB; border:1.5px solid #BFDBFE; font-weight:800; font-size:12.5px; padding:4px 8px; border-radius:5px; white-space:nowrap;" onclick="resetSyncDateToToday()">🔄 오늘 날짜</button>
         </div>
         <div style="display:flex; gap:6px; width:100%;">
-          <input type="text" id="syncDateInput" class="inp" style="flex:1.8; min-width:0; font-weight:800; text-align:center; font-size:12px; padding:6px 2px;" placeholder="MM.DD요일" oninput="saveSyncDateInputs()">
-          <input type="text" id="syncSessionInput" class="inp" style="flex:1; min-width:0; font-weight:800; text-align:center; font-size:12px; padding:6px 2px;" placeholder="회차(1부)" oninput="saveSyncDateInputs()">
+          <input type="text" id="syncDateInput" class="inp" style="flex:1.8; min-width:0; height:38px; font-weight:900; text-align:center; font-size:15px; padding:4px 6px; color:#0F172A; background:#FFFFFF; border:1.5px solid #CBD5E1; border-radius:6px;" placeholder="MM.DD요일" oninput="saveSyncDateInputs()">
+          <input type="text" id="syncSessionInput" class="inp" style="flex:1; min-width:0; height:38px; font-weight:900; text-align:center; font-size:14.5px; padding:4px 6px; color:#0F172A; background:#FFFFFF; border:1.5px solid #CBD5E1; border-radius:6px;" placeholder="회차(1부)" oninput="saveSyncDateInputs()">
         </div>
       </div>
 
