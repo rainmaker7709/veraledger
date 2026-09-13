@@ -795,20 +795,20 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
         <button class="btn-mini del" onclick="closeApiSyncModal()">✕</button>
       </div>
       
-      <!-- 날짜 / 회차 분리 및 오늘 날짜 리셋 버튼 -->
+      <!-- 날짜 / 회차 분리 및 오늘 날짜 리셋 버튼 (실시간 자동 저장 oninput 추가) -->
       <div style="background:#F8FAFC; border:1.5px solid #CBD5E1; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:12px; font-weight:800; color:#334155;">📅 방송 날짜 및 회차</span>
           <button type="button" class="btn-mini" style="background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE; font-weight:800;" onclick="resetSyncDateToToday()">🔄 오늘 날짜</button>
         </div>
         <div style="display:flex; gap:6px; width:100%;">
-          <input type="text" id="syncDateInput" class="inp" style="flex:1.8; min-width:0; font-weight:800; text-align:center; font-size:12px; padding:6px 2px;" placeholder="MM.DD요일">
-          <input type="text" id="syncSessionInput" class="inp" style="flex:1; min-width:0; font-weight:800; text-align:center; font-size:12px; padding:6px 2px;" placeholder="회차(1부)">
+          <input type="text" id="syncDateInput" class="inp" style="flex:1.8; min-width:0; font-weight:800; text-align:center; font-size:12px; padding:6px 2px;" placeholder="MM.DD요일" oninput="saveSyncDateInputs()">
+          <input type="text" id="syncSessionInput" class="inp" style="flex:1; min-width:0; font-weight:800; text-align:center; font-size:12px; padding:6px 2px;" placeholder="회차(1부)" oninput="saveSyncDateInputs()">
         </div>
       </div>
 
-      <!-- 터치 액션 버튼 4개 -->
-      <div style="display:flex; flex-direction:column; gap:6px; margin-top:4px;">
+      <!-- 1단계 메뉴 -->
+      <div id="mobile-sync-step-1" style="display:flex; flex-direction:column; gap:6px; margin-top:4px;">
         <button type="button" class="btn-chip" style="background:#3182F6; color:#fff; padding:10px 8px; font-size:12.5px; border-radius:6px; text-align:left; line-height:1.3;" onclick="executeSyncAction('1')">
           <b>1. 스마트 전송</b><br>
           <span style="font-size:10.5px; opacity:0.9;">동일 날짜/회차 덮어쓰기 (새 날짜·2부는 이어붙임)</span>
@@ -824,14 +824,45 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
           <span style="font-size:10.5px; opacity:0.9;">표1(A~G) 비우고 새로 저장 (적립금 표2 보존)</span>
         </button>
 
-        <button type="button" class="btn-chip" style="background:#7C3AED; color:#fff; padding:10px 8px; font-size:12.5px; border-radius:6px; text-align:left; line-height:1.3;" onclick="executeSyncAction('4')">
-          <b>4. 📥 최신 실시간 장부 불러오기</b><br>
-          <span style="font-size:10.5px; opacity:0.9;">서버에 올라온 최신 장부를 모바일 카드로 복원</span>
+        <!-- 4번: 2단계 세부화면 전환 -->
+        <button type="button" class="btn-chip" style="background:#7C3AED; color:#fff; padding:10px 8px; font-size:12.5px; border-radius:6px; text-align:left; line-height:1.3;" onclick="openMobileSyncStep2()">
+          <b>4. 📥 최신 실시간 장부 불러오기 (세부선택) ➔</b><br>
+          <span style="font-size:10.5px; opacity:0.9;">날짜별 선택 및 덮어쓰기/이어붙이기 옵션</span>
         </button>
+
+        <div class="modal-btns" style="margin-top:2px;">
+          <button class="btn-mini" style="width:100%; padding:8px; font-size:12px;" onclick="closeApiSyncModal()">닫기 / 취소</button>
+        </div>
       </div>
 
-      <div class="modal-btns" style="margin-top:2px;">
-        <button class="btn-mini" style="width:100%; padding:8px; font-size:12px;" onclick="closeApiSyncModal()">닫기 / 취소</button>
+      <!-- 2단계: 불러오기 세부 선택 화면 -->
+      <div id="mobile-sync-step-2" style="display:none; flex-direction:column; gap:8px; margin-top:4px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:4px;">
+          <span style="font-size:12px; font-weight:800; color:#1E293B;">📅 가져올 방송 날짜 선택</span>
+          <button type="button" class="btn-mini" style="background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE; font-weight:800;" onclick="toggleAllMobileSyncDates()">전체선택/해제</button>
+        </div>
+
+        <div id="mobile-sync-date-list" style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; padding:6px; background:#F8FAFC; border:1.5px solid var(--line); border-radius:6px;">
+          <div style="text-align:center; color:#64748B; padding:15px; font-size:11.5px;">날짜 목록을 불러오는 중...</div>
+        </div>
+
+        <!-- 반영 방식 선택 -->
+        <div style="background:#FFFDF9; border:1.5px solid #E2D9C8; border-radius:6px; padding:8px;">
+          <div style="font-size:11.5px; font-weight:800; color:var(--ink); margin-bottom:4px;">📥 모바일 장부 반영 방식:</div>
+          <div style="display:flex; gap:12px; font-size:12px; font-weight:bold;">
+            <label style="cursor:pointer; display:flex; align-items:center; gap:3px; color:var(--danger);">
+              <input type="radio" name="mobile-import-mode" value="overwrite" checked style="accent-color:var(--danger);"> 덮어쓰기
+            </label>
+            <label style="cursor:pointer; display:flex; align-items:center; gap:3px; color:var(--primary);">
+              <input type="radio" name="mobile-import-mode" value="append" style="accent-color:var(--primary);"> 이어서 붙이기
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; gap:6px; margin-top:4px;">
+          <button type="button" class="btn-mini" style="flex:1; padding:8px; font-weight:bold;" onclick="backToMobileSyncStep1()">↩ 이전</button>
+          <button type="button" class="btn-mini" style="flex:2; padding:8px; font-weight:800; background:#7C3AED; color:#fff;" onclick="executeMobileDownloadWithConfig()">📥 가져오기 실행</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3597,16 +3628,336 @@ function sendToSheet() {
 function closeApiSyncModal() {
   const modal = document.getElementById('apiSyncModal');
   if (modal) modal.style.display = 'none';
+  backToMobileSyncStep1();
 }
 
-// 3. [🔄 오늘 날짜] 버튼 클릭 시 즉각 리셋
+function backToMobileSyncStep1() {
+  const s1 = document.getElementById('mobile-sync-step-1');
+  const s2 = document.getElementById('mobile-sync-step-2');
+  if (s1 && s2) {
+    s1.style.display = 'flex';
+    s2.style.display = 'none';
+  }
+}
+
+// 💡 타이핑 즉시 브라우저에 실시간 저장하는 함수
+function saveSyncDateInputs() {
+  const dateVal = (document.getElementById('syncDateInput')?.value || '').trim();
+  const sessionVal = (document.getElementById('syncSessionInput')?.value || '').trim();
+  localStorage.setItem('m_live_sync_date', dateVal);
+  localStorage.setItem('m_live_sync_session', sessionVal);
+}
+
+// 💡 오늘 날짜 버튼 터치 시 화면 변경과 동시에 브라우저에 즉각 저장
 function resetSyncDateToToday() {
   const todayStr = getTodayFormattedString();
-  document.getElementById('syncDateInput').value = todayStr;
+  const dateEl = document.getElementById('syncDateInput');
+  if (dateEl) {
+    dateEl.value = todayStr;
+  }
+  localStorage.setItem('m_live_sync_date', todayStr);
   toast(`📅 오늘 날짜(${todayStr})로 변경되었습니다.`);
 }
 
-// 4. 터치 버튼 4종 실행 엔진 (1+1 및 세트 카드 자동 조립 & PC 완벽 호환 보존)
+// 💡 4번 터치 시 구글시트에서 날짜 목록을 비동기 조회하여 2단계 목록 생성
+async function openMobileSyncStep2() {
+  const s1 = document.getElementById('mobile-sync-step-1');
+  const s2 = document.getElementById('mobile-sync-step-2');
+  const listEl = document.getElementById('mobile-sync-date-list');
+  if (!s1 || !s2 || !listEl) return;
+
+  s1.style.display = 'none';
+  s2.style.display = 'flex';
+  listEl.innerHTML = '<div style="text-align:center; color:var(--purple); padding:15px; font-size:12px; font-weight:800;">🔄 방송 날짜 목록 조회 중...</div>';
+
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ fn: 'getAvailableSyncDates', args: [] })
+    }).then(r => r.json());
+
+    if (!res || !res.success) {
+      listEl.innerHTML = `<div style="text-align:center; color:var(--danger); padding:15px; font-size:11.5px;">⚠️ 날짜 조회 실패: ${(res && res.message) ? res.message : '오류'}</div>`;
+      return;
+    }
+
+    const dates = res.dates || [];
+    if (dates.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center; color:#64748B; padding:15px; font-size:11.5px;">등록된 방송 기록이 없습니다.</div>';
+      return;
+    }
+
+    const curDate = (document.getElementById('syncDateInput')?.value || '').trim();
+
+    listEl.innerHTML = dates.map(d => {
+      const isMatch = curDate && d.includes(curDate);
+      return `
+        <label style="display:flex; align-items:center; gap:6px; padding:6px 8px; background:#fff; border:1px solid var(--line); border-radius:4px; font-size:12px; font-weight:700;">
+          <input type="checkbox" class="mobile-sync-date-chk" value="${d}" ${isMatch ? 'checked' : ''} style="width:16px; height:16px; accent-color:#7C3AED;">
+          <span>📅 ${d}</span>
+        </label>
+      `;
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = `<div style="text-align:center; color:var(--danger); padding:15px; font-size:11.5px;">⚠️ 네트워크 오류: ${e.message}</div>`;
+  }
+}
+
+function toggleAllMobileSyncDates() {
+  const chks = document.querySelectorAll('.mobile-sync-date-chk');
+  if (chks.length === 0) return;
+  const anyUnchecked = Array.from(chks).some(c => !c.checked);
+  chks.forEach(c => c.checked = anyUnchecked);
+}
+
+// 💡 2단계에서 날짜 및 덮어쓰기/이어붙이기 모드 확정 후 실행하는 최종 다운로드 엔진
+async function executeMobileDownloadWithConfig() {
+  const chks = document.querySelectorAll('.mobile-sync-date-chk:checked');
+  if (chks.length === 0) {
+    alert('⚠️ 가져올 방송 날짜를 최소 1개 이상 선택해주세요.');
+    return;
+  }
+
+  const selectedDates = Array.from(chks).map(c => c.value);
+  const modeEl = document.querySelector('input[name="mobile-import-mode"]:checked');
+  const importMode = modeEl ? modeEl.value : 'overwrite';
+  const modeText = importMode === 'overwrite' ? '덮어쓰기' : '이어서 붙이기';
+
+  const confirmMsg = `📥 [모바일 장부 가져오기]\n\n선택 날짜: ${selectedDates.join(', ')}\n반영 방식: [${modeText}]\n\n${importMode === 'overwrite' ? '⚠️ 기존 모바일 카드는 삭제되고 새로 채워집니다.' : '➕ 기존 카드 뒤에 선택한 날짜 기록이 추가됩니다.'}\n진행하시겠습니까?`;
+  if (!confirm(confirmMsg)) return;
+
+  closeApiSyncModal();
+  toast(`📥 구글시트에서 데이터(${selectedDates.length}개 날짜) 가져오는 중...`);
+
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ fn: 'loadLiveSalesRecords', args: [selectedDates] })
+    }).then(r => r.json());
+
+    // 적립금&무배 데이터 동시 동기화
+    try {
+      const rewardRes = await fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ fn: 'loadRewardTable2', args: [] })
+      }).then(r => r.json());
+      if (rewardRes && rewardRes.success) {
+        rewardTableData = rewardRes.records || [];
+        if (typeof renderRewardTable === 'function') renderRewardTable();
+      }
+    } catch (e) {}
+
+    if (res && res.success) {
+      if (!res.records || res.records.length === 0) {
+        toast(`⚠️ 선택한 날짜에 해당하는 실시간 장부 데이터가 없습니다.`);
+        return;
+      }
+      saveState();
+
+      const groupClusters = new Map();
+      const singleItems = [];
+
+      res.records.forEach(s => {
+        if (s.groupId && (s.groupType === '1+1' || s.groupType === '세트')) {
+          if (!groupClusters.has(s.groupId)) groupClusters.set(s.groupId, []);
+          groupClusters.get(s.groupId).push(s);
+        } else {
+          singleItems.push(s);
+        }
+      });
+
+      const groupMap = new Map();
+
+      // 1+1 및 세트 그룹 모바일 카드 조립
+      groupClusters.forEach((cluster, gId) => {
+        const startItem = cluster.find(it => it.groupRole === 'start') || cluster[0];
+        const endItem = cluster.find(it => it !== startItem) || null;
+        const gType = startItem.groupType || (endItem ? endItem.groupType : '1+1');
+
+        if (gType === '1+1') {
+          let cleanName = (startItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
+          let m1 = '', m2 = '';
+          if (endItem) {
+            let endClean = (endItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
+            if (endClean !== cleanName) {
+              m1 = cleanName;
+              m2 = endClean;
+              cleanName = '1+1 상품';
+            }
+          }
+          cleanName = cleanName || '1+1 상품';
+
+          const sPrice = (Number(startItem.salePrice) || 0) + (endItem ? (Number(endItem.salePrice) || 0) : 0);
+          const dPrice = (Number(startItem.depositPrice) || 0) + (endItem ? (Number(endItem.depositPrice) || 0) : 0);
+
+          const cardKey = `cross_${cleanName}_${sPrice}_${dPrice}`;
+          if (!groupMap.has(cardKey)) {
+            groupMap.set(cardKey, {
+              id: uid(), mode: 'cross', name: cleanName,
+              salePrice: sPrice, depositPrice: dPrice,
+              topSale: '', topDep: '', botSale: '', botDep: '',
+              matrixColors: ['', ''], matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
+              isMatrixCustomized: false, isFolded: false, buyers: []
+            });
+          }
+
+          let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
+          let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
+          let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
+          let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
+          let bQty = Number(startItem.qty) || 1;
+
+          const newBuyer = {
+            id: (importMode === 'append') ? uid() : (startItem.id || uid()),
+            id2: (importMode === 'append') ? uid() : (endItem ? (endItem.id || uid()) : uid()),
+            groupId: gId, groupType: '1+1',
+            prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
+            nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
+            m1: m1, c1: c1, s1: s1, m2: m2, c2: c2, s2: s2, qty: bQty,
+            memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
+            isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
+            opt: endItem ? 'full' : 'single',
+            chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
+            chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
+            chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
+            chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
+          };
+          applyAutoRewardToBuyer(newBuyer);
+          groupMap.get(cardKey).buyers.push(newBuyer);
+
+        } else if (gType === '세트') {
+          let cleanName = (startItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
+          if (!cleanName && endItem) {
+            cleanName = (endItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
+          }
+          cleanName = cleanName || '세트 상품';
+
+          const topSale = Number(startItem.salePrice) || 0;
+          const topDep = Number(startItem.depositPrice) || 0;
+          const botSale = endItem ? (Number(endItem.salePrice) || 0) : 0;
+          const botDep = endItem ? (Number(endItem.depositPrice) || 0) : 0;
+
+          const cardKey = `set_${cleanName}_${topSale}_${botSale}`;
+          if (!groupMap.has(cardKey)) {
+            groupMap.set(cardKey, {
+              id: uid(), mode: 'set', name: cleanName,
+              salePrice: '', depositPrice: '',
+              topSale: topSale, topDep: topDep, botSale: botSale, botDep: botDep,
+              matrixColors: ['', ''], matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
+              isMatrixCustomized: false, isFolded: false, buyers: []
+            });
+          }
+
+          let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
+          let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
+          let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
+          let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
+          let bQty = Number(startItem.qty) || 1;
+
+          let opt = 'full';
+          if (!endItem) {
+            opt = (startItem.groupRole === 'end' || (startItem.name && startItem.name.includes('하의'))) ? 'bottom' : 'top';
+          }
+
+          const newBuyer = {
+            id: (importMode === 'append') ? uid() : (startItem.id || uid()),
+            id2: (importMode === 'append') ? uid() : (endItem ? (endItem.id || uid()) : uid()),
+            groupId: gId, groupType: '세트',
+            prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
+            nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
+            c1: c1, s1: s1, c2: c2, s2: s2, qty: bQty,
+            memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
+            isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
+            opt: opt,
+            chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
+            chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
+            chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
+            chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
+          };
+          applyAutoRewardToBuyer(newBuyer);
+          groupMap.get(cardKey).buyers.push(newBuyer);
+        }
+      });
+
+      // 단품 (일반, 기타, 선물) 카드 조립
+      singleItems.forEach(s => {
+        let colorVal = s.color || '';
+        let sizeVal = s.size || '';
+        if (!colorVal && !sizeVal && s.colorSize) {
+          const parts = s.colorSize.split('/');
+          colorVal = parts[0] || '';
+          sizeVal = parts[1] || '';
+        }
+
+        let pName = (s.name || '').trim();
+        if (s.prodNum) {
+          let pn = String(s.prodNum).trim();
+          if (/^\d+$/.test(pn)) pn += '번';
+          if (!pName.includes(pn)) pName = (pn + ' ' + pName).trim();
+        }
+
+        const sPrice = (s.salePrice !== undefined && s.salePrice !== '') ? Number(s.salePrice) : (s.price !== undefined && s.price !== '' ? Number(s.price) : '');
+        const dPrice = (s.depositPrice !== undefined && s.depositPrice !== '') ? Number(s.depositPrice) : '';
+        const qtyVal = Number(s.qty) || 1;
+
+        const isGiftRecord = (s.isGift === true || String(s.name).indexOf('[선물]') !== -1 || s.groupType === 'gift');
+        const cardMode = isGiftRecord ? 'gift' : 'etc';
+        const key = `${cardMode}_${pName}_${sPrice}_${dPrice}`;
+
+        if (!groupMap.has(key)) {
+          groupMap.set(key, {
+            id: uid(), mode: cardMode, name: pName,
+            salePrice: sPrice, depositPrice: dPrice,
+            topSale: '', topDep: '', botSale: '', botDep: '',
+            matrixColors: ['', ''], matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
+            isMatrixCustomized: false, isFolded: false, buyers: []
+          });
+        }
+
+        const newBuyer = {
+          id: (importMode === 'append') ? uid() : (s.id || uid()),
+          prodNum: s.prodNum || '',
+          nickname: s.nickname || '',
+          c1: colorVal, s1: sizeVal,
+          c2: '', s2: '', m1: '', m2: '',
+          qty: qtyVal,
+          memo: s.memo || '',
+          isCanceled: !!s.isExcluded,
+          opt: 'full',
+          chkYt: !!(s.tags && s.tags.yt),
+          chkTt: !!(s.tags && s.tags.tt),
+          chkFs: !!(s.tags && s.tags.fs),
+          chkKp: !!(s.tags && s.tags.kp)
+        };
+        applyAutoRewardToBuyer(newBuyer);
+        groupMap.get(key).buyers.push(newBuyer);
+      });
+
+      const importedProducts = Array.from(groupMap.values());
+      importedProducts.forEach(p => {
+        if (p.buyers.length === 0) p.buyers.push(createEmptyBuyer());
+      });
+
+      if (importMode === 'append') {
+        const isOnlyEmpty = (sales.length === 1 && !sales[0].name && sales[0].buyers.every(b => !b.nickname));
+        if (isOnlyEmpty) sales = [];
+        sales = sales.concat(importedProducts);
+      } else {
+        sales = importedProducts.length > 0 ? importedProducts : [createEmptyProduct()];
+      }
+
+      saveLocalData();
+      renderSales();
+      toast(`✅ 선택한 날짜 장부(${res.records.length}건)를 [${modeText}] 완료했습니다!`);
+    } else {
+      toast('⚠️ 불러오기 실패: ' + (res && res.message ? res.message : '오류'));
+    }
+  } catch (e) {
+    toast('⚠️ 네트워크 오류: ' + e.message);
+  }
+}
+
+// 4. 터치 버튼 4종 실행 엔진 (스마트전송, 맨 아래 이어붙이기, 전체 덮어쓰기)
 async function executeSyncAction(modeChoice) {
   const dateVal = (document.getElementById('syncDateInput')?.value || '').trim();
   const sessionVal = (document.getElementById('syncSessionInput')?.value || '').trim();
@@ -3622,271 +3973,6 @@ async function executeSyncAction(modeChoice) {
   localStorage.setItem('m_live_sync_date', dateVal);
   localStorage.setItem('m_live_sync_session', sessionVal);
   lastTargetDate = targetDate;
-
-  // [옵션 4: 최신 장부 불러오기 - 1+1 및 세트 전용 카드로 지능형 자동 조립]
-  if (modeChoice === "4") {
-    if (!confirm(`📥 [옵션 4: 실시간 장부 불러오기]\n\n날짜/회차: [${targetDate}]\n\n서버에 올라온 최신 데이터를 모바일 카드로 가져오시겠습니까?\n(기존 화면 내용은 되돌리기가 가능합니다)`)) return;
-
-    closeApiSyncModal();
-    toast(`📥 실시간 장부 데이터를 가져오는 중...`);
-
-    try {
-      const res = await fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({ fn: 'loadLiveSalesRecords', args: [targetDate] })
-      }).then(r => r.json());
-
-      // 👇👇👇 추가되는 부분: 적립금&무배 데이터 동시 불러오기 👇👇👇
-      try {
-        const rewardRes = await fetch(GAS_URL, {
-          method: 'POST',
-          body: JSON.stringify({ fn: 'loadRewardTable2', args: [] })
-        }).then(r => r.json());
-        
-        if (rewardRes && rewardRes.success) {
-          rewardTableData = rewardRes.records || [];
-          if (typeof renderRewardTable === 'function') renderRewardTable(); // 모달창 즉시 갱신
-        }
-      } catch (e) {
-        console.log('적립금 데이터 동기화 실패', e);
-      }
-      // 👆👆👆 여기까지 👆👆👆
-
-      if (res && res.success) {
-        if (!res.records || res.records.length === 0) {
-          toast(`⚠️ 불러올 실시간 장부 데이터가 없습니다.`);
-          return;
-        }
-
-        saveState();
-
-        // 1. 그룹 묶음(1+1, 세트)과 단품 분리
-        const groupClusters = new Map();
-        const singleItems = [];
-
-        res.records.forEach(s => {
-          if (s.groupId && (s.groupType === '1+1' || s.groupType === '세트')) {
-            if (!groupClusters.has(s.groupId)) groupClusters.set(s.groupId, []);
-            groupClusters.get(s.groupId).push(s);
-          } else {
-            singleItems.push(s);
-          }
-        });
-
-        const groupMap = new Map();
-
-        // 2. 1+1 및 세트 그룹을 모바일 전용 카드로 자동 조립
-        groupClusters.forEach((cluster, gId) => {
-          const startItem = cluster.find(it => it.groupRole === 'start') || cluster[0];
-          const endItem = cluster.find(it => it !== startItem) || null;
-          const gType = startItem.groupType || (endItem ? endItem.groupType : '1+1');
-
-          if (gType === '1+1') {
-            // 🎁 1+1 (mode: 'cross') 카드 조립
-            let cleanName = (startItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
-            let m1 = '', m2 = '';
-            if (endItem) {
-              let endClean = (endItem.name || '').replace(/^\[?(1\+1)\]?\s*/i, '').trim();
-              if (endClean !== cleanName) {
-                m1 = cleanName;
-                m2 = endClean;
-                cleanName = '1+1 상품';
-              }
-            }
-            cleanName = cleanName || '1+1 상품';
-
-            const sPrice = (Number(startItem.salePrice) || 0) + (endItem ? (Number(endItem.salePrice) || 0) : 0);
-            const dPrice = (Number(startItem.depositPrice) || 0) + (endItem ? (Number(endItem.depositPrice) || 0) : 0);
-
-            const cardKey = `cross_${cleanName}_${sPrice}_${dPrice}`;
-            if (!groupMap.has(cardKey)) {
-              groupMap.set(cardKey, {
-                id: uid(),
-                mode: 'cross',
-                name: cleanName,
-                salePrice: sPrice,
-                depositPrice: dPrice,
-                topSale: '', topDep: '', botSale: '', botDep: '',
-                matrixColors: ['', ''],
-                matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
-                isMatrixCustomized: false,
-                isFolded: false,
-                buyers: []
-              });
-            }
-
-            let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
-            let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
-            let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
-            let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
-            let bQty = Number(startItem.qty) || 1;
-
-            const newBuyer = {
-              id: startItem.id || uid(),
-              id2: endItem ? (endItem.id || uid()) : uid(),
-              groupId: gId,
-              groupType: '1+1',
-              prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
-              nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
-              m1: m1, c1: c1, s1: s1,
-              m2: m2, c2: c2, s2: s2,
-              qty: bQty,
-              memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
-              isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
-              opt: endItem ? 'full' : 'single',
-              chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
-              chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
-              chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
-              chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
-            };
-            applyAutoRewardToBuyer(newBuyer);
-            groupMap.get(cardKey).buyers.push(newBuyer);
-
-          } else if (gType === '세트') {
-            // 📦 세트 (mode: 'set') 카드 조립
-            let cleanName = (startItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
-            if (!cleanName && endItem) {
-              cleanName = (endItem.name || '').replace(/^\[?(세트)\]?\s*/i, '').replace(/\s*(상의|하의)\s*$/i, '').trim();
-            }
-            cleanName = cleanName || '세트 상품';
-
-            const topSale = Number(startItem.salePrice) || 0;
-            const topDep = Number(startItem.depositPrice) || 0;
-            const botSale = endItem ? (Number(endItem.salePrice) || 0) : 0;
-            const botDep = endItem ? (Number(endItem.depositPrice) || 0) : 0;
-
-            const cardKey = `set_${cleanName}_${topSale}_${botSale}`;
-            if (!groupMap.has(cardKey)) {
-              groupMap.set(cardKey, {
-                id: uid(),
-                mode: 'set',
-                name: cleanName,
-                salePrice: '',
-                depositPrice: '',
-                topSale: topSale,
-                topDep: topDep,
-                botSale: botSale,
-                botDep: botDep,
-                matrixColors: ['', ''],
-                matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
-                isMatrixCustomized: false,
-                isFolded: false,
-                buyers: []
-              });
-            }
-
-            let c1 = startItem.color || (startItem.colorSize ? startItem.colorSize.split('/')[0] : '');
-            let s1 = startItem.size || (startItem.colorSize ? startItem.colorSize.split('/')[1] : '');
-            let c2 = endItem ? (endItem.color || (endItem.colorSize ? endItem.colorSize.split('/')[0] : '')) : '';
-            let s2 = endItem ? (endItem.size || (endItem.colorSize ? endItem.colorSize.split('/')[1] : '')) : '';
-            let bQty = Number(startItem.qty) || 1;
-
-            let opt = 'full';
-            if (!endItem) {
-              opt = (startItem.groupRole === 'end' || (startItem.name && startItem.name.includes('하의'))) ? 'bottom' : 'top';
-            }
-
-            const newBuyer = {
-              id: startItem.id || uid(),
-              id2: endItem ? (endItem.id || uid()) : uid(),
-              groupId: gId,
-              groupType: '세트',
-              prodNum: startItem.prodNum || (endItem ? endItem.prodNum : '') || '',
-              nickname: (startItem.nickname || (endItem ? endItem.nickname : '')).trim(),
-              c1: c1, s1: s1,
-              c2: c2, s2: s2,
-              qty: bQty,
-              memo: [startItem.memo, endItem ? endItem.memo : ''].filter(Boolean).join(' | '),
-              isCanceled: !!(startItem.isExcluded || (endItem && endItem.isExcluded)),
-              opt: opt,
-              chkYt: !!(startItem.tags?.yt || (endItem && endItem.tags?.yt)),
-              chkTt: !!(startItem.tags?.tt || (endItem && endItem.tags?.tt)),
-              chkFs: !!(startItem.tags?.fs || (endItem && endItem.tags?.fs)),
-              chkKp: !!(startItem.tags?.kp || (endItem && endItem.tags?.kp))
-            };
-            applyAutoRewardToBuyer(newBuyer);
-            groupMap.get(cardKey).buyers.push(newBuyer);
-          }
-        });
-
-        // 3. 단품 (일반 및 수량 2개 이상 기타카드) 처리
-        singleItems.forEach(s => {
-          let colorVal = s.color || '';
-          let sizeVal = s.size || '';
-          if (!colorVal && !sizeVal && s.colorSize) {
-            const parts = s.colorSize.split('/');
-            colorVal = parts[0] || '';
-            sizeVal = parts[1] || '';
-          }
-
-          let pName = (s.name || '').trim();
-          if (s.prodNum) {
-            let pn = String(s.prodNum).trim();
-            if (/^\d+$/.test(pn)) pn += '번';
-            if (!pName.includes(pn)) pName = (pn + ' ' + pName).trim();
-          }
-
-          const sPrice = (s.salePrice !== undefined && s.salePrice !== '') ? Number(s.salePrice) : (s.price !== undefined && s.price !== '' ? Number(s.price) : '');
-          const dPrice = (s.depositPrice !== undefined && s.depositPrice !== '') ? Number(s.depositPrice) : '';
-          const qtyVal = Number(s.qty) || 1;
-
-          const isGiftRecord = (s.isGift === true || String(s.name).indexOf('[선물]') !== -1 || s.groupType === 'gift');
-          const cardMode = isGiftRecord ? 'gift' : 'etc';
-          const key = `${cardMode}_${pName}_${sPrice}_${dPrice}`;
-
-          if (!groupMap.has(key)) {
-            groupMap.set(key, {
-              id: uid(),
-              mode: cardMode,
-              name: pName,
-              salePrice: sPrice,
-              depositPrice: dPrice,
-              topSale: '', topDep: '', botSale: '', botDep: '',
-              matrixColors: ['', ''],
-              matrixSizes: ['프리', 'S', 'M', 'L', 'XL', '2XL'],
-              isMatrixCustomized: false,
-              isFolded: false,
-              buyers: []
-            });
-          }
-
-          const newBuyer = {
-            id: s.id || uid(),
-            prodNum: s.prodNum || '',
-            nickname: s.nickname || '',
-            c1: colorVal,
-            s1: sizeVal,
-            c2: '', s2: '', m1: '', m2: '',
-            qty: qtyVal,
-            memo: s.memo || '',
-            isCanceled: !!s.isExcluded,
-            opt: 'full',
-            chkYt: !!(s.tags && s.tags.yt),
-            chkTt: !!(s.tags && s.tags.tt),
-            chkFs: !!(s.tags && s.tags.fs),
-            chkKp: !!(s.tags && s.tags.kp)
-          };
-          applyAutoRewardToBuyer(newBuyer);
-          groupMap.get(key).buyers.push(newBuyer);
-        });
-
-        const importedProducts = Array.from(groupMap.values());
-        importedProducts.forEach(p => {
-          if (p.buyers.length === 0) p.buyers.push(createEmptyBuyer());
-        });
-
-        sales = importedProducts.length > 0 ? importedProducts : [createEmptyProduct()];
-        saveLocalData();
-        renderSales();
-        toast(`✅ 실시간 장부(${res.records.length}건)를 모바일 카드로 반영했습니다!`);
-      } else {
-        toast('⚠️ 불러오기 실패: ' + (res && res.message ? res.message : '오류'));
-      }
-    } catch (e) {
-      toast('⚠️ 네트워크 오류: ' + e.message);
-    }
-    return;
-  }
 
   // [옵션 1, 2, 3: 구글 시트 전송 시 확인창]
   let mode = "smart";
