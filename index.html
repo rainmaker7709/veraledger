@@ -4459,6 +4459,11 @@ function exportWarehouseExcel() {
 }
 
 function exportEtcExcel() {
+  if (typeof XLSX === 'undefined') {
+    toast('⚠️ 엑셀 라이브러리(XLSX)를 불러오지 못했습니다.');
+    return;
+  }
+
   let records = [];
   let groupCounter = 1;
 
@@ -4470,7 +4475,6 @@ function exportEtcExcel() {
     if (b.chkKp) tags.push('[킵]');
     if (b.chkNw) tags.push('[신규]');
     
-    // 💡 메모 텍스트 안에 이미 들어가 있는 (무배) 글자를 지워서 이중 중복 방지
     let cleanMemo = (b.memo || '').replace(/\(?무배\)?/g, '').replace(/\s{2,}/g, ' ').trim();
     let result = tags.length > 0 ? tags.join(' ') + ' ' + cleanMemo : cleanMemo;
     return result.trim();
@@ -4485,8 +4489,21 @@ function exportEtcExcel() {
       let c2 = /^색상\d+$/.test(b.c2 || '') ? '' : b.c2;
       let qty = Number(b.qty) || 1;
 
+      // 💡 품번 및 상품명 자동 분리
+      let pNum = b.prodNum || '';
+      let baseName = (p.name || '').trim();
+      if (!pNum) {
+        const m = baseName.match(/^(\d+(?:-\d+)?)(?:번\s*|\s+)(.*)$/);
+        if (m) {
+          pNum = m[1];
+          baseName = m[2].trim();
+        }
+      }
+
       let groupStr = '';
-      if (p.mode === 'set') {
+      if (p.mode === 'gift') {
+        groupStr = '선물';
+      } else if (p.mode === 'set') {
         groupStr = `세트(${String(groupCounter).padStart(3, '0')})`;
         groupCounter++;
       } else if (p.mode === 'cross') {
@@ -4498,29 +4515,58 @@ function exportEtcExcel() {
         let uSale = Number(p.salePrice) || 0;
         let uDep = Number(p.depositPrice) || 0;
         records.push({
-          group: groupStr, name: p.name || '', option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '),
-          nickname: b.nickname || '', unitSalePrice: uSale, qty: qty, salePrice: uSale * qty,
-          unitDepositPrice: uDep, depositPrice: uDep * qty, memo: mergedMemo
+          group: groupStr, prodNum: pNum, name: baseName || p.name || '',
+          option: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'),
+          nickname: b.nickname || '', unitSalePrice: uSale, qty: qty,
+          salePrice: uSale * qty, unitDepositPrice: uDep, depositPrice: uDep * qty,
+          memo: mergedMemo
         });
       } else if (p.mode === 'set') {
         if (b.opt === 'full' || b.opt === 'top') {
           let uSale = Number(p.topSale) || 0; let uDep = Number(p.topDep) || 0;
-          records.push({ group: groupStr, name: `${p.name} 상의`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
+          records.push({
+            group: b.opt === 'top' ? `${groupStr} 단품` : groupStr,
+            prodNum: pNum, name: `${baseName || p.name} 상의`,
+            option: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'),
+            nickname: b.nickname || '', unitSalePrice: uSale, qty: 1,
+            salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep,
+            memo: mergedMemo
+          });
         }
         if (b.opt === 'full' || b.opt === 'bottom') {
           let uSale = Number(p.botSale) || 0; let uDep = Number(p.botDep) || 0;
-          records.push({ group: groupStr, name: `${p.name} 하의`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
+          records.push({
+            group: b.opt === 'bottom' ? `${groupStr} 단품` : groupStr,
+            prodNum: pNum, name: `${baseName || p.name} 하의`,
+            option: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'),
+            nickname: b.nickname || '', unitSalePrice: uSale, qty: 1,
+            salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep,
+            memo: mergedMemo
+          });
         }
       } else if (p.mode === 'cross') {
         if (b.opt === 'full' || b.opt === 'single') {
           const m1Name = b.m1 ? ` ${b.m1}` : '';
           let uSale = b.opt === 'single' ? (Number(p.salePrice) / 2) || 0 : Number(p.salePrice) || 0;
           let uDep = b.opt === 'single' ? (Number(p.depositPrice) / 2) || 0 : Number(p.depositPrice) || 0;
-          records.push({ group: groupStr, name: `${p.name}${m1Name}`, option: [c1, b.s1].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: uSale, qty: 1, salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep, memo: mergedMemo });
+          records.push({
+            group: b.opt === 'single' ? `${groupStr} 단품` : groupStr,
+            prodNum: pNum, name: `${baseName || p.name}${m1Name}`.trim(),
+            option: [c1, b.s1].filter(x => x && x.trim() !== '').join('/'),
+            nickname: b.nickname || '', unitSalePrice: uSale, qty: 1,
+            salePrice: uSale, unitDepositPrice: uDep, depositPrice: uDep,
+            memo: mergedMemo
+          });
         }
         if (b.opt === 'full') {
           const m2Name = b.m2 ? ` ${b.m2}` : '';
-          records.push({ group: groupStr, name: `${p.name}${m2Name}`, option: [c2, b.s2].filter(x => x && x.trim() !== '').join(' / '), nickname: b.nickname || '', unitSalePrice: 0, qty: 1, salePrice: 0, unitDepositPrice: 0, depositPrice: 0, memo: mergedMemo });
+          records.push({
+            group: groupStr, prodNum: pNum, name: `${baseName || p.name}${m2Name}`.trim(),
+            option: [c2, b.s2].filter(x => x && x.trim() !== '').join('/'),
+            nickname: b.nickname || '', unitSalePrice: 0, qty: 1,
+            salePrice: 0, unitDepositPrice: 0, depositPrice: 0,
+            memo: mergedMemo
+          });
         }
       }
     });
@@ -4530,33 +4576,64 @@ function exportEtcExcel() {
 
   let totalQty = 0, totalSale = 0, totalDeposit = 0;
 
-  const data = records.map((s, i) => {
+  // 💡 A~M열 13개 컬럼 규격 통일 (PC 버전과 100% 동일)
+  const data = records.map((s) => {
     totalQty += s.qty;
     totalSale += s.salePrice;
     totalDeposit += s.depositPrice;
     return {
-      '구분': s.group, '상품명': s.name, '옵션/색상': s.option, '고객명': s.nickname,
-      '개당판매가': s.unitSalePrice, '수량': s.qty, '판매가': s.salePrice,
-      '개당입금가': s.unitDepositPrice, '입금가': s.depositPrice, '메모': s.memo
+      '구분': s.group,
+      '품번': s.prodNum,
+      '상품명': s.name,
+      '색상/사이즈': s.option,
+      '고객명': s.nickname,
+      '개당판매가': s.unitSalePrice,
+      '수량': s.qty,
+      '판매가': s.salePrice,
+      '개당입금가': s.unitDepositPrice,
+      '입금가': s.depositPrice,
+      '입금확인': '', // 💡 K열 빈칸
+      '채널': '',     // 💡 L열 빈칸
+      '종합메모': s.memo // 💡 M열
     };
   });
 
+  // 💡 마지막 합계 행
   data.push({
-    '구분': '합계', '상품명': '', '옵션/색상': '', '고객명': '',
-    '개당판매가': '', '수량': totalQty, '판매가': totalSale,
-    '개당입금가': '', '입금가': totalDeposit, '메모': ''
+    '구분': '합계',
+    '품번': '',
+    '상품명': '',
+    '색상/사이즈': '',
+    '고객명': `총 ${records.length}건`,
+    '개당판매가': '',
+    '수량': totalQty,
+    '판매가': totalSale,
+    '개당입금가': '',
+    '입금가': totalDeposit,
+    '입금확인': '',
+    '채널': '',
+    '종합메모': ''
   });
 
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "기타정산대장");
+  XLSX.utils.book_append_sheet(wb, ws, "통합창고_다운로드");
 
-  const today = new Date().toISOString().slice(2, 10).replace(/-/g, '.');
-  const whName = (document.getElementById('warehouseNameInput')?.value || '').trim();
-  const whPrefix = whName ? `${whName}_` : '';
-  XLSX.writeFile(wb, `${today}_${whPrefix}기타엑셀장부.xlsx`);
+  // 💡 연도(26.) 자동 부착 및 파일명 조합 로직
+  let dateVal = (document.getElementById('syncDateInput')?.value || localStorage.getItem('m_live_sync_date') || getTodayFormattedString()).trim();
+  if (dateVal && !dateVal.startsWith('26.') && !dateVal.startsWith('2026.')) {
+    dateVal = '26.' + dateVal;
+  }
+  const whVal = (document.getElementById('warehouseNameInput')?.value || '').trim();
 
-  toast('🤎 기타 엑셀 내보내기 완료!');
+  let fileNameParts = [];
+  if (dateVal) fileNameParts.push(dateVal);
+  if (whVal) fileNameParts.push(whVal);
+  fileNameParts.push('판매내역.xlsx');
+  const finalFileName = fileNameParts.join(' ');
+
+  XLSX.writeFile(wb, finalFileName);
+  toast('✅ 통합 엑셀 다운로드가 완료되었습니다.');
 }
 
 function clearAllMobileData() {
