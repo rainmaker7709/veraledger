@@ -835,33 +835,34 @@ tr.row-highlight-red { background-color: #FFE4E6 !important; }
         </div>
       </div>
 
-      <!-- 2단계: 불러오기 세부 선택 화면 -->
-      <div id="mobile-sync-step-2" style="display:none; flex-direction:column; gap:8px; margin-top:4px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:4px;">
-          <span style="font-size:12px; font-weight:800; color:#1E293B;">📅 가져올 방송 날짜 선택</span>
-          <button type="button" class="btn-mini" style="background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE; font-weight:800;" onclick="toggleAllMobileSyncDates()">전체선택/해제</button>
+      <!-- 2단계: 불러오기 세부 선택 화면 (글자 크기 13.5~14px 확대 및 줄 바꿈 방지) -->
+      <div id="mobile-sync-step-2" style="display:none; flex-direction:column; gap:10px; margin-top:4px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid var(--line); padding-bottom:6px;">
+          <span style="font-size:13.5px; font-weight:800; color:#1E293B;">📅 가져올 방송 날짜 선택</span>
+          <button type="button" class="btn-mini" style="background:#EFF6FF; color:#2563EB; border:1.5px solid #BFDBFE; font-weight:800; font-size:12px; padding:4px 8px; white-space:nowrap;" onclick="toggleAllMobileSyncDates()">전체선택/해제</button>
         </div>
 
-        <div id="mobile-sync-date-list" style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; padding:6px; background:#F8FAFC; border:1.5px solid var(--line); border-radius:6px;">
-          <div style="text-align:center; color:#64748B; padding:15px; font-size:11.5px;">날짜 목록을 불러오는 중...</div>
+        <div id="mobile-sync-date-list" style="max-height:160px; overflow-y:auto; display:flex; flex-direction:column; gap:5px; padding:6px; background:#F8FAFC; border:1.5px solid var(--line); border-radius:6px;">
+          <div style="text-align:center; color:#64748B; padding:15px; font-size:12.5px; font-weight:600;">날짜 목록을 불러오는 중...</div>
         </div>
 
         <!-- 반영 방식 선택 -->
-        <div style="background:#FFFDF9; border:1.5px solid #E2D9C8; border-radius:6px; padding:8px;">
-          <div style="font-size:11.5px; font-weight:800; color:var(--ink); margin-bottom:4px;">📥 모바일 장부 반영 방식:</div>
-          <div style="display:flex; gap:12px; font-size:12px; font-weight:bold;">
-            <label style="cursor:pointer; display:flex; align-items:center; gap:3px; color:var(--danger);">
-              <input type="radio" name="mobile-import-mode" value="overwrite" checked style="accent-color:var(--danger);"> 덮어쓰기
+        <div style="background:#FFFDF9; border:1.5px solid #E2D9C8; border-radius:8px; padding:9px 10px;">
+          <div style="font-size:13px; font-weight:800; color:var(--ink); margin-bottom:6px;">📥 모바일 장부 반영 방식:</div>
+          <div style="display:flex; gap:16px; font-size:13.5px; font-weight:800;">
+            <label style="cursor:pointer; display:inline-flex; align-items:center; gap:5px; color:var(--danger); white-space:nowrap;">
+              <input type="radio" name="mobile-import-mode" value="overwrite" checked style="width:16px; height:16px; accent-color:var(--danger); cursor:pointer;"> 덮어쓰기
             </label>
-            <label style="cursor:pointer; display:flex; align-items:center; gap:3px; color:var(--primary);">
-              <input type="radio" name="mobile-import-mode" value="append" style="accent-color:var(--primary);"> 이어서 붙이기
+            <label style="cursor:pointer; display:inline-flex; align-items:center; gap:5px; color:var(--primary); white-space:nowrap;">
+              <input type="radio" name="mobile-import-mode" value="append" style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;"> 이어서 붙이기
             </label>
           </div>
         </div>
 
-        <div style="display:flex; justify-content:space-between; gap:6px; margin-top:4px;">
-          <button type="button" class="btn-mini" style="flex:1; padding:8px; font-weight:bold;" onclick="backToMobileSyncStep1()">↩ 이전</button>
-          <button type="button" class="btn-mini" style="flex:2; padding:8px; font-weight:800; background:#7C3AED; color:#fff;" onclick="executeMobileDownloadWithConfig()">📥 가져오기 실행</button>
+        <!-- 하단 액션 버튼 (14px 고대비 볼드 확대 & 줄 바꿈 원천 차단) -->
+        <div style="display:flex; justify-content:space-between; gap:8px; margin-top:4px;">
+          <button type="button" class="btn-mini" style="flex:1; height:42px; font-size:14px !important; font-weight:900; background:#F1F5F9; color:#1E293B; border:1.5px solid #CBD5E1; border-radius:6px; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center;" onclick="backToMobileSyncStep1()">↩ 이전</button>
+          <button type="button" class="btn-mini" style="flex:2; height:42px; font-size:14px !important; font-weight:900; background:#6D28D9; color:#FFFFFF !important; border:1.5px solid #5B21B6; border-radius:6px; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(109,40,217,0.25);" onclick="executeMobileDownloadWithConfig()">📥 가져오기 실행</button>
         </div>
       </div>
     </div>
@@ -3715,9 +3716,9 @@ async function openMobileSyncStep2() {
     listEl.innerHTML = dates.map(d => {
       const isMatch = curDate && d.includes(curDate);
       return `
-        <label style="display:flex; align-items:center; gap:6px; padding:6px 8px; background:#fff; border:1px solid var(--line); border-radius:4px; font-size:12px; font-weight:700;">
-          <input type="checkbox" class="mobile-sync-date-chk" value="${d}" ${isMatch ? 'checked' : ''} style="width:16px; height:16px; accent-color:#7C3AED;">
-          <span>📅 ${d}</span>
+        <label style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:#fff; border:1px solid var(--line); border-radius:5px; font-size:13.5px; font-weight:800; cursor:pointer;">
+          <input type="checkbox" class="mobile-sync-date-chk" value="${d}" ${isMatch ? 'checked' : ''} style="width:18px; height:18px; accent-color:#6D28D9; cursor:pointer;">
+          <span style="white-space:nowrap;">📅 ${d}</span>
         </label>
       `;
     }).join('');
