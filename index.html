@@ -3659,7 +3659,7 @@ function resetSyncDateToToday() {
   toast(`📅 오늘 날짜(${todayStr})로 변경되었습니다.`);
 }
 
-// 💡 4번 터치 시 구글시트에서 날짜 목록을 비동기 조회하여 2단계 목록 생성
+// 💡 모바일 302 리디렉션 방어 및 0.8초 조용한 자동 재시도(Auto-retry) 내장
 async function openMobileSyncStep2() {
   const s1 = document.getElementById('mobile-sync-step-1');
   const s2 = document.getElementById('mobile-sync-step-2');
@@ -3670,11 +3670,34 @@ async function openMobileSyncStep2() {
   s2.style.display = 'flex';
   listEl.innerHTML = '<div style="text-align:center; color:var(--purple); padding:15px; font-size:12px; font-weight:800;">🔄 방송 날짜 목록 조회 중...</div>';
 
+  // 통신 재시도 헬퍼 함수
+  const fetchDatesWithRetry = async (retryCount = 0) => {
+    try {
+      const key = getSellerSecretKey();
+      // URL 파라미터에도 기재하여 브라우저가 GET으로 꺾어도 doGet이 받아내도록 이중 방어
+      const targetUrl = GAS_URL + '?fn=getAvailableSyncDates&secretKey=' + encodeURIComponent(key);
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ fn: 'getAvailableSyncDates', args: [], secretKey: key })
+      });
+      const text = await response.text();
+      // 💡 일반 안내 문구가 오거나 JSON이 아닌 경우 재시도 트리거
+      if (text.startsWith('베라라이브') || !text.trim().startsWith('{')) {
+        throw new Error('응답 형식 대기');
+      }
+      return JSON.parse(text);
+    } catch (err) {
+      if (retryCount < 2) {
+        await new Promise(r => setTimeout(r, 800)); // 0.8초 대기 후 서버가 완전히 깬 상태로 재시도
+        return fetchDatesWithRetry(retryCount + 1);
+      }
+      throw err;
+    }
+  };
+
   try {
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ fn: 'getAvailableSyncDates', args: [] })
-    }).then(r => r.json());
+    const res = await fetchDatesWithRetry();
 
     if (!res || !res.success) {
       listEl.innerHTML = `<div style="text-align:center; color:var(--danger); padding:15px; font-size:11.5px;">⚠️ 날짜 조회 실패: ${(res && res.message) ? res.message : '오류'}</div>`;
@@ -3699,7 +3722,12 @@ async function openMobileSyncStep2() {
       `;
     }).join('');
   } catch (e) {
-    listEl.innerHTML = `<div style="text-align:center; color:var(--danger); padding:15px; font-size:11.5px;">⚠️ 네트워크 오류: ${e.message}</div>`;
+    listEl.innerHTML = `
+      <div style="text-align:center; padding:15px; font-size:12px;">
+        <div style="color:var(--danger); font-weight:800; margin-bottom:8px;">⚠️ 구글 서버 응답이 지연되었습니다.</div>
+        <button type="button" class="btn-mini" style="background:#7C3AED; color:#fff; padding:6px 14px; font-weight:800;" onclick="openMobileSyncStep2()">🔄 다시 불러오기</button>
+      </div>
+    `;
   }
 }
 
