@@ -854,18 +854,59 @@ function getSellerSecretKey() {
   return key || '';
 }
 
-// 🔒 백엔드 통신 시 기기에 저장된 판매자 보안키 자동 첨부 엔진
+// 🔒 백엔드 통신 안전 및 정상 데이터 수신 보장 엔진 (최대 3회 자동 재시도)
 (function setupSecureFetch() {
   const _origFetch = window.fetch;
-  window.fetch = function(url, options) {
-    if (typeof url === 'string' && url.indexOf('script.google.com') !== -1 && options && options.body) {
+
+  window.fetch = async function(url, options) {
+    // 1. 구글 시트 요청이 아니면 일반 fetch 수행
+    if (typeof url !== 'string' || url.indexOf('script.google.com') === -1) {
+      return _origFetch(url, options);
+    }
+
+    // 2. 보안키 자동 주입
+    if (options && options.body) {
       try {
         const payload = JSON.parse(options.body);
         payload.secretKey = getSellerSecretKey();
         options.body = JSON.stringify(payload);
       } catch (e) {}
     }
-    return _origFetch(url, options);
+
+    const maxRetries = 3; // 정상 데이터를 받아올 때까지 최대 3회 재시도
+    let lastResponse = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await _origFetch(url, options);
+        lastResponse = response;
+
+        // 원본 text 복사본을 만들어 데이터 규격 검사
+        const cloned = response.clone();
+        const text = await cloned.text();
+
+        // 구글 서버가 엉뚱하게 "베라라이브 API가..." 텍스트를 보낸 경우 (데이터 수신 실패 상태)
+        if (text.includes('베라라이브 API가') || text.startsWith('<!DOCTYPE') || !text.trim().startsWith('{')) {
+          if (attempt < maxRetries) {
+            // 0.3초 대기 후 백그라운드에서 즉시 재요청
+            await new Promise(r => setTimeout(r, 300));
+            continue; 
+          }
+        }
+
+        // 정상적인 JSON 데이터가 확인되면 바로 반환
+        return response;
+
+      } catch (networkErr) {
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 300));
+          continue;
+        }
+        throw networkErr;
+      }
+    }
+
+    return lastResponse;
   };
 })();
 
